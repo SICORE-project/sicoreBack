@@ -1,0 +1,116 @@
+﻿@extends('layouts.app')
+
+@section('title', 'SICORE - Tableau de bord')
+@section('body_attributes', 'class="app-body"')
+
+@push('styles')
+  <link rel="stylesheet" href="{{ asset('assets/css/style.css') }}">
+  <link rel="stylesheet" href="{{ asset('assets/css/app.css') }}">
+  <link rel="stylesheet" href="{{ asset('assets/css/responsive.css') }}">
+@endpush
+
+@section('content')
+<main class="main-content">
+    <header class="topbar">
+      <div class="page-title-wrap">
+        <button class="mobile-menu-btn" type="button" data-sidebar-toggle aria-label="Ouvrir le menu">&#9776;</button>
+        <span class="title-icon" aria-hidden="true"><i class="fa-solid fa-gauge-high"></i></span>
+        <div>
+          <h1>Tableau de bord</h1>
+          <p>Vue d&#39;ensemble des parametres et de la paie</p>
+        </div>
+      </div>
+      <div class="search-wrap">
+        <label class="sr-only" for="dashboardSearch">Rechercher</label>
+        <input class="search-input" id="dashboardSearch" type="search" placeholder="Rechercher...">
+      </div>
+    </header>
+
+    <section class="content-area">
+      <div class="stats-grid">
+        <article class="stat-card">
+          <div>
+            <p class="stat-label">Parametres</p>
+            <p class="stat-value">24</p>
+            <p class="stat-note">+3 cette semaine</p>
+          </div>
+          <span class="stat-icon green">&#9881;</span>
+        </article>
+        <article class="stat-card">
+          <div>
+            <p class="stat-label">Alertes actives</p>
+            <p class="stat-value">5</p>
+            <p class="stat-note">+2 nouvelles</p>
+          </div>
+          <span class="stat-icon red">!</span>
+        </article>
+        <article class="stat-card">
+          <div>
+            <p class="stat-label">Cessions</p>
+            <p class="stat-value">12</p>
+            <p class="stat-note neutral">4 en cours</p>
+          </div>
+          <span class="stat-icon blue">C</span>
+        </article>
+        <article class="stat-card">
+          <div>
+            <p class="stat-label">Groupes IPM</p>
+            <p class="stat-value">8</p>
+            <p class="stat-note">1 nouveau</p>
+          </div>
+          <span class="stat-icon purple">IP</span>
+        </article>
+        <article class="stat-card">
+          <div>
+            <p class="stat-label">Categories</p>
+            <p class="stat-value">15</p>
+            <p class="stat-note neutral">2 modifiees</p>
+          </div>
+          <span class="stat-icon yellow">CA</span>
+        </article>
+      </div>
+
+      <div class="dashboard-grid">
+        <section class="panel">
+          <div class="panel-header">
+            <div>
+              <h2>Indicateurs principaux</h2>
+              <p>Suivi visuel de l&#39;execution</p>
+            </div>
+          </div>
+          <div class="chart-panel">
+            <div class="metric-circle">
+              <strong>24</strong>
+              <small>Parametres</small>
+            </div>
+            <div class="donut-metric"><span>75%</span></div>
+            <div class="canvas-wrap">
+              <canvas data-chart="main-donut" aria-label="Repartition des donnees"></canvas>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-header">
+            <div>
+              <h2>Activite mensuelle</h2>
+              <p>Operations traitees</p>
+            </div>
+          </div>
+          <div class="canvas-card">
+            <div class="canvas-wrap">
+              <canvas data-chart="main-bars" aria-label="Graphique en barres"></canvas>
+            </div>
+          </div>
+        </section>
+      </div>
+    </section>
+  </main>
+@endsection
+
+@push('scripts')
+  <script src="{{ asset('assets/js/app.js') }}" defer></script>
+  <script src="{{ asset('assets/js/notifications.js') }}" defer></script>
+  <script src="{{ asset('assets/js/charts.js') }}" defer></script>
+@endpush
+
