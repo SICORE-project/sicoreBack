@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" role="img" aria-labelledby="title desc">
+  <title id="title">Logo SICORE</title>
+  <desc id="desc">Marque verte et blanche de SICORE</desc>
+  <rect width="96" height="96" rx="24" fill="#ffffff"/>
+  <rect x="14" y="14" width="68" height="68" rx="20" fill="#166534"/>
+  <path d="M49 22v9.5c10.8.7 17.5 6.1 17.5 14.1 0 9.1-7.1 12.8-18.7 15.1-7.2 1.4-9.8 3-9.8 6.2 0 3.6 3.7 5.7 9.6 5.7 5.4 0 10.3-1.8 14.7-5.3l4.6 7.7c-4.5 3.6-10.3 5.7-17.9 6.1V90h-7.3v-9.1c-11.1-1.1-18-6.8-18-15.2 0-8.6 6.6-12.4 18.4-14.7 7.6-1.5 10.2-3.1 10.2-6.3 0-3.3-3.3-5.2-8.6-5.2-5.2 0-9.7 1.6-14.4 5.1l-4.5-7.6c4.4-3.5 9.8-5.3 16.9-5.6V22h7.3z" fill="#ffffff"/>
+</svg>

@@ -1,0 +1,97 @@
+{
+	"info": {
+		"name": "sicoreBack API",
+		"description": "Collection de test pour l'API sicoreBack (login Sanctum + ressources CRUD).",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"auth": {
+		"type": "bearer",
+		"bearer": [
+			{ "key": "token", "value": "{{token}}", "type": "string" }
+		]
+	},
+	"variable": [
+		{ "key": "base_url", "value": "http://127.0.0.1:8080/api" },
+		{ "key": "token", "value": "" },
+		{ "key": "email", "value": "test@sicore.local" },
+		{ "key": "password", "value": "secret123" }
+	],
+	"item": [
+		{
+			"name": "Auth",
+			"item": [
+				{
+					"name": "Health",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": { "raw": "{{base_url}}/health", "host": ["{{base_url}}"], "path": ["health"] }
+					}
+				},
+				{
+					"name": "Login",
+					"request": {
+						"auth": { "type": "noauth" },
+						"method": "POST",
+						"header": [
+							{ "key": "Content-Type", "value": "application/json" },
+							{ "key": "Accept", "value": "application/json" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}"
+						},
+						"url": { "raw": "{{base_url}}/login", "host": ["{{base_url}}"], "path": ["login"] }
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    const body = pm.response.json();",
+									"    pm.collectionVariables.set('token', body.token);",
+									"    pm.test('token reçu', () => pm.expect(body.token).to.be.a('string'));",
+									"} else {",
+									"    pm.test('login échoué: ' + pm.response.code, () => pm.expect.fail(pm.response.text()));",
+									"}"
+								]
+							}
+						}
+					]
+				},
+				{
+					"name": "Me",
+					"request": {
+						"method": "GET",
+						"header": [{ "key": "Accept", "value": "application/json" }],
+						"url": { "raw": "{{base_url}}/me", "host": ["{{base_url}}"], "path": ["me"] }
+					}
+				},
+				{
+					"name": "Logout",
+					"request": {
+						"method": "POST",
+						"header": [{ "key": "Accept", "value": "application/json" }],
+						"url": { "raw": "{{base_url}}/logout", "host": ["{{base_url}}"], "path": ["logout"] }
+					}
+				}
+			]
+		},
+		{
+			"name": "Ressources",
+			"item": [
+				{ "name": "Users - index", "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json" }], "url": { "raw": "{{base_url}}/users", "host": ["{{base_url}}"], "path": ["users"] } } },
+				{ "name": "Indemnites - index", "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json" }], "url": { "raw": "{{base_url}}/indemnites", "host": ["{{base_url}}"], "path": ["indemnites"] } } },
+				{ "name": "Type Indemnites - index", "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json" }], "url": { "raw": "{{base_url}}/type-indemnites", "host": ["{{base_url}}"], "path": ["type-indemnites"] } } },
+				{ "name": "Convocations - index", "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json" }], "url": { "raw": "{{base_url}}/convocations", "host": ["{{base_url}}"], "path": ["convocations"] } } },
+				{ "name": "Pieces Justificatives - index", "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json" }], "url": { "raw": "{{base_url}}/pieces-justificatives", "host": ["{{base_url}}"], "path": ["pieces-justificatives"] } } },
+				{ "name": "Bultins - index", "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json" }], "url": { "raw": "{{base_url}}/bultins", "host": ["{{base_url}}"], "path": ["bultins"] } } },
+				{ "name": "Detail Bultins - index", "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json" }], "url": { "raw": "{{base_url}}/detail-bultins", "host": ["{{base_url}}"], "path": ["detail-bultins"] } } },
+				{ "name": "Rubrique Bultins - index", "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json" }], "url": { "raw": "{{base_url}}/rubrique-bultins", "host": ["{{base_url}}"], "path": ["rubrique-bultins"] } } },
+				{ "name": "Etat Paie Indemnites - index", "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json" }], "url": { "raw": "{{base_url}}/etat-paie-indemnites", "host": ["{{base_url}}"], "path": ["etat-paie-indemnites"] } } }
+			]
+		}
+	]
+}
