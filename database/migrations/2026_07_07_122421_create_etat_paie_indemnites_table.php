@@ -15,9 +15,9 @@ return new class extends Migration
             $table->string('lieu_examen')->nullable();
             $table->boolean('transmit_sica')->default(false);
 
-            $table->foreignId('utilisateur_id')
+            $table->foreignId('user_id')
                 ->nullable()
-                ->constrained('utilisateurs')
+                ->constrained('users')
                 ->nullOnDelete();
 
             $table->timestamps();

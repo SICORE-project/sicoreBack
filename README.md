@@ -1,3 +1,4 @@
+<HEAD
 <p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
 
 <p align="center">
@@ -56,4 +57,15 @@ If you discover a security vulnerability within Laravel, please send an e-mail t
 
 ## License
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+# The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+
+# sicoreBack
+
+le REPOSITORY pour la partie backend
+# SICORE API
+
+L'authentification API utilise exclusivement `utilisateurs.login` et les rôles métier. La table et le modèle Laravel historiques `users` sont conservés temporairement pour compatibilité de migration, mais ne sont reliés à aucun guard et ne doivent recevoir aucun compte métier. Leur suppression fera l'objet d'une migration dédiée après validation de l'équipe.
+
+En production, `APP_ENV=production` et `APP_DEBUG=false` sont obligatoires. Définir aussi `FRONTEND_URL` avec l'origine exacte du frontend, puis exécuter `php artisan migrate --force`.
+
+Les tokens Sanctum du BFF expirent selon `SANCTUM_TOKEN_EXPIRATION` et sont révoqués au logout.
