@@ -6,18 +6,22 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
+    /**
+     * Run the migrations.
+     */
     public function up(): void
     {
-        Schema::create('type_indemnites', function (Blueprint $table) {
+        Schema::create('iefs', function (Blueprint $table) {
             $table->id();
-            $table->enum('libelle', ['correction', 'surveillance', 'jury', 'deplacement']);
-            $table->decimal('prix_unitaire', 12, 2);
             $table->timestamps();
         });
     }
 
+    /**
+     * Reverse the migrations.
+     */
     public function down(): void
     {
-        Schema::dropIfExists('type_indemnites');
+        Schema::dropIfExists('iefs');
     }
 };
