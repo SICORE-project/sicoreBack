@@ -10,7 +10,9 @@ return new class extends Migration
     {
         Schema::create('roles', function (Blueprint $table) {
             $table->id();
-            $table->string('libelle');
+            $table->string('libelle', 50)->unique();
+            $table->string('description', 255)->nullable();
+            $table->enum('niveau', ['systeme', 'admin_metier', 'gestionnaire', 'consultation'])->default('consultation');
             $table->timestamps();
         });
     }
