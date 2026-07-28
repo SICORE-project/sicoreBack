@@ -34,7 +34,7 @@ return new class extends Migration
             $table->boolean('si_conjoint_travail')->default(false);
 
             // === CLÉS ÉTRANGÈRES ===
-            $table->foreignId('corps_id')->constrained('corps')->onDelete('cascade');
+            $table->foreignId('corps_id')->constrained('corps_enseignant')->onDelete('cascade');
           //  $table->foreignId('grade_id')->nullable()->constrained('grades')->onDelete('set null');
            // $table->foreignId('echelon_id')->nullable()->constrained('echelons')->onDelete('set null');
             $table->foreignId('diplome_id')->nullable()->constrained('diplomes')->onDelete('set null');
@@ -55,7 +55,7 @@ return new class extends Migration
             $table->boolean('est_actif')->default(true);
 
             // === BANCAIRE ===
-            $table->string('iban', 34)->nullable();
+            //$table->string('iban', 34)->nullable();
             $table->string('Num_compte_bancaire')->nullable();
             $table->string('titulaire_compte', 100)->nullable();
 
