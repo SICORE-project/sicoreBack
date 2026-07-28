@@ -40,11 +40,13 @@ return new class extends Migration
                 $table->timestamp('derniere_connexion')->nullable();
 
                 // === CLÉS ÉTRANGÈRES (liens administratifs) ===
-                $table->foreignId('role_id')->nullable()->constrained('roles')->onDelete('set null');
-                $table->foreignId('enseignant_id')->nullable()->constrained('enseignants')->onDelete('set null');
-                $table->foreignId('lieu_service_id')->nullable()->constrained('lieu_de_services')->onDelete('set null');
-                $table->foreignId('ief_id')->nullable()->constrained('iefs')->onDelete('set null');
-                $table->foreignId('ia_id')->nullable()->constrained('ias')->onDelete('set null');
+                // Les tables liées sont créées dans des migrations ultérieures.
+                // Les contraintes sont donc ajoutées après leur création.
+                $table->foreignId('role_id')->nullable()->index();
+                $table->foreignId('enseignant_id')->nullable()->index();
+                $table->foreignId('lieu_service_id')->nullable()->index();
+                $table->foreignId('ief_id')->nullable()->index();
+                $table->foreignId('ia_id')->nullable()->index();
 
                 // === TRACABILITÉ ===
                 $table->foreignId('created_by')->nullable()->constrained('users')->onDelete('set null');
@@ -56,9 +58,6 @@ return new class extends Migration
                 // === INDEX POUR PERFORMANCES ===
                 $table->index('email');
                 $table->index('statut');
-                $table->index('role_id');
-                $table->index('enseignant_id');
-                $table->index('lieu_service_id');
                 $table->index('derniere_connexion');
             });
         }
