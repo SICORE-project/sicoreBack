@@ -18,6 +18,8 @@ return new class extends Migration
             $table->boolean('is_granted')->default(false);
             $table->boolean('is_denied')->default(false);
             $table->timestamps();
+
+            $table->unique(['role_id', 'permission_id']);
         });
     }
 
