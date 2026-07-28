@@ -7,7 +7,8 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 class AuthController extends Controller {
  public function login(LoginRequest $request): JsonResponse {
-  $user=User::with('role')->where('email',$request->string('email'))->first();
+  $identifier=(string)($request->input('login') ?? $request->input('email'));
+  $user=User::with('role')->where('email',$identifier)->orWhere('login',$identifier)->first();
   if(!$user || !Hash::check($request->string('password'),$user->password)) return response()->json(['message'=>'Identifiants invalides'],401);
   if(!$user->role) return response()->json(['message'=>'Ce compte ne dispose d’aucun rôle. Contactez un administrateur.'],403);
   $user->tokens()->where('name','finpronet-ui')->delete();

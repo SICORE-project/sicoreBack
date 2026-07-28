@@ -81,8 +81,19 @@
 		},
 		{
 			"name": "Ressources",
-			"item": [
+		"item": [
 				{ "name": "Users - index", "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json" }], "url": { "raw": "{{base_url}}/users", "host": ["{{base_url}}"], "path": ["users"] } } },
+				{ "name": "Users - options de création", "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json" }], "url": { "raw": "{{base_url}}/users/creation-options", "host": ["{{base_url}}"], "path": ["users", "creation-options"] } } },
+				{
+					"name": "Users - créer",
+					"request": {
+						"method": "POST",
+						"header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Accept", "value": "application/json" }],
+						"body": { "mode": "raw", "raw": "{\n  \"prenom\": \"Fatou\",\n  \"nom\": \"Kane\",\n  \"email\": \"fatou.kane@example.com\",\n  \"login\": \"fatou.kane\",\n  \"telephone\": \"770000000\",\n  \"password\": \"MotDePasse123\",\n  \"password_confirmation\": \"MotDePasse123\",\n  \"role_id\": 1,\n  \"structure_id\": null,\n  \"ia_id\": null,\n  \"ief_id\": null,\n  \"statut\": \"actif\"\n}" },
+						"url": { "raw": "{{base_url}}/users", "host": ["{{base_url}}"], "path": ["users"] }
+					},
+					"event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('Utilisateur créé', () => pm.response.to.have.status(201));"] } }]
+				},
 				{ "name": "Indemnites - index", "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json" }], "url": { "raw": "{{base_url}}/indemnites", "host": ["{{base_url}}"], "path": ["indemnites"] } } },
 				{ "name": "Type Indemnites - index", "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json" }], "url": { "raw": "{{base_url}}/type-indemnites", "host": ["{{base_url}}"], "path": ["type-indemnites"] } } },
 				{ "name": "Convocations - index", "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json" }], "url": { "raw": "{{base_url}}/convocations", "host": ["{{base_url}}"], "path": ["convocations"] } } },

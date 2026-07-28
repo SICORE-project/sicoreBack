@@ -20,6 +20,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/me', [AuthController::class, 'me']);
     Route::post('/logout', [AuthController::class, 'logout']);
 
+    Route::get('users/creation-options', [UserController::class, 'creationOptions']);
     Route::apiResource('users', UserController::class);
     Route::apiResource('indemnites', IndemnitesController::class);
     Route::apiResource('type-indemnites', TypeIndemnitesController::class);
