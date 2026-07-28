@@ -8,12 +8,14 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create('types_etablissement', function (Blueprint $table) {
+        Schema::create('lieux_paiement', function (Blueprint $table) {
             $table->id();
             $table->string('code', 20)->unique();
             $table->string('libelle', 100);
-            $table->string('categorie', 50)->nullable(); // public, privé, paritaire
-            $table->text('description')->nullable();
+            $table->string('adresse', 255)->nullable();
+            $table->string('telephone', 20)->nullable();
+            $table->string('email', 100)->nullable();
+            $table->foreignId('institut_financier_id')->nullable()->constrained('instituts_financieres')->onDelete('set null');
             $table->boolean('est_actif')->default(true);
             $table->timestamps();
 
@@ -24,6 +26,6 @@ return new class extends Migration
 
     public function down(): void
     {
-        Schema::dropIfExists('types_etablissement');
+        Schema::dropIfExists('lieux_paiement');
     }
 };

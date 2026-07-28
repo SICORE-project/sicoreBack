@@ -6,20 +6,22 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /**
-     * Run the migrations.
-     */
     public function up(): void
     {
         Schema::create('specialites', function (Blueprint $table) {
             $table->id();
+            $table->string('code', 20)->unique();
+            $table->string('libelle', 100);
+            $table->string('domaine', 50)->nullable();
+            $table->text('description')->nullable();
+            $table->boolean('est_actif')->default(true);
             $table->timestamps();
+
+            $table->index('code');
+            $table->index('est_actif');
         });
     }
 
-    /**
-     * Reverse the migrations.
-     */
     public function down(): void
     {
         Schema::dropIfExists('specialites');

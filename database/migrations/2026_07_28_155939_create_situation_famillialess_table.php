@@ -6,22 +6,22 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /**
-     * Run the migrations.
-     */
     public function up(): void
     {
-        Schema::create('situation_famillialess', function (Blueprint $table) {
+        Schema::create('situations_familiales', function (Blueprint $table) {
             $table->id();
+            $table->string('code', 10)->unique();
+            $table->string('libelle', 50);
+            $table->boolean('est_actif')->default(true);
             $table->timestamps();
+
+            $table->index('code');
+            $table->index('est_actif');
         });
     }
 
-    /**
-     * Reverse the migrations.
-     */
     public function down(): void
     {
-        Schema::dropIfExists('situation_famillialess');
+        Schema::dropIfExists('situations_familiales');
     }
 };

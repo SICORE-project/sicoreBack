@@ -8,22 +8,24 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create('types_etablissement', function (Blueprint $table) {
+        Schema::create('statuts_enseignant', function (Blueprint $table) {
             $table->id();
             $table->string('code', 20)->unique();
-            $table->string('libelle', 100);
-            $table->string('categorie', 50)->nullable(); // public, privé, paritaire
+            $table->string('libelle', 50);
+            $table->string('categorie', 30)->nullable(); // actif, inactif, temporaire
             $table->text('description')->nullable();
+            $table->boolean('est_disponible_liste')->default(true);
             $table->boolean('est_actif')->default(true);
             $table->timestamps();
 
             $table->index('code');
+            $table->index('categorie');
             $table->index('est_actif');
         });
     }
 
     public function down(): void
     {
-        Schema::dropIfExists('types_etablissement');
+        Schema::dropIfExists('statuts_enseignant');
     }
 };
