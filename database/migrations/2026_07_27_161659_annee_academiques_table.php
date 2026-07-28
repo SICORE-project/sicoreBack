@@ -6,19 +6,24 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /**
-     * Run the migrations.
-     */
     public function up(): void
     {
-        //
+        Schema::create('annee_academiques', function (Blueprint $table) {
+            $table->id();
+            $table->string('libelle', 20)->unique();
+            $table->date('date_debut');
+            $table->date('date_fin');
+            $table->boolean('en cours', 10)->default(false);
+            $table->boolean('est_cloturee')->default(false);
+            $table->date('date_cloture')->nullable();
+            $table->text('observations')->nullable();
+            $table->timestamps();
+
+        });
     }
 
-    /**
-     * Reverse the migrations.
-     */
     public function down(): void
     {
-        //
+        Schema::dropIfExists('annee_academiques');
     }
 };

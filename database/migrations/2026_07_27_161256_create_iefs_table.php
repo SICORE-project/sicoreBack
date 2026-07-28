@@ -6,20 +6,23 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /**
-     * Run the migrations.
-     */
     public function up(): void
     {
         Schema::create('iefs', function (Blueprint $table) {
             $table->id();
+            $table->string('code', 20)->unique();
+            $table->string('libelle', 100);
+            $table->foreignId('ia_id')->constrained('ias')->onDelete('cascade');
+            $table->string('adresse', 255)->nullable();
+            $table->string('telephone', 20)->nullable();
+            $table->string('email', 100)->nullable();
+            $table->string('responsable', 100)->nullable();
             $table->timestamps();
+            $table->softDeletes();
+            
         });
     }
 
-    /**
-     * Reverse the migrations.
-     */
     public function down(): void
     {
         Schema::dropIfExists('iefs');

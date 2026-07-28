@@ -8,18 +8,17 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create('categories', function (Blueprint $table) {
+        Schema::create('roles', function (Blueprint $table) {
             $table->id();
-            $table->string('code', 10)->unique();
-            $table->string('libelle', 50);
-            $table->integer('ordre')->default(0);
+            $table->string('libelle', 50)->unique();
             $table->string('description', 255)->nullable();
+            $table->enum('niveau', ['systeme', 'admin_metier', 'gestionnaire', 'consultation'])->default('consultation');
             $table->timestamps();
         });
     }
 
     public function down(): void
     {
-        Schema::dropIfExists('categories');
+        Schema::dropIfExists('roles');
     }
 };
