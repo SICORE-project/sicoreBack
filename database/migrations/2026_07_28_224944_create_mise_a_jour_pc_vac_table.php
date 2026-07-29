@@ -22,8 +22,9 @@ return new class extends Migration
             $table->integer('heures')->nullable();
             $table->decimal('taux_horaire', 10, 2)->nullable();
 
-            // Période
-            $table->foreignId('periode_paie_id')->nullable()->constrained('periode_de_paies')->onDelete('set null');
+            // Période (SANS contrainte)
+            $table->unsignedBigInteger('periode_paie_id')->nullable();
+
             $table->date('date_effet');
             $table->date('date_fin')->nullable();
 
@@ -49,6 +50,7 @@ return new class extends Migration
             $table->index('type');
             $table->index('statut');
             $table->index('date_effet');
+            $table->index('periode_paie_id');
         });
     }
 

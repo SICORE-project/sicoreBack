@@ -20,6 +20,6 @@ return new class extends Migration
 
     public function down(): void
     {
-        Schema::dropIfExists('corps_enseignany');
+        Schema::dropIfExists('corps_enseignant');
     }
 };

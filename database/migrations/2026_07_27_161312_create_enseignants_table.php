@@ -17,62 +17,86 @@ return new class extends Migration
             $table->string('prenom', 50);
             $table->date('date_naissance')->nullable();
             $table->string('lieu_naissance', 100)->nullable();
-            $table->string('cni', 50)->unique();
-            $table->decimal('salaire brut', 15, 2)->nullable();
-            $table->string('lieu de paiment')->nullable();
-            $table->enum('sexe', ['M', 'F'])->nullable();
+            $table->string('cni', 50)->nullable();
+            $table->string('genre', 10)->nullable();
             $table->string('telephone', 20)->nullable();
             $table->string('email', 100)->nullable();
             $table->string('adresse', 255)->nullable();
             $table->string('photo', 255)->nullable();
+            $table->decimal('salaire_brut', 15, 2)->nullable();
 
             // === SITUATION FAMILIALE ===
-            $table->string('situation_matrimoniale', 30)->nullable();
+            $table->unsignedBigInteger('situation_familiale_id')->nullable();
             $table->integer('nombre_enfants')->default(0);
-            $table->integer('nombre_de_femmes')->nullable();
-            $table->integer('nombre_de_parts')->nullable();
-            $table->boolean('si_conjoint_travail')->default(false);
+            $table->integer('nombre_femmes')->default(0);
+            $table->integer('nombre_parts_fiscales')->nullable();
+            $table->boolean('conjoint_travaille')->default(false);
 
-            // === CLÉS ÉTRANGÈRES ===
-            $table->foreignId('corps_id')->constrained('corps_enseignant')->onDelete('cascade');
-          //  $table->foreignId('grade_id')->nullable()->constrained('grades')->onDelete('set null');
-           // $table->foreignId('echelon_id')->nullable()->constrained('echelons')->onDelete('set null');
-            $table->foreignId('diplome_id')->nullable()->constrained('diplomes')->onDelete('set null');
-            $table->foreignId('discipline_id')->nullable()->constrained('disciplines')->onDelete('set null');
-            $table->foreignId('syndicat_id')->nullable()->contrained('syndicats')->onDelete('set null');
-            $table->foreignId('specialite_id')->nullable()->constrained('specialites')->onDelete('set null');
-            $table->foreignId('categorie_id')->nullable()->contrained('categories')->onDelete('set null');
-            $table->foreignId('lieu_service_id')->constrained('lieu_de_services')->onDelete('cascade');
-            $table->foreignId('ief_id')->constrained('iefs')->onDelete('cascade');
-            $table->foreignId('ia_id')->nullable()->constrained('ias')->onDelete('set null');
-            $table->foreignId('nationalite_id')->nullable()->constrained('nationalites')->onDelete('set null');
+            // === CLÉS ÉTRANGÈRES (SANS contraintes) ===
+            $table->unsignedBigInteger('corps_id')->nullable();
+            $table->unsignedBigInteger('grade_id')->nullable();
+            $table->unsignedBigInteger('echelon_id')->nullable();
+            $table->unsignedBigInteger('diplome_id')->nullable();
+            $table->unsignedBigInteger('discipline_id')->nullable();
+            $table->unsignedBigInteger('specialite_id')->nullable();
+            $table->unsignedBigInteger('categorie_id')->nullable();
+            $table->unsignedBigInteger('lieu_service_id')->nullable();
+            $table->unsignedBigInteger('lieu_paiement_id')->nullable();
+            $table->unsignedBigInteger('ief_id')->nullable();
+            $table->unsignedBigInteger('ia_id')->nullable();
+            $table->unsignedBigInteger('nationalite_id')->nullable();
+            $table->unsignedBigInteger('statut_enseignant_id')->nullable();
 
             // === STATUT ===
-            $table->enum('statut', [ 'en activite', 'retraite', 'suspension provisoire', 'abandon', 'decede', 'integre', 'radie', 'cessation paiement', ]);
+            $table->enum('statut', [
+                'en_activite',
+                'retraite',
+                'suspension_provisoire',
+                'abandon',
+                'decede',
+                'integre',
+                'radie',
+                'cessation_paiement'
+            ])->default('en_activite');
             $table->date('date_statut')->nullable();
             $table->date('date_recrutement')->nullable();
             $table->date('date_prise_service')->nullable();
+            $table->date('date_fin_contrat')->nullable();
             $table->boolean('est_actif')->default(true);
 
             // === BANCAIRE ===
-            //$table->string('iban', 34)->nullable();
-            $table->string('Num_compte_bancaire')->nullable();
+            $table->string('numero_compte_bancaire', 34)->nullable();
             $table->string('titulaire_compte', 100)->nullable();
+            $table->string('iban', 34)->nullable();
+            $table->string('bic', 11)->nullable();
+            $table->string('code_banque', 5)->nullable();
+            $table->string('code_guichet', 5)->nullable();
+            $table->string('cle_rib', 2)->nullable();
+
+            // === INFORMATIONS COMPLÉMENTAIRES ===
+            $table->year('annee_recrutement')->nullable();
+            $table->string('generation', 20)->nullable();
+            $table->text('observations')->nullable();
 
             // === TRACABILITÉ ===
-            $table->foreignId('created_by')->nullable()->constrained('users')->onDelete('set null');
-            $table->foreignId('updated_by')->nullable()->constrained('users')->onDelete('set null');
+            $table->unsignedBigInteger('created_by')->nullable();
+            $table->unsignedBigInteger('updated_by')->nullable();
 
             $table->timestamps();
             $table->softDeletes();
 
             // === INDEX ===
             $table->index('matricule');
+            $table->index('cni');
             $table->index('corps_id');
             $table->index('lieu_service_id');
             $table->index('ief_id');
             $table->index('statut');
             $table->index('est_actif');
+            $table->index('situation_familiale_id');
+            $table->index('lieu_paiement_id');
+            $table->index('grade_id');
+            $table->index('echelon_id');
         });
     }
 

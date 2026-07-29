@@ -11,6 +11,7 @@ return new class extends Migration
         if (!Schema::hasTable('users')) {
             Schema::create('users', function (Blueprint $table) {
                 $table->id();
+
                 // === IDENTITÉ ===
                 $table->string('nom', 50);
                 $table->string('prenom', 50);
@@ -38,21 +39,19 @@ return new class extends Migration
                 $table->timestamp('verrouille_jusqua')->nullable();
                 $table->timestamp('derniere_connexion')->nullable();
 
-                // === CLÉS ÉTRANGÈRES (liens administratifs) ===
-                $table->foreignId('role_id')->nullable()->constrained('roles')->onDelete('set null');
-                $table->foreignId('enseignant_id')->nullable()->constrained('enseignants')->onDelete('set null');
-                $table->foreignId('lieu_service_id')->nullable()->constrained('lieu_de_services')->onDelete('set null');
-                $table->foreignId('ief_id')->nullable()->constrained('iefs')->onDelete('set null');
-                $table->foreignId('ia_id')->nullable()->constrained('ias')->onDelete('set null');
-
-                // === TRACABILITÉ ===
-                $table->foreignId('created_by')->nullable()->constrained('users')->onDelete('set null');
-                $table->foreignId('updated_by')->nullable()->constrained('users')->onDelete('set null');
+                // === CLÉS ÉTRANGÈRES (SANS contraintes) ===
+                $table->unsignedBigInteger('role_id')->nullable();
+                $table->unsignedBigInteger('enseignant_id')->nullable();
+                $table->unsignedBigInteger('lieu_service_id')->nullable();
+                $table->unsignedBigInteger('ief_id')->nullable();
+                $table->unsignedBigInteger('ia_id')->nullable();
+                $table->unsignedBigInteger('created_by')->nullable();
+                $table->unsignedBigInteger('updated_by')->nullable();
 
                 $table->timestamps();
-                $table->softDeletes(); // Suppression logique (archivage)
+                $table->softDeletes();
 
-                // === INDEX POUR PERFORMANCES ===
+                // === INDEX ===
                 $table->index('email');
                 $table->index('statut');
                 $table->index('role_id');
@@ -82,7 +81,7 @@ return new class extends Migration
             });
         }
 
-        // === TABLE USER_LOGINS (historique des connexions) ===
+        // === TABLE USER_LOGINS ===
         if (!Schema::hasTable('user_logins')) {
             Schema::create('user_logins', function (Blueprint $table) {
                 $table->id();

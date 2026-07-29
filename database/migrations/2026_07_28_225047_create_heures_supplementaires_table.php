@@ -18,8 +18,9 @@ return new class extends Migration
             $table->decimal('taux_horaire', 10, 2);
             $table->decimal('montant_total', 15, 2);
 
-            // Période
-            $table->foreignId('periode_paie_id')->constrained('periode_de_paies')->onDelete('cascade');
+            // Période (SANS contrainte)
+            $table->unsignedBigInteger('periode_paie_id')->nullable();
+
             $table->date('date_debut');
             $table->date('date_fin');
 

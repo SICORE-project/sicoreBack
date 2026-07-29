@@ -14,15 +14,11 @@ return new class extends Migration
             $table->foreignId('enseignant_id')->constrained('enseignants')->onDelete('cascade');
 
             // Anciennes valeurs
-            $table->foreignId('ancien_corps_id')->nullable()->constrained('corps')->onDelete('set null');
-            $table->foreignId('ancien_grade_id')->nullable()->constrained('grades')->onDelete('set null');
-            $table->foreignId('ancien_echelon_id')->nullable()->constrained('echelons')->onDelete('set null');
+            $table->unsignedBigInteger('ancien_corps_id')->nullable();
             $table->string('ancien_statut', 30)->nullable();
 
             // Nouvelles valeurs
-            $table->foreignId('nouveau_corps_id')->nullable()->constrained('corps')->onDelete('set null');
-            $table->foreignId('nouveau_grade_id')->nullable()->constrained('grades')->onDelete('set null');
-            $table->foreignId('nouveau_echelon_id')->nullable()->constrained('echelons')->onDelete('set null');
+            $table->unsignedBigInteger('nouveau_corps_id')->nullable();
             $table->string('nouveau_statut', 30)->nullable();
 
             // Informations
@@ -30,7 +26,6 @@ return new class extends Migration
             $table->string('motif', 255)->nullable();
             $table->text('observations')->nullable();
 
-            // Numéro d'arrêté / décision
             $table->string('numero_arrete', 50)->nullable();
             $table->date('date_arrete')->nullable();
 

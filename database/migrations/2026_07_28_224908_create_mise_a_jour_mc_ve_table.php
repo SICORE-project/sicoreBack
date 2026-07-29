@@ -22,8 +22,8 @@ return new class extends Migration
             $table->date('date_effet');
             $table->date('date_fin')->nullable();
 
-            // Période
-            $table->foreignId('periode_paie_id')->nullable()->constrained('periode_de_paies')->onDelete('set null');
+            // Période (SANS contrainte)
+            $table->unsignedBigInteger('periode_paie_id')->nullable();
 
             // Statut
             $table->enum('statut', ['en_attente', 'approuve', 'rejete', 'termine'])->default('en_attente');
@@ -47,6 +47,7 @@ return new class extends Migration
             $table->index('type');
             $table->index('statut');
             $table->index('date_effet');
+            $table->index('periode_paie_id');
         });
     }
 

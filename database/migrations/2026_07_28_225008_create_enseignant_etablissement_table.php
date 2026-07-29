@@ -8,7 +8,6 @@ return new class extends Migration
 {
     public function up(): void
     {
-        // Table de liaison enseignant - établissement
         Schema::create('enseignant_etablissement', function (Blueprint $table) {
             $table->id();
 
@@ -25,7 +24,8 @@ return new class extends Migration
 
             $table->timestamps();
 
-            $table->unique(['enseignant_id', 'centre_formation_id']);
+            // Index personnalisé avec un nom plus court
+            $table->unique(['enseignant_id', 'centre_formation_id'], 'enseignant_etablissement_unique');
             $table->index('centre_formation_id');
             $table->index('est_actif');
         });
