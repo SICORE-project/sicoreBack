@@ -9,6 +9,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 
+
 class UserController extends Controller
 {
     /**
@@ -30,6 +31,7 @@ class UserController extends Controller
     /**
      * Store a newly created resource in storage.
      */
+
     public function store(StoreUserRequest $request): JsonResponse
     {
         $data = $request->validated();
@@ -75,7 +77,6 @@ class UserController extends Controller
             'Accès réservé aux administrateurs.'
         );
     }
-
     /**
      * Display the specified resource.
      */
@@ -107,4 +108,5 @@ class UserController extends Controller
     {
         //
     }
+
 }
