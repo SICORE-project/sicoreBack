@@ -15,7 +15,8 @@ return new class extends Migration
             $table->string('adresse', 255)->nullable();
             $table->string('telephone', 20)->nullable();
             $table->string('email', 100)->nullable();
-            $table->foreignId('institut_financier_id')->nullable()->constrained('instituts_financieres')->onDelete('set null');
+            // instituts_financieres is managed outside this migration set.
+            $table->foreignId('institut_financier_id')->nullable();
             $table->boolean('est_actif')->default(true);
             $table->timestamps();
 

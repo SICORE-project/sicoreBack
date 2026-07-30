@@ -8,10 +8,15 @@ return new class extends Migration
 {
     public function up(): void
     {
+        if (Schema::hasTable('rubrique_par_corps')) {
+            return;
+        }
+
         Schema::create('rubrique_par_corps', function (Blueprint $table) {
             $table->id();
             $table->foreignId('corps_id')->constrained('corps_enseignant')->onDelete('cascade');  // <-- CORRIGÉ
-            $table->foreignId('rubrique_paie_id')->constrained('rubrique_paies')->onDelete('cascade');
+            // rubrique_paies is managed outside this migration set.
+            $table->foreignId('rubrique_paie_id');
             $table->decimal('taux_personnalise', 8, 2)->nullable();
             $table->decimal('montant_personnalise', 15, 2)->nullable();
             $table->boolean('est_applicable')->default(true);

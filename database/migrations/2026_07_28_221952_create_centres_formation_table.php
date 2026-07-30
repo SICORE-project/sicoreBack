@@ -8,6 +8,10 @@ return new class extends Migration
 {
     public function up(): void
     {
+        if (Schema::hasTable('centres_formation')) {
+            return;
+        }
+
         Schema::create('centres_formation', function (Blueprint $table) {
             $table->id();
 
@@ -23,8 +27,9 @@ return new class extends Migration
             $table->string('site_web', 100)->nullable();
 
             // === HIÉRARCHIE ADMINISTRATIVE ===
-            $table->foreignId('ia_id')->nullable()->constrained('ias')->onDelete('set null');
-            $table->foreignId('ief_id')->nullable()->constrained('iefs')->onDelete('set null');
+            // ias and iefs are managed outside this migration set.
+            $table->foreignId('ia_id')->nullable();
+            $table->foreignId('ief_id')->nullable();
             $table->foreignId('region_id')->nullable()->constrained('regions')->onDelete('set null');
             $table->foreignId('departement_id')->nullable()->constrained('departements')->onDelete('set null');
             $table->foreignId('type_etablissement_id')->nullable()->constrained('types_etablissement')->onDelete('set null');

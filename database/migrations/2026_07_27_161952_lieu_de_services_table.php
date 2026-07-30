@@ -8,12 +8,17 @@ return new class extends Migration
 {
     public function up(): void
     {
+        if (Schema::hasTable('lieu_de_services')) {
+            return;
+        }
+
         Schema::create('lieu_de_services', function (Blueprint $table) {
             $table->id();
             $table->string('code', 20)->unique();
             $table->string('libelle', 100);
-            $table->foreignId('ia_id')->nullable()->constrained('ias')->onDelete('set null');
-            $table->foreignId('ief_id')->nullable()->constrained('iefs')->onDelete('set null');
+            // These reference tables are managed outside this migration set.
+            $table->foreignId('ia_id')->nullable();
+            $table->foreignId('ief_id')->nullable();
             $table->timestamps();
 
         });

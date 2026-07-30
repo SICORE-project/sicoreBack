@@ -8,18 +8,12 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::table('users', function (Blueprint $table) {
-            $table->foreign('lieu_service_id')
-                ->references('id')
-                ->on('lieu_de_services')
-                ->nullOnDelete();
-        });
+        // This foreign key is consolidated in the 2026_07_29_100558 migration
+        // together with the other users foreign keys.
     }
 
     public function down(): void
     {
-        Schema::table('users', function (Blueprint $table) {
-            $table->dropForeign(['lieu_service_id']);
-        });
+        // See up().
     }
 };
