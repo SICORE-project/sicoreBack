@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Admin\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 
 class AuthController extends Controller
@@ -38,5 +39,16 @@ class AuthController extends Controller
     public function me(Request $request)
     {
         return response()->json($request->user());
+    }
+
+    
+    public function logout(Request $request)
+    {
+        // Supprime uniquement le token utilisé actuellement
+        $request->user()->currentAccessToken()->delete();
+
+        return response()->json([
+            'message' => 'Déconnexion réussie'
+        ]);
     }
 }
