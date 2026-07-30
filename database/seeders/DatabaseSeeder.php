@@ -2,10 +2,11 @@
 
 namespace Database\Seeders;
 
-use App\Models\roles;
-use App\Models\User;
+use App\Models\Admin\Role;
+use App\Models\Admin\User;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\Hash;
 
 class DatabaseSeeder extends Seeder
 {
@@ -16,14 +17,24 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        $role = roles::firstOrCreate(['libelle' => 'Administrateur']);
+        // Création du rôle Administrateur
+        $role = Role::firstOrCreate(
+            ['slug' => 'administrateur'],
+            [
+                'nom' => 'Administrateur',
+                'description' => 'Administrateur du système',
+                'niveau' => 1,
+                'est_actif' => true,
+            ]
+        );
 
-        User::firstOrCreate(
+        // Création du compte administrateur
+        \App\Models\Admin\User::firstOrCreate(
             ['email' => 'adminsicore@yopmail.com'],
             [
-                'nom' => 'Super',
-                'prenom' => 'Admin',
-                'password' => 'password',
+                'nom' => 'Administrateur',
+                'prenom' => 'SICORE',
+                'password' => Hash::make('Admin@123456'),
                 'role_id' => $role->id,
             ]
         );

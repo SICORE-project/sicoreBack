@@ -6,6 +6,8 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Laravel\Sanctum\HasApiTokens;
+use App\Models\admin\Role;
 use App\Models\Parametrage\LieuService;
 use App\Models\Parametrage\Ief;
 use App\Models\Parametrage\Ia;
@@ -13,7 +15,7 @@ use App\Models\Personnel\Enseignant;
 
 class User extends Authenticatable
 {
-    use HasFactory, Notifiable, SoftDeletes;
+    use HasFactory, Notifiable, SoftDeletes, HasApiTokens;
 
     protected $fillable = [
         'nom',
@@ -51,16 +53,17 @@ class User extends Authenticatable
 
     protected function casts(): array
     {
-        return [
-            'email_verified_at' => 'datetime',
-            'password_changed_at' => 'datetime',
-            'verrouille_jusqua' => 'datetime',
-            'derniere_connexion' => 'datetime',
-            'must_change_password' => 'boolean',
-            'date_naiss' => 'date',
-        ];
+    return [
+        'email_verified_at' => 'datetime',
+        'password_changed_at' => 'datetime',
+        'verrouille_jusqua' => 'datetime',
+        'derniere_connexion' => 'datetime',
+        'must_change_password' => 'boolean',
+        'date_naiss' => 'date',
+        'password' => 'hashed',
+    ];
     }
-
+    
     // === RELATIONS ===
     public function role()
     {
