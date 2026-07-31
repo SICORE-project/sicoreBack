@@ -38,5 +38,13 @@ class DatabaseSeeder extends Seeder
                 'role_id' => $role->id,
             ]
         );
+
+        // Appel des seeders pour les rôles et permissions
+        $this->call([
+        RoleSeeder::class,
+        PermissionSeeder::class,
+        RolePermissionSeeder::class,
+    ]);
+
     }
 }

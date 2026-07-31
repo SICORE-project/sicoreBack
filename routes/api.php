@@ -16,9 +16,20 @@ Route::get('/health', fn () => response()->json(['status' => 'ok']));
 
 Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:login');
 
-Route::middleware('auth:sanctum')->group(function () {
+Route::middleware([
+    'auth:sanctum',
+    'permission:administration.users.read',
+])->group(function () {
+
     Route::get('/me', [AuthController::class, 'me']);
+
     Route::post('/logout', [AuthController::class, 'logout']);
+
+    Route::get('/test-permission', function () {
+        return response()->json([
+            'message' => 'Accès autorisé'
+        ]);
+    });
 
     Route::apiResource('users', UserController::class);
     Route::apiResource('indemnites', IndemnitesController::class);
@@ -29,4 +40,5 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('detail-bultins', DetailBultinsController::class);
     Route::apiResource('rubrique-bultins', RubriqueBultinsController::class);
     Route::apiResource('etat-paie-indemnites', EtatPaieIndemnitesController::class);
+
 });
