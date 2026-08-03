@@ -4,7 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 
-class delegation_credits extends Model
+class Service extends Model
 {
     //
 }
