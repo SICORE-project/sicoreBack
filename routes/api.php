@@ -18,6 +18,8 @@ Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:lo
 
 Route::post('/forgot-password', [AuthController::class,'forgotPassword']);
 
+Route::post('/reset-password', [AuthController::class,'resetPassword']);
+
 Route::middleware([
     'auth:sanctum',
 ])->group(function () {

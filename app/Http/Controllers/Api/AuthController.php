@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\ForgotPasswordRequest;
+use App\Http\Requests\Auth\ResetPasswordRequest;
 use App\Services\Auth\AuthService;
 use Illuminate\Http\Request;
 
@@ -78,6 +79,15 @@ class AuthController extends Controller
                 $request->validated()
             );
 
+    }
+
+    public function resetPassword(ResetPasswordRequest $request
+    )
+    {
+        return $this->authService
+            ->resetPassword(
+                $request->validated()
+            );
     }
 
 }
