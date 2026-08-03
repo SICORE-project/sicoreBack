@@ -18,20 +18,33 @@ Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:lo
 
 Route::middleware([
     'auth:sanctum',
-    'permission:administration.users.read',
 ])->group(function () {
 
     Route::get('/me', [AuthController::class, 'me']);
 
     Route::post('/logout', [AuthController::class, 'logout']);
 
-    Route::get('/test-permission', function () {
-        return response()->json([
-            'message' => 'Accès autorisé'
-        ]);
-    });
+    // Route::get('/test-role', function () {
 
-    Route::apiResource('users', UserController::class);
+    //     return response()->json([
+    //         'message' => 'Bienvenue administrateur'
+    //     ]);
+
+    // });
+
+
+    // Route::get('/test-permission', function () {
+    //     return response()->json([
+    //         'message' => 'Accès autorisé'
+    //     ]);
+    // });
+
+    // Route::apiResource('users', UserController::class);
+
+
+    require __DIR__.'/modules/administration.php';
+
+    
     Route::apiResource('indemnites', IndemnitesController::class);
     Route::apiResource('type-indemnites', TypeIndemnitesController::class);
     Route::apiResource('convocations', ConvocationsController::class);
