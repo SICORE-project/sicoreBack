@@ -3,52 +3,81 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Models\Admin\User;
+use App\Http\Requests\ForgetPasswordRequest;
+use App\Services\Auth\AuthService;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Hash;
 
 class AuthController extends Controller
 {
+
+    protected AuthService $authService;
+
+
+    public function __construct(AuthService $authService)
+    {
+        $this->authService = $authService;
+    }
+
+
+
+    /**
+     * Connexion utilisateur
+     */
     public function login(Request $request)
     {
+
         $request->validate([
-            'email' => 'required|email',
-            'password' => 'required|string',
+            'login' => 'required_without:email',
+            'email' => 'required_without:login|email',
+            'password' => 'required|string'
         ]);
 
-        $user = User::where('email', $request->email)->first();
 
-        if (!$user || !Hash::check($request->password, $user->password)) {
-            return response()->json([
-                'message' => 'Identifiants incorrects'
-            ], 401);
-        }
+        return $this->authService->login(
+            $request->all()
+        );
 
-        // Génération du token Sanctum
-        $token = $user->createToken('sicore-api')->plainTextToken;
-
-        return response()->json([
-            'message' => 'Connexion réussie',
-            'user' => $user,
-            'access_token' => $token,
-            'token_type' => 'Bearer'
-        ]);
     }
 
+
+
+    /**
+     * Utilisateur connecté
+     */
     public function me(Request $request)
     {
-        return response()->json($request->user());
-    }
-
-    
-    public function logout(Request $request)
-    {
-        // Supprime uniquement le token utilisé actuellement
-        $request->user()->currentAccessToken()->delete();
 
         return response()->json([
-            'message' => 'Déconnexion réussie'
+            'user'=>$request->user()
         ]);
+
     }
+
+
+
+    /**
+     * Déconnexion
+     */
+    public function logout(Request $request)
+    {
+
+        return $this->authService->logout($request);
+
+    }
+
+
+
+    /**
+     * Demande de réinitialisation mot de passe
+     */
+    public function forgotPassword(ForgetPasswordRequest $request)
+    {
+
+        return $this->authService
+            ->forgotPassword(
+                $request->validated()
+            );
+
+    }
+
 }
