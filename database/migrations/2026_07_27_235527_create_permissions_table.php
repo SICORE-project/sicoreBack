@@ -8,16 +8,19 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create('permissions', function (Blueprint $table) {
-            $table->id();
-            $table->string('libelle', 50)->unique();
-            $table->string('module', 50)->nullable(); // parametrage, paie, budget, personnel, admin 
-            $table->string('structure', 50)->nullable(); // ias, ief, etc.
-            $table->string('action', 50); // create, read, update, delete, export, import, validate
-            $table->string('description', 255)->nullable();
-            $table->timestamps();
-
-        });
+        if (!Schema::hasTable('permissions')) {
+            Schema::create('permissions', function (Blueprint $table) {
+                $table->id();
+                $table->string('nom', 50)->unique();
+                $table->string('slug', 50)->unique();
+                $table->string('groupe', 50)->nullable();
+                $table->string('module', 50)->nullable();
+                $table->string('action', 50)->nullable();
+                $table->string('description', 255)->nullable();
+                $table->boolean('est_actif')->default(true);
+                $table->timestamps();
+            });
+        }
     }
 
     public function down(): void
