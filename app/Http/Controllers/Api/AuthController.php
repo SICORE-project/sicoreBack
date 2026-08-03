@@ -3,7 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Http\Requests\ForgetPasswordRequest;
+use App\Http\Requests\Auth\ForgotPasswordRequest;
 use App\Services\Auth\AuthService;
 use Illuminate\Http\Request;
 
@@ -70,7 +70,7 @@ class AuthController extends Controller
     /**
      * Demande de réinitialisation mot de passe
      */
-    public function forgotPassword(ForgetPasswordRequest $request)
+    public function forgotPassword(ForgotPasswordRequest $request)
     {
 
         return $this->authService

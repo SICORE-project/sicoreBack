@@ -127,32 +127,16 @@ class AuthService
         )->first();
 
 
-
         if(!$user)
         {
             return response()->json([
-
-                'message'=>
-                'Si cet email existe, un lien sera envoyé.'
-
-            ]);
+                'message'=>'Utilisateur introuvable'
+            ],404);
         }
 
 
-
-        /*
-            On ajoutera ici :
-            - création token password_reset
-            - notification email
-            - expiration token
-        */
-
-
         return response()->json([
-
-            'message'=>
-            'Demande de réinitialisation prise en compte.'
-
+            'message'=>'Demande de réinitialisation prise en compte'
         ]);
 
     }

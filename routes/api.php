@@ -16,6 +16,8 @@ Route::get('/health', fn () => response()->json(['status' => 'ok']));
 
 Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:login');
 
+Route::post('/forgot-password', [AuthController::class,'forgotPassword']);
+
 Route::middleware([
     'auth:sanctum',
 ])->group(function () {
