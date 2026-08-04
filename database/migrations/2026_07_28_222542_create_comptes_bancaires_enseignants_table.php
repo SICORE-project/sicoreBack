@@ -8,6 +8,10 @@ return new class extends Migration
 {
     public function up(): void
     {
+        if (Schema::hasTable('comptes_bancaires_enseignants')) {
+            return;
+        }
+
         Schema::create('comptes_bancaires_enseignants', function (Blueprint $table) {
             $table->id();
 
@@ -26,7 +30,8 @@ return new class extends Migration
             $table->enum('type_virement', ['unitaire', 'masse'])->default('unitaire');
 
             // Institution financière
-            $table->foreignId('institut_financier_id')->nullable()->constrained('instituts_financieres')->onDelete('set null');
+            // instituts_financieres is managed outside this migration set.
+            $table->foreignId('institut_financier_id')->nullable();
 
             $table->boolean('est_principal')->default(false);
             $table->boolean('est_actif')->default(true);

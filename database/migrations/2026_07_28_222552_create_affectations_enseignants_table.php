@@ -8,14 +8,19 @@ return new class extends Migration
 {
     public function up(): void
     {
+        if (Schema::hasTable('affectations_enseignants')) {
+            return;
+        }
+
         Schema::create('affectations_enseignants', function (Blueprint $table) {
             $table->id();
 
             $table->foreignId('enseignant_id')->constrained('enseignants')->onDelete('cascade');
 
             // Lieux d'affectation
-            $table->foreignId('ia_id')->nullable()->constrained('ias')->onDelete('set null');
-            $table->foreignId('ief_id')->nullable()->constrained('iefs')->onDelete('set null');
+            // ias and iefs are managed outside this migration set.
+            $table->foreignId('ia_id')->nullable();
+            $table->foreignId('ief_id')->nullable();
             $table->foreignId('lieu_service_id')->nullable()->constrained('lieu_de_services')->onDelete('set null');
             $table->foreignId('centre_formation_id')->nullable()->constrained('centres_formation')->onDelete('set null');
 
