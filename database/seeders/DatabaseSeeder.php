@@ -10,11 +10,6 @@ use Illuminate\Support\Facades\Hash;
 
 class DatabaseSeeder extends Seeder
 {
-    use WithoutModelEvents;
-
-    /**
-     * Seed the application's database.
-     */
     public function run(): void
     {
         // Création du rôle Administrateur
@@ -46,5 +41,28 @@ class DatabaseSeeder extends Seeder
         RolePermissionSeeder::class,
     ]);
 
+    }
+
+    /**
+     * Créer un utilisateur administrateur par défaut
+     */
+    private function createAdminUser(): void
+    {
+        $adminRole = \App\Models\Admin\Role::where('slug', 'admin')->first();
+
+        if ($adminRole) {
+            \App\Models\Admin\User::firstOrCreate(
+                ['email' => 'adminsicore@yopmail.com'],
+                [
+                    'nom' => 'Admin',
+                    'prenom' => 'SICORE',
+                    'email' => 'adminsicore@yopmail.com',
+                    'password' => bcrypt('password'),
+                    'role_id' => $adminRole->id,
+                    'statut' => 'actif',
+                    'fonction' => 'Administrateur',
+                ]
+            );
+        }
     }
 }

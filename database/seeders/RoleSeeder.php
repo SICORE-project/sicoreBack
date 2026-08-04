@@ -11,41 +11,76 @@ class RoleSeeder extends Seeder
     public function run(): void
     {
         $roles = [
-
             [
-                'nom' => 'Administrateur',
-                'slug' => 'administrateur'
+                'libelle' => 'Super Administrateur',
+                'slug' => 'super_admin',
+                'description' => 'Accès complet à toutes les fonctionnalités',
+                'niveau' => 'systeme',   // <-- systeme (existe déjà)
+                'est_actif' => true,
             ],
-
             [
-                'nom' => 'Gestionnaire RH',
-                'slug' => 'gestionnaire-rh'
+                'libelle' => 'Administrateur',
+                'slug' => 'admin',
+                'description' => 'Gestion de l\'application et des utilisateurs',
+                'niveau' => 'admin',     // <-- AJOUTER admin à l'ENUM
+                'est_actif' => true,
             ],
-
             [
-                'nom' => 'Gestionnaire Paie',
-                'slug' => 'gestionnaire-paie'
+                'libelle' => 'Paramétreur',
+                'slug' => 'parametreur',
+                'description' => 'Gestion des paramètres de l\'application',
+                'niveau' => 'admin',     // <-- AJOUTER admin à l'ENUM
+                'est_actif' => true,
             ],
-
             [
-                'nom' => 'Chef de Service',
-                'slug' => 'chef-service'
+                'libelle' => 'Gestionnaire IA',
+                'slug' => 'gestionnaire_ia',
+                'description' => 'Gestion des IEF et enseignants de l\'IA',
+                'niveau' => 'gestion',
+                'est_actif' => true,
             ],
-
             [
-                'nom' => 'Consultation',
-                'slug' => 'consultation'
+                'libelle' => 'Gestionnaire IEF',
+                'slug' => 'gestionnaire_ief',
+                'description' => 'Gestion des enseignants de l\'IEF',
+                'niveau' => 'gestion',
+                'est_actif' => true,
             ],
-
+            [
+                'libelle' => 'DRH',
+                'slug' => 'drh',
+                'description' => 'Gestion des ressources humaines',
+                'niveau' => 'gestion',
+                'est_actif' => true,
+            ],
+            [
+                'libelle' => 'Gestionnaire Paie',
+                'slug' => 'gestionnaire_paie',
+                'description' => 'Gestion de la paie des enseignants',
+                'niveau' => 'gestion',
+                'est_actif' => true,
+            ],
+            [
+                'libelle' => 'Gestionnaire Budget',
+                'slug' => 'gestionnaire_budget',
+                'description' => 'Gestion du budget et des engagements',
+                'niveau' => 'gestion',
+                'est_actif' => true,
+            ],
+            [
+                'libelle' => 'Consultant',
+                'slug' => 'consultant',
+                'description' => 'Consultation des données uniquement',
+                'niveau' => 'consultation',
+                'est_actif' => true,
+            ],
         ];
 
         foreach ($roles as $role) {
-
-            Role::firstOrCreate(
-                ['slug'=>$role['slug']],
+            Role::updateOrCreate(
+                ['slug' => $role['slug']],
                 $role
             );
-
         }
     }
 }

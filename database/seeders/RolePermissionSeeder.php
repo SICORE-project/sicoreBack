@@ -11,10 +11,22 @@ class RolePermissionSeeder extends Seeder
 {
     public function run(): void
     {
-        $admin = Role::where('slug', 'administrateur')->first();
+        // Récupérer les rôles par slug
+        $superAdmin = Role::where('slug', 'super_admin')->first();
+        $admin = Role::where('slug', 'admin')->first();
 
-        $permissions = Permission::all()->pluck('id');
+        // Récupérer toutes les permissions
+        $allPermissions = Permission::pluck('id')->toArray();
 
-        $admin->permissions()->sync($permissions);
+        // SUPER ADMIN : toutes les permissions
+        if ($superAdmin) {
+            $superAdmin->permissions()->sync($allPermissions);
+        }
+
+        // ADMIN
+        if ($admin) {
+            $adminPermissions = Permission::whereIn('structure', ['administration', 'parametrage', 'enseignants'])->pluck('id')->toArray();
+            $admin->permissions()->sync($adminPermissions);
+        }
     }
 }

@@ -21,7 +21,6 @@ class Role extends Model
         'est_actif' => 'boolean',
     ];
 
-    // === RELATIONS ===
     public function users()
     {
         return $this->hasMany(User::class);
@@ -37,30 +36,52 @@ class Role extends Model
             );
     }
 
-    // === SCOPES ===
-    public function scopeActif($query)
-    {
-        return $query->where('est_actif', true);
-    }
-
-    // === METHODS ===
+    // Vérifier si le rôle a une permission
     public function hasPermission($permissionSlug)
     {
         return $this->permissions()->where('slug', $permissionSlug)->exists();
     }
 
+    // Vérifier si le rôle a une permission par son ID
+    public function hasPermissionId($permissionId)
+    {
+        return $this->permissions()->where('id', $permissionId)->exists();
+    }
+
+    // Donner une permission au rôle
     public function givePermission($permissionId)
     {
-        return $this->permissions()->attach($permissionId);
+        if (!$this->hasPermissionId($permissionId)) {
+            $this->permissions()->attach($permissionId);
+        }
+        return $this;
     }
 
+    // Retirer une permission du rôle
     public function removePermission($permissionId)
     {
-        return $this->permissions()->detach($permissionId);
+        if ($this->hasPermissionId($permissionId)) {
+            $this->permissions()->detach($permissionId);
+        }
+        return $this;
     }
 
+    // Synchroniser les permissions
     public function syncPermissions(array $permissionIds)
     {
-        return $this->permissions()->sync($permissionIds);
+        $this->permissions()->sync($permissionIds);
+        return $this;
+    }
+
+    // Scope pour les rôles actifs
+    public function scopeActif($query)
+    {
+        return $query->where('est_actif', true);
+    }
+
+    // Scope par niveau
+    public function scopeNiveau($query, $niveau)
+    {
+        return $query->where('niveau', $niveau);
     }
 }

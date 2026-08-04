@@ -23,7 +23,6 @@ class Permission extends Model
         'est_actif' => 'boolean',
     ];
 
-    // === RELATIONS ===
     public function roles()
     {
         return $this->belongsToMany(
@@ -34,19 +33,27 @@ class Permission extends Model
             );
     }
 
-    // === SCOPES ===
+    // Scope pour les permissions actives
     public function scopeActif($query)
     {
         return $query->where('est_actif', true);
     }
 
-    public function scopeByGroupe($query, $groupe)
+    // Scope par groupe
+    public function scopeGroupe($query, $groupe)
     {
         return $query->where('groupe', $groupe);
     }
 
-    public function scopeByModule($query, $module)
+    // Scope par module
+    public function scopeModule($query, $module)
     {
         return $query->where('module', $module);
+    }
+
+    // Scope par action
+    public function scopeAction($query, $action)
+    {
+        return $query->where('action', $action);
     }
 }
