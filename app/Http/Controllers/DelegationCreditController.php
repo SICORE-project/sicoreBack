@@ -12,9 +12,9 @@ class DelegationCreditController extends Controller
      */
     public function index()
     {
-         $delegations = DelegationCredit::all();
+         $delegations = DelegationCredit::with(['structure', 'service'])->get();
 
-         return response()->json($delegations); //
+         return response()->json($delegations);
     }
 
     /**

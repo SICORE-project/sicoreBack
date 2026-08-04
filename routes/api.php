@@ -11,6 +11,8 @@ use App\Http\Controllers\RubriqueBultinsController;
 use App\Http\Controllers\TypeIndemnitesController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\DelegationCreditController;
+use App\Http\Controllers\StructureController;
+use App\Http\Controllers\ServiceController;
 use Illuminate\Support\Facades\Route;
 
 
@@ -43,4 +45,6 @@ Route::get('delegation-credits/{id}/etat', [DelegationCreditController::class, '
     Route::apiResource('rubrique-bultins', RubriqueBultinsController::class);
     Route::apiResource('etat-paie-indemnites', EtatPaieIndemnitesController::class);
     Route::apiResource('delegation-credits', DelegationCreditController::class);
+    Route::apiResource('structures', StructureController::class);
+    Route::apiResource('services', ServiceController::class);
 //});
