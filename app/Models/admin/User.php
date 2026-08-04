@@ -62,10 +62,7 @@ class User extends Authenticatable
     }
 
     // === RELATIONS ===
-    public function role()
-    {
-        return $this->belongsTo(Role::class);
-    }
+   
 
     public function enseignant()
     {
@@ -125,4 +122,51 @@ class User extends Authenticatable
         if (!$this->role) return false;
         return $this->role->permissions()->where('slug', $permissionSlug)->exists();
     }
+    // === MÉTHODES DE PERMISSIONS ===
+
+public function role()
+{
+    return $this->belongsTo(Role::class);
+}
+
+
+public function hasRoleId($roleId)
+{
+    return $this->role_id === $roleId;
+}
+
+public function hasAnyPermission(array $permissions)
+{
+    foreach ($permissions as $permission) {
+        if ($this->hasPermission($permission)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+public function hasAllPermissions(array $permissions)
+{
+    foreach ($permissions as $permission) {
+        if (!$this->hasPermission($permission)) {
+            return false;
+        }
+    }
+    return true;
+}
+
+public function isAdmin()
+{
+    return $this->hasRole('admin');
+}
+
+public function isParametreur()
+{
+    return $this->hasRole('parametreur');
+}
+
+public function isGestionnaire()
+{
+    return $this->hasRole('gestionnaire_paie') || $this->hasRole('gestionnaire_budget');
+}
 }

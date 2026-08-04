@@ -2,30 +2,42 @@
 
 namespace Database\Seeders;
 
-use App\Models\roles;
-use App\Models\User;
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 
 class DatabaseSeeder extends Seeder
 {
-    use WithoutModelEvents;
-
-    /**
-     * Seed the application's database.
-     */
     public function run(): void
     {
-        $role = roles::firstOrCreate(['libelle' => 'Administrateur']);
+        $this->call([
+            PermissionSeeder::class,
+            RoleSeeder::class,
+            RolePermissionSeeder::class,
+        ]);
 
-        User::firstOrCreate(
-            ['email' => 'adminsicore@yopmail.com'],
-            [
-                'nom' => 'Super',
-                'prenom' => 'Admin',
-                'password' => 'password',
-                'role_id' => $role->id,
-            ]
-        );
+        // Optionnel : Créer un utilisateur admin par défaut
+        $this->createAdminUser();
+    }
+
+    /**
+     * Créer un utilisateur administrateur par défaut
+     */
+    private function createAdminUser(): void
+    {
+        $adminRole = \App\Models\Admin\Role::where('slug', 'admin')->first();
+
+        if ($adminRole) {
+            \App\Models\Admin\User::firstOrCreate(
+                ['email' => 'adminsicore@yopmail.com'],
+                [
+                    'nom' => 'Admin',
+                    'prenom' => 'SICORE',
+                    'email' => 'adminsicore@yopmail.com',
+                    'password' => bcrypt('password'),
+                    'role_id' => $adminRole->id,
+                    'statut' => 'actif',
+                    'fonction' => 'Administrateur',
+                ]
+            );
+        }
     }
 }
