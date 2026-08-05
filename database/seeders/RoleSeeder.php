@@ -24,13 +24,13 @@ class RoleSeeder extends Seeder
                 'niveau' => 'admin_metier',
                 'est_actif' => true,
             ],
-            [
-                'nom' => 'Paramétreur',
-                'slug' => 'parametreur',
-                'description' => 'Gestion des paramètres de l\'application',
-                'niveau' => 'admin_metier',
-                'est_actif' => true,
-            ],
+            // [
+            //     'nom' => 'Paramétreur',
+            //     'slug' => 'parametreur',
+            //     'description' => 'Gestion des paramètres de l\'application',
+            //     'niveau' => 'admin_metier',
+            //     'est_actif' => true,
+            // ],
             [
                 'nom' => 'Gestionnaire IA',
                 'slug' => 'gestionnaire_ia',
@@ -73,11 +73,18 @@ class RoleSeeder extends Seeder
                 'niveau' => 'consultation',
                 'est_actif' => true,
             ],
+            [
+                'nom' => 'Enseignant',
+                'slug' => 'enseignant',
+                'description' => 'Enseignement et gestion des cours',
+                'niveau' => 'enseignant',
+                'est_actif' => true,
+            ],
         ];
 
         foreach ($roles as $role) {
-            // Chercher par slug, si existe on met à jour
-            $existing = Role::where('slug', $role['slug'])->first();
+            // Chercher par nom, si existe on met à jour
+            $existing = Role::where('nom', $role['nom'])->first();
             if ($existing) {
                 $existing->update($role);
             } else {

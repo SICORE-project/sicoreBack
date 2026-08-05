@@ -14,13 +14,13 @@ class UserSeeder extends Seeder
         // Récupérer les rôles
         $superAdminRole = Role::where('slug', 'super_admin')->first();
         $adminRole = Role::where('slug', 'admin')->first();
-        $parametreurRole = Role::where('slug', 'parametreur')->first();
         $gestionnaireIaRole = Role::where('slug', 'gestionnaire_ia')->first();
         $gestionnaireIefRole = Role::where('slug', 'gestionnaire_ief')->first();
         $drhRole = Role::where('slug', 'drh')->first();
         $paieRole = Role::where('slug', 'gestionnaire_paie')->first();
         $budgetRole = Role::where('slug', 'gestionnaire_budget')->first();
         $consultantRole = Role::where('slug', 'consultant')->first();
+        $enseignantRole = Role::where('slug', 'enseignant')->first();
 
         $users = [
             // === Super Administrateur ===
@@ -50,18 +50,18 @@ class UserSeeder extends Seeder
                 'tentatives_connexion' => 0,
             ],
             // === Paramétreur ===
-            [
-                'nom' => 'Sow',
-                'prenom' => 'Ibrahima',
-                'email' => 'ibrahima.sow@sicore.sn',
-                'password' => Hash::make('password'),
-                'role_id' => $parametreurRole ? $parametreurRole->id : null,
-                'statut' => 'actif',
-                'fonction' => 'Paramétreur',
-                'genre' => 'masculin',
-                'must_change_password' => false,
-                'tentatives_connexion' => 0,
-            ],
+            // [
+            //     'nom' => 'Sow',
+            //     'prenom' => 'Ibrahima',
+            //     'email' => 'ibrahima.sow@sicore.sn',
+            //     'password' => Hash::make('password'),
+            //     'role_id' => $parametreurRole ? $parametreurRole->id : null,
+            //     'statut' => 'actif',
+            //     'fonction' => 'Paramétreur',
+            //     'genre' => 'masculin',
+            //     'must_change_password' => false,
+            //     'tentatives_connexion' => 0,
+            // ],
             // === Gestionnaire IA ===
             [
                 'nom' => 'Fall',
@@ -97,7 +97,7 @@ class UserSeeder extends Seeder
                 'role_id' => $drhRole ? $drhRole->id : null,
                 'statut' => 'actif',
                 'fonction' => 'Directeur RH',
-                'genre' => 'masculin',
+                'genre' => 'feminin',
                 'must_change_password' => false,
                 'tentatives_connexion' => 0,
             ],
@@ -137,6 +137,19 @@ class UserSeeder extends Seeder
                 'statut' => 'actif',
                 'fonction' => 'Consultant',
                 'genre' => 'masculin',
+                'must_change_password' => false,
+                'tentatives_connexion' => 0,
+            ],
+            // === Enseignant ===
+            [
+                'nom' => 'Diouf',
+                'prenom' => 'Aissatou',
+                'email' => 'aissatou.diouf@sicore.sn',
+                'password' => Hash::make('password'),
+                'role_id' => $enseignantRole ? $enseignantRole->id : null,
+                'statut' => 'actif',
+                'fonction' => 'Enseignant',
+                'genre' => 'feminin',
                 'must_change_password' => false,
                 'tentatives_connexion' => 0,
             ],

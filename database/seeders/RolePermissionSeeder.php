@@ -36,10 +36,10 @@ class RolePermissionSeeder extends Seeder
         }
 
         // === PARAMÉTREUR ===
-        if ($parametreur) {
-            $paramPermissions = Permission::where('groupe', 'parametrage')->pluck('id')->toArray();
-            $parametreur->permissions()->sync($paramPermissions);
-        }
+        // if ($parametreur) {
+        //     $paramPermissions = Permission::where('groupe', 'parametrage')->pluck('id')->toArray();
+        //     $parametreur->permissions()->sync($paramPermissions);
+        // }
 
         // === GESTIONNAIRE IA ===
         if ($gestionnaireIa) {
@@ -97,6 +97,16 @@ class RolePermissionSeeder extends Seeder
         if ($consultant) {
             $consultPermissions = Permission::where('action', 'read')->pluck('id')->toArray();
             $consultant->permissions()->sync($consultPermissions);
+        }
+
+        // === ENSEIGNANT ===
+        $enseignant = Role::where('slug', 'enseignant')->first();
+        if ($enseignant) {
+            $enseignantPermissions = Permission::whereIn('slug', [
+                'paie.bulletins.read',
+                'paie.bulletins.export',
+            ])->pluck('id')->toArray();
+            $enseignant->permissions()->sync($enseignantPermissions);
         }
     }
 }
