@@ -12,7 +12,7 @@ class UserController extends Controller
      */
     public function index()
     {
-        //
+        return response()->json(user::all(), 200);
     }
 
     /**
@@ -36,7 +36,7 @@ class UserController extends Controller
      */
     public function show(User $user)
     {
-        //
+        return response()->json(user::findOrFail($id));
     }
 
     /**
@@ -50,16 +50,19 @@ class UserController extends Controller
     /**
      * Update the specified resource in storage.
      */
-    public function update(Request $request, User $user)
+    public function update(Request $request, string $id)
     {
-        //
+        $user = User::findOrFail($id);
+        $user->update($request->all());
+        return response()->json($user);
     }
 
     /**
      * Remove the specified resource from storage.
      */
-    public function destroy(User $user)
+    public function destroy($id)
     {
-        //
+        User::findOrFail($id)->forceDelete();
+        return response()->json(['message' => "Utilisateur supprimé avec succès."], 204);
     }
 }
