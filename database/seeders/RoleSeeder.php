@@ -3,7 +3,6 @@
 namespace Database\Seeders;
 
 use Illuminate\Database\Seeder;
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use App\Models\Admin\Role;
 
 class RoleSeeder extends Seeder
@@ -12,63 +11,63 @@ class RoleSeeder extends Seeder
     {
         $roles = [
             [
-                'libelle' => 'Super Administrateur',
+                'nom' => 'Super Administrateur',
                 'slug' => 'super_admin',
                 'description' => 'Accès complet à toutes les fonctionnalités',
-                'niveau' => 'systeme',   // <-- systeme (existe déjà)
+                'niveau' => 'systeme',
                 'est_actif' => true,
             ],
             [
-                'libelle' => 'Administrateur',
+                'nom' => 'Administrateur',
                 'slug' => 'admin',
                 'description' => 'Gestion de l\'application et des utilisateurs',
-                'niveau' => 'admin',     // <-- AJOUTER admin à l'ENUM
+                'niveau' => 'admin_metier',
                 'est_actif' => true,
             ],
             [
-                'libelle' => 'Paramétreur',
+                'nom' => 'Paramétreur',
                 'slug' => 'parametreur',
                 'description' => 'Gestion des paramètres de l\'application',
-                'niveau' => 'admin',     // <-- AJOUTER admin à l'ENUM
+                'niveau' => 'admin_metier',
                 'est_actif' => true,
             ],
             [
-                'libelle' => 'Gestionnaire IA',
+                'nom' => 'Gestionnaire IA',
                 'slug' => 'gestionnaire_ia',
                 'description' => 'Gestion des IEF et enseignants de l\'IA',
-                'niveau' => 'gestion',
+                'niveau' => 'gestionnaire',
                 'est_actif' => true,
             ],
             [
-                'libelle' => 'Gestionnaire IEF',
+                'nom' => 'Gestionnaire IEF',
                 'slug' => 'gestionnaire_ief',
                 'description' => 'Gestion des enseignants de l\'IEF',
-                'niveau' => 'gestion',
+                'niveau' => 'gestionnaire',
                 'est_actif' => true,
             ],
             [
-                'libelle' => 'DRH',
+                'nom' => 'DRH',
                 'slug' => 'drh',
                 'description' => 'Gestion des ressources humaines',
-                'niveau' => 'gestion',
+                'niveau' => 'gestionnaire',
                 'est_actif' => true,
             ],
             [
-                'libelle' => 'Gestionnaire Paie',
+                'nom' => 'Gestionnaire Paie',
                 'slug' => 'gestionnaire_paie',
                 'description' => 'Gestion de la paie des enseignants',
-                'niveau' => 'gestion',
+                'niveau' => 'gestionnaire',
                 'est_actif' => true,
             ],
             [
-                'libelle' => 'Gestionnaire Budget',
+                'nom' => 'Gestionnaire Budget',
                 'slug' => 'gestionnaire_budget',
                 'description' => 'Gestion du budget et des engagements',
-                'niveau' => 'gestion',
+                'niveau' => 'gestionnaire',
                 'est_actif' => true,
             ],
             [
-                'libelle' => 'Consultant',
+                'nom' => 'Consultant',
                 'slug' => 'consultant',
                 'description' => 'Consultation des données uniquement',
                 'niveau' => 'consultation',
@@ -77,10 +76,13 @@ class RoleSeeder extends Seeder
         ];
 
         foreach ($roles as $role) {
-            Role::updateOrCreate(
-                ['slug' => $role['slug']],
-                $role
-            );
+            // Chercher par slug, si existe on met à jour
+            $existing = Role::where('slug', $role['slug'])->first();
+            if ($existing) {
+                $existing->update($role);
+            } else {
+                Role::create($role);
+            }
         }
     }
 }
