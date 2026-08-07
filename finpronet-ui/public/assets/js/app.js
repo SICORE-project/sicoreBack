@@ -456,19 +456,111 @@
     });
   }
 
-  function filterTable(input) {
-    var selector = input.getAttribute("data-table-filter");
-    var table = selector ? document.querySelector(selector) : null;
+  function normalizeValue(value) {
+    var text = value == null ? "" : String(value);
+    if (text.normalize) {
+      text = text.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    }
+    return text.toLowerCase().replace(/\s+/g, " ").trim();
+  }
+
+  function resolveTable(element, attribute) {
+    var selector = element.getAttribute(attribute);
+    return selector ? document.querySelector(selector) : null;
+  }
+
+  function getSearchInput(table) {
+    var found = null;
+    document.querySelectorAll("[data-table-filter]").forEach(function (input) {
+      if (!found && resolveTable(input, "data-table-filter") === table) {
+        found = input;
+      }
+    });
+    return found;
+  }
+
+  function getFilterPanels(table) {
+    var panels = [];
+    document.querySelectorAll("[data-filter-panel]").forEach(function (panel) {
+      if (resolveTable(panel, "data-filter-target") === table) {
+        panels.push(panel);
+      }
+    });
+    return panels;
+  }
+
+  function getActiveFilters(table) {
+    var filters = [];
+    getFilterPanels(table).forEach(function (panel) {
+      panel.querySelectorAll("select[data-filter-column]").forEach(function (select) {
+        if (select.value) {
+          filters.push({ column: parseInt(select.getAttribute("data-filter-column"), 10), value: normalizeValue(select.value) });
+        }
+      });
+    });
+    return filters;
+  }
+
+  function populateFilterOptions(panel, table) {
+    panel.querySelectorAll("select[data-filter-column]").forEach(function (select) {
+      if (select.dataset.populated === "true") {
+        return;
+      }
+      select.dataset.populated = "true";
+
+      var columnIndex = parseInt(select.getAttribute("data-filter-column"), 10);
+      var seen = {};
+      var values = [];
+
+      table.querySelectorAll("tbody tr").forEach(function (row) {
+        var cell = row.cells[columnIndex];
+        if (!cell) {
+          return;
+        }
+        var label = cell.textContent.replace(/\s+/g, " ").trim();
+        var key = normalizeValue(label);
+        if (!key || seen[key]) {
+          return;
+        }
+        seen[key] = true;
+        values.push(label);
+      });
+
+      values.sort(function (left, right) {
+        return normalizeValue(left).localeCompare(normalizeValue(right));
+      });
+
+      var current = select.value;
+      values.forEach(function (value) {
+        var option = document.createElement("option");
+        option.value = value;
+        option.textContent = value;
+        select.appendChild(option);
+      });
+      select.value = current;
+    });
+  }
+
+  function applyTableFilters(table) {
     if (!table) {
       return;
     }
 
-    var query = input.value.trim().toLowerCase();
-    var rows = table.querySelectorAll("tbody tr");
+    var input = getSearchInput(table);
+    var query = input ? normalizeValue(input.value) : "";
+    var filters = getActiveFilters(table);
     var visible = 0;
 
-    rows.forEach(function (row) {
-      var matches = row.textContent.toLowerCase().indexOf(query) !== -1;
+    table.querySelectorAll("tbody tr").forEach(function (row) {
+      var matches = !query || normalizeValue(row.textContent).indexOf(query) !== -1;
+
+      if (matches) {
+        matches = filters.every(function (filter) {
+          var cell = row.cells[filter.column];
+          return cell ? normalizeValue(cell.textContent) === filter.value : false;
+        });
+      }
+
       row.classList.toggle("is-hidden", !matches);
       if (matches) {
         visible += 1;
@@ -480,6 +572,138 @@
     if (empty) {
       empty.classList.toggle("show", visible === 0);
     }
+  }
+
+  function filterTable(input) {
+    applyTableFilters(resolveTable(input, "data-table-filter"));
+  }
+
+  function setupTableFilters() {
+    document.querySelectorAll("[data-filter-panel]").forEach(function (panel) {
+      var table = resolveTable(panel, "data-filter-target");
+      if (!table) {
+        return;
+      }
+
+      populateFilterOptions(panel, table);
+
+      if (panel.dataset.bound === "true") {
+        return;
+      }
+      panel.dataset.bound = "true";
+
+      panel.querySelectorAll("select[data-filter-column]").forEach(function (select) {
+        select.addEventListener("change", function () {
+          applyTableFilters(table);
+        });
+      });
+
+      panel.querySelectorAll("[data-filter-apply]").forEach(function (button) {
+        button.addEventListener("click", function () {
+          applyTableFilters(table);
+        });
+      });
+
+      panel.querySelectorAll("[data-filter-reset]").forEach(function (button) {
+        button.addEventListener("click", function () {
+          panel.querySelectorAll("select[data-filter-select]").forEach(function (select) {
+            select.value = "";
+          });
+          var input = getSearchInput(table);
+          if (input) {
+            input.value = "";
+          }
+          applyTableFilters(table);
+        });
+      });
+    });
+  }
+
+  function csvCell(value) {
+    return '"' + String(value == null ? "" : value).replace(/\s+/g, " ").trim().replace(/"/g, '""') + '"';
+  }
+
+  function tableToCsv(table) {
+    var skipped = {};
+    var lines = [];
+
+    var headers = [];
+    table.querySelectorAll("thead th").forEach(function (cell, index) {
+      if (cell.classList.contains("actions-cell")) {
+        skipped[index] = true;
+        return;
+      }
+      headers.push(csvCell(cell.textContent));
+    });
+    lines.push(headers.join(";"));
+
+    var exported = 0;
+    table.querySelectorAll("tbody tr").forEach(function (row) {
+      if (row.classList.contains("is-hidden")) {
+        return;
+      }
+      var cells = [];
+      Array.prototype.forEach.call(row.cells, function (cell, index) {
+        if (skipped[index] || cell.classList.contains("actions-cell")) {
+          return;
+        }
+        cells.push(csvCell(cell.textContent));
+      });
+      lines.push(cells.join(";"));
+      exported += 1;
+    });
+
+    return { content: lines.join("\r\n"), rows: exported };
+  }
+
+  function downloadCsv(name, content) {
+    var blob = new Blob(["\ufeff" + content], { type: "text/csv;charset=utf-8;" });
+    var url = URL.createObjectURL(blob);
+    var link = document.createElement("a");
+    link.href = url;
+    link.download = name;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.setTimeout(function () {
+      URL.revokeObjectURL(url);
+    }, 0);
+  }
+
+  function exportTable(button) {
+    var table = resolveTable(button, "data-export-table");
+    if (!table) {
+      notify("error", "Tableau introuvable pour l'export.");
+      return;
+    }
+
+    if (button.getAttribute("data-export-format") === "pdf") {
+      window.print();
+      return;
+    }
+
+    var csv = tableToCsv(table);
+    if (!csv.rows) {
+      notify("info", "Aucune donn\u00e9e \u00e0 exporter.");
+      return;
+    }
+
+    var slug = document.body.getAttribute("data-module-page") || "export";
+    var stamp = new Date().toISOString().slice(0, 10);
+    downloadCsv(slug + "-" + stamp + ".csv", csv.content);
+    notify("success", "Export g\u00e9n\u00e9r\u00e9 : " + csv.rows + (csv.rows > 1 ? " lignes." : " ligne."));
+  }
+
+  function setupExports() {
+    document.querySelectorAll("[data-export-table]").forEach(function (button) {
+      if (button.dataset.exportBound === "true") {
+        return;
+      }
+      button.dataset.exportBound = "true";
+      button.addEventListener("click", function () {
+        exportTable(button);
+      });
+    });
   }
 
   function syncPasswordToggle(button) {
@@ -826,6 +1050,8 @@
     setupSidebarTooltips();
     setupForms();
     setupPagination();
+    setupTableFilters();
+    setupExports();
     setupConfirmations();
     setupToasts();
     setupDynamicCalculations();
@@ -872,6 +1098,8 @@
   window.toggleSubmenu = toggleSubmenu;
   window.setActiveMenu = setActiveMenu;
   window.filterTable = filterTable;
+  window.applyTableFilters = applyTableFilters;
+  window.exportTable = exportTable;
   window.togglePassword = togglePassword;
   window.validateRequiredFields = validateRequiredFields;
   window.confirmAction = confirmAction;

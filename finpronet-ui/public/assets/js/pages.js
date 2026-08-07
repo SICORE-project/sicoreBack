@@ -13,6 +13,63 @@
     }).join("") + "</div>";
   }
 
+  function decodeText(value) {
+    var holder = document.createElement("div");
+    holder.innerHTML = value == null ? "" : String(value);
+    return holder.textContent || "";
+  }
+
+  function normalizeText(value) {
+    var text = decodeText(value);
+    if (text.normalize) {
+      text = text.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    }
+    return text.toLowerCase().replace(/\s+/g, " ").trim();
+  }
+
+  // Associe un libelle de filtre ("Structure") a la colonne du tableau
+  // qui lui correspond ("Structure beneficiaire") pour rendre le filtre operant.
+  function matchFilterColumn(filter, columns, used) {
+    var target = normalizeText(filter);
+    if (!target) {
+      return -1;
+    }
+
+    var normalized = columns.map(function (column) {
+      return normalizeText(column);
+    });
+
+    function search(test) {
+      for (var index = 0; index < normalized.length; index += 1) {
+        if (used[index] || normalized[index] === "actions") {
+          continue;
+        }
+        if (test(normalized[index])) {
+          return index;
+        }
+      }
+      return -1;
+    }
+
+    var found = search(function (column) {
+      return column === target;
+    });
+
+    if (found === -1) {
+      found = search(function (column) {
+        return column.indexOf(target) !== -1;
+      });
+    }
+
+    if (found === -1) {
+      found = search(function (column) {
+        return target.indexOf(column) !== -1;
+      });
+    }
+
+    return found;
+  }
+
   function commonStats(totalLabel) {
     return [
       { label: totalLabel || "Dossiers", value: "128", note: "P&eacute;riode active", icon: "fa-solid fa-folder-open", color: "green" },
@@ -660,27 +717,48 @@
   }
 
   function renderFilters(page, slug) {
-    return '<section class="filter-panel">' + page.filters.map(function (filter, index) {
+    var columns = page.columns || [];
+    var used = {};
+
+    // Les options sont injectees par app.js a partir des valeurs reelles du tableau.
+    var controls = page.filters.map(function (filter, index) {
       var id = slug + "-filter-" + index;
+      var columnIndex = matchFilterColumn(filter, columns, used);
+      if (columnIndex !== -1) {
+        used[columnIndex] = true;
+      }
+
       return [
         '<div class="form-group">',
         '<label for="' + id + '">' + filter + "</label>",
-        '<select class="form-control" id="' + id + '">',
+        '<select class="form-control" id="' + id + '" data-filter-select' + (columnIndex !== -1 ? ' data-filter-column="' + columnIndex + '"' : "") + ">",
         '<option value="">Tous</option>',
-        '<option>Juin 2026</option>',
-        '<option>IA Dakar</option>',
-        '<option>Valide</option>',
         "</select>",
         "</div>"
       ].join("");
-    }).join("") + '<div class="actions-group"><button class="btn-secondary" type="button">Filtrer</button></div></section>';
+    }).join("");
+
+    return [
+      '<section class="filter-panel" data-filter-panel data-filter-target="#moduleTable">',
+      controls,
+      '<div class="actions-group">',
+      '<button class="btn-secondary" type="button" data-filter-apply>Filtrer</button>',
+      '<button class="btn-secondary" type="button" data-filter-reset>R&eacute;initialiser</button>',
+      "</div>",
+      "</section>"
+    ].join("");
   }
 
   function renderActions(page) {
     var buttons = (page.actions || []).map(function (label, index) {
       var className = index === 0 ? "btn-primary" : "btn-secondary";
       var calculatorAttr = page.calculator && label === "Calculer" ? " data-calculate-indemnity" : "";
-      return '<button class="' + className + '" type="button"' + calculatorAttr + ">" + label + "</button>";
+      var normalized = normalizeText(label);
+      var exportAttr = normalized.indexOf("export") === 0 ? ' data-export-table="#moduleTable"' : "";
+      if (exportAttr && normalized.indexOf("pdf") !== -1) {
+        exportAttr += ' data-export-format="pdf"';
+      }
+      return '<button class="' + className + '" type="button"' + calculatorAttr + exportAttr + ">" + label + "</button>";
     }).join("");
 
     if (page.closePeriod) {
