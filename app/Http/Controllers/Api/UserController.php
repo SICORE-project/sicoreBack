@@ -3,11 +3,12 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use Illuminate\Http\Request;
 use App\Http\Requests\Administration\StoreUserRequest;
+use App\Http\Requests\Administration\UpdateUserRequest;
 use App\Http\Resources\UserResource;
 use App\Services\Administration\UserService;
 use App\Models\Admin\User;
+use Illuminate\Http\Request;
 
 class UserController extends Controller
 {
@@ -22,18 +23,13 @@ class UserController extends Controller
      */
     public function index()
     {
-        $users = $this->userService
-            ->all();
+        $users = $this->userService->all();
 
         return response()->json([
-
-            'success'=>true,
-
-            'message'=>'Liste des utilisateurs',
-
-            'data'=> UserResource::collection($users)
-
-        ],200);
+            'success' => true,
+            'message' => 'Liste des utilisateurs',
+            'data' => UserResource::collection($users)
+        ], 200);
     }
 
     /**
@@ -41,22 +37,13 @@ class UserController extends Controller
      */
     public function store(StoreUserRequest $request)
     {
-         $user = $this->userService
-            ->create(
-                $request->validated()
-            );
-
+        $user = $this->userService->create($request->validated());
 
         return response()->json([
-
-            'success'=>true,
-
-            'message'=>'Utilisateur créé avec succès.',
-
-            'data'=> new UserResource($user)
-
-        ],201);
-
+            'success' => true,
+            'message' => 'Utilisateur créé avec succès.',
+            'data' => new UserResource($user)
+        ], 201);
     }
 
     /**
@@ -64,40 +51,43 @@ class UserController extends Controller
      */
     public function show(string $id)
     {
-        $user = $this->userService
-            ->find($id);
+        $user = $this->userService->find($id);
 
         return response()->json([
-
-            'success'=>true,
-
-            'message'=>'Utilisateur trouvé avec succès.',
-
-            'data'=> new UserResource($user)
-
-        ],200);
+            'success' => true,
+            'message' => 'Utilisateur trouvé avec succès.',
+            'data' => new UserResource($user)
+        ], 200);
     }
+ public function assignRole(Request $request, string $id)
+{
+    $user = $this->userService->find($id);
 
+    $request->validate([
+        'role_id' => 'required|exists:roles,id',
+    ]);
+
+    $user->update(['role_id' => $request->role_id]);
+
+    return response()->json([
+        'success' => true,
+        'message' => 'Rôle assigné avec succès.',
+        'data' => new UserResource($user->load('role'))
+    ], 200);
+}
     /**
      * Update the specified resource in storage.
      */
-    public function update(Request $request, string $id)
+    public function update(UpdateUserRequest $request, string $id)
     {
-        $user = $this->userService
-            ->find($id);
-
-        $this->userService
-            ->update($user, $request->validated());
+        $user = $this->userService->find($id);
+        $this->userService->update($user, $request->validated());
 
         return response()->json([
-
-            'success'=>true,
-
-            'message'=>'Utilisateur mis à jour avec succès.',
-
-            'data'=> new UserResource($user)
-
-        ],200);
+            'success' => true,
+            'message' => 'Utilisateur mis à jour avec succès.',
+            'data' => new UserResource($user)
+        ], 200);
     }
 
     /**
@@ -105,18 +95,12 @@ class UserController extends Controller
      */
     public function destroy(string $id)
     {
-        $user = $this->userService
-            ->find($id);
-
-        $this->userService
-            ->delete($user);
+        $user = $this->userService->find($id);
+        $this->userService->delete($user);
 
         return response()->json([
-
-            'success'=>true,
-
-            'message'=>'Utilisateur supprimé avec succès.'
-
-        ],200);
+            'success' => true,
+            'message' => 'Utilisateur supprimé avec succès.'
+        ], 200);
     }
 }
