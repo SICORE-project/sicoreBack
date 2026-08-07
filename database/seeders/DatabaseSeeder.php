@@ -12,7 +12,7 @@ class DatabaseSeeder extends Seeder
 {
     public function run(): void
     {
-        // // Création du rôle Administrateur
+        // Création du rôle Administrateur
         // $role = Role::firstOrCreate(
         //     ['slug' => 'administrateur'],
         //     [
@@ -39,9 +39,8 @@ class DatabaseSeeder extends Seeder
         RoleSeeder::class,
         PermissionSeeder::class,
         RolePermissionSeeder::class,
-        userSeeder::class,
-        ]);
-   
+        UserSeeder::class,
+    ]);
 
     }
 

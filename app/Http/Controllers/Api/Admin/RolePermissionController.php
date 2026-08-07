@@ -17,28 +17,28 @@ class RolePermissionController extends Controller
      */
     public function index(Request $request)
     {
-        $query = DB::table('role_permissions')
-            ->join('roles', 'role_permissions.role_id', '=', 'roles.id')
-            ->join('permissions', 'role_permissions.permission_id', '=', 'permissions.id')
+        $query = DB::table('role_permission')
+            ->join('roles', 'role_permission.role_id', '=', 'roles.id')
+            ->join('permissions', 'role_permission.permission_id', '=', 'permissions.id')
             ->select(
-                'role_permissions.id',
-                'role_permissions.role_id',
+                'role_permission.id',
+                'role_permission.role_id',
                 'roles.nom as role_nom',
                 'roles.slug as role_slug',
-                'role_permissions.permission_id',
+                'role_permission.permission_id',
                 'permissions.nom as permission_nom',
                 'permissions.slug as permission_slug',
                 'permissions.module',
                 'permissions.groupe',
-                'role_permissions.created_at'
+                'role_permission.created_at'
             );
 
         if ($request->has('role_id')) {
-            $query->where('role_permissions.role_id', $request->role_id);
+            $query->where('role_permission.role_id', $request->role_id);
         }
 
         if ($request->has('permission_id')) {
-            $query->where('role_permissions.permission_id', $request->permission_id);
+            $query->where('role_permission.permission_id', $request->permission_id);
         }
 
         if ($request->has('module')) {
@@ -316,10 +316,10 @@ class RolePermissionController extends Controller
     {
         $totalRoles = Role::count();
         $totalPermissions = Permission::count();
-        $totalAssociations = DB::table('role_permissions')->count();
+        $totalAssociations = DB::table('role_permission')->count();
 
         // Nombre de permissions par rôle
-        $permissionsPerRole = DB::table('role_permissions')
+        $permissionsPerRole = DB::table('role_permission')
             ->select('role_id', DB::raw('count(*) as total'))
             ->groupBy('role_id')
             ->orderBy('total', 'desc')
@@ -334,7 +334,7 @@ class RolePermissionController extends Controller
             });
 
         // Nombre de rôles par permission
-        $rolesPerPermission = DB::table('role_permissions')
+        $rolesPerPermission = DB::table('role_permission')
             ->select('permission_id', DB::raw('count(*) as total'))
             ->groupBy('permission_id')
             ->orderBy('total', 'desc')
