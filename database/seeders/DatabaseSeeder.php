@@ -14,11 +14,11 @@ class DatabaseSeeder extends Seeder
     {
         // Création du rôle Administrateur
         $role = Role::firstOrCreate(
-            ['slug' => 'administrateur'],
+            ['slug' => 'admin'],
             [
                 'nom' => 'Administrateur',
                 'description' => 'Administrateur du système',
-                'niveau' => 1,
+                'niveau' => 'admin',
                 'est_actif' => true,
             ]
         );
