@@ -12,16 +12,16 @@ class DatabaseSeeder extends Seeder
 {
     public function run(): void
     {
-        // // Création du rôle Administrateur
-        // $role = Role::firstOrCreate(
-        //     ['slug' => 'administrateur'],
-        //     [
-        //         'nom' => 'Administrateur',
-        //         'description' => 'Administrateur du système',
-        //         'niveau' => 1,
-        //         'est_actif' => true,
-        //     ]
-        // );
+        // Création du rôle Administrateur
+        $role = Role::firstOrCreate(
+            ['slug' => 'admin'],
+            [
+                'nom' => 'Administrateur',
+                'description' => 'Administrateur du système',
+                'niveau' => 'admin',
+                'est_actif' => true,
+            ]
+        );
 
         // Création du compte administrateur
         // \App\Models\Admin\User::firstOrCreate(
