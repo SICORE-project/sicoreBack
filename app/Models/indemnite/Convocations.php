@@ -1,0 +1,57 @@
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+
+class Convocations extends Model
+{
+    protected $table = 'convocations';
+
+    protected $fillable = [
+        'date_emission',
+        'objet',
+        'lieu_examen',
+        'ordre_de_mission',
+        'lieu_affectation',
+        'statut',
+        'utilisateur_id',
+    ];
+
+    protected $casts = [
+        'date_emission' => 'date',
+        'ordre_de_mission' => 'boolean',
+    ];
+
+    public function utilisateur(): BelongsTo
+    {
+        return $this->belongsTo(
+            Utilisateurs::class,
+            'utilisateur_id'
+        );
+    }
+
+    /**
+     * Bénéficiaires affectés à la convocation.
+     */
+    public function enseignants(): BelongsToMany
+    {
+        return $this->belongsToMany(
+            Enseignants::class,
+            'convocation_enseignant',
+            'convocation_id',
+            'enseignant_id'
+        )->withTimestamps();
+    }
+
+    public function envois(): HasMany
+    {
+        return $this->hasMany(
+            ConvocationEnvoi::class,
+            'convocation_id'
+        );
+    }
+}

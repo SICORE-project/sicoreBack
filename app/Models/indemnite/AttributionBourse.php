@@ -1,0 +1,1 @@
+<?php namespace App\Models; use Illuminate\Database\Eloquent\Model; class AttributionBourse extends Model {protected $table='attributions_bourses';protected $fillable=['etudiant_id','type_bourse_id','date_debut','date_fin','montant_mensuel','statut','commentaire','attribue_par'];protected $casts=['date_debut'=>'date','date_fin'=>'date','montant_mensuel'=>'decimal:2'];}
