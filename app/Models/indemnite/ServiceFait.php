@@ -41,7 +41,7 @@ class ServiceFait extends Model
     public function enseignant(): BelongsTo
     {
         return $this->belongsTo(
-            Enseignants::class,
+            \App\Models\Personnel\Enseignant::class,
             'enseignant_id'
         );
     }
@@ -49,7 +49,7 @@ class ServiceFait extends Model
     public function utilisateur(): BelongsTo
     {
         return $this->belongsTo(
-            Utilisateurs::class,
+            \App\Models\Admin\User::class,
             'utilisateur_id'
         );
     }
@@ -57,7 +57,7 @@ class ServiceFait extends Model
     public function validateur(): BelongsTo
     {
         return $this->belongsTo(
-            Utilisateurs::class,
+            \App\Models\Admin\User::class,
             'valide_par'
         );
     }

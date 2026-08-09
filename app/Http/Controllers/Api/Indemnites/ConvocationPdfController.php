@@ -1,55 +1,76 @@
 <?php
 
-namespace App\Http\Controllers;
+namespace App\Http\Controllers\Api\Indemnites;
 
-use App\Models\Convocations;
-use Barryvdh\DomPDF\Facade\Pdf;
+use App\Http\Controllers\Controller;
+use App\Http\Controllers\Api\Indemnites\Concerns\ApiResponseTrait;
+use App\Models\Convocations as ConvocationModel;
+use Illuminate\Support\Facades\Storage;
 
 class ConvocationPdfController extends Controller
 {
+    use ApiResponseTrait;
+
     /**
-     * Générer et afficher le PDF de la convocation.
+     * Génère le PDF de la convocation et le stocke sur le disque `public`.
+     *
+     * NOTE: nécessite le package barryvdh/laravel-dompdf, ajouté à
+     * composer.json (voir README-corrections.md). Le code reste défensif
+     * (class_exists) au cas où le package ne serait pas encore installé
+     * sur l'environnement courant.
      */
-    public function generate($convocation)
+    public function generer(string $id)
     {
-        // Récupérer la convocation avec ses bénéficiaires
-        $convocationModel = Convocations::with('enseignants')
-            ->findOrFail($convocation);
+        $convocation = ConvocationModel::with('enseignants')->find($id);
 
-        // Générer le PDF à partir de la vue Blade
-        $pdf = Pdf::loadView(
-            'convocations.pdf',
-            [
-                'convocation' => $convocationModel,
-            ]
-        );
+        if (! $convocation) {
+            return $this->error('Convocation introuvable.', 404);
+        }
 
-        // Afficher le PDF dans le navigateur
-        return $pdf->stream(
-            'convocation_'.$convocationModel->id.'.pdf'
-        );
+        if (! class_exists(\Barryvdh\DomPDF\Facade\Pdf::class)) {
+            return $this->error(
+                "La génération de PDF nécessite le package 'barryvdh/laravel-dompdf' (composer require barryvdh/laravel-dompdf).",
+                501
+            );
+        }
+
+        $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('pdf.convocation', [
+            'convocation' => $convocation,
+        ]);
+
+        $chemin = "convocations/{$convocation->id}/convocation-{$convocation->id}.pdf";
+        Storage::disk('public')->put($chemin, $pdf->output());
+
+        $convocation->update(['fichier_chemin' => $chemin]);
+
+        return $this->success('PDF généré avec succès.', [
+            'convocation_id' => $convocation->id,
+            'chemin' => $chemin,
+            'url' => Storage::disk('public')->url($chemin),
+        ]);
     }
 
     /**
-     * Générer et télécharger le PDF.
+     * Télécharge le PDF de la convocation (le génère au préalable si besoin).
      */
-    public function download($convocation)
+    public function download(string $id)
     {
-        // Récupérer la convocation avec ses bénéficiaires
-        $convocationModel = Convocations::with('enseignants')
-            ->findOrFail($convocation);
+        $convocation = ConvocationModel::find($id);
 
-        // Générer le PDF
-        $pdf = Pdf::loadView(
-            'convocations.pdf',
-            [
-                'convocation' => $convocationModel,
-            ]
-        );
+        if (! $convocation) {
+            return $this->error('Convocation introuvable.', 404);
+        }
 
-        // Télécharger le fichier PDF
-        return $pdf->download(
-            'convocation_'.$convocationModel->id.'.pdf'
-        );
+        $chemin = "convocations/{$convocation->id}/convocation-{$convocation->id}.pdf";
+
+        if (! Storage::disk('public')->exists($chemin)) {
+            $resultat = $this->generer($id);
+
+            if ($resultat->getData()->success !== true) {
+                return $resultat;
+            }
+        }
+
+        return Storage::disk('public')->download($chemin, "convocation-{$convocation->id}.pdf");
     }
 }

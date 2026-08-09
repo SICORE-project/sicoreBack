@@ -1,186 +1,218 @@
 <?php
 
-namespace App\Http\Controllers;
+namespace App\Http\Controllers\Api\Indemnites;
 
+use App\Http\Controllers\Controller;
+use App\Http\Controllers\Api\Indemnites\Concerns\ApiResponseTrait;
+use App\Http\Requests\Indemnites\StorePieceJustificativeRequest;
+use App\Http\Requests\Indemnites\UpdatePieceJustificativeRequest;
+use App\Http\Requests\Indemnites\DeposerPieceJustificativeRequest;
+use App\Http\Requests\Indemnites\ClassifierPieceJustificativeRequest;
+use App\Http\Requests\Indemnites\VerifierPieceJustificativeRequest;
+use App\Http\Requests\Indemnites\RejeterPieceJustificativeRequest;
 use App\Models\piece_justificatives;
-use App\Services\AccuseReceptionService;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 
 class PieceJustificativesController extends Controller
 {
+    use ApiResponseTrait;
+
     public function index(Request $request)
     {
-        $query = piece_justificatives::with(['convocation', 'depositaire', 'verificateur', 'validateur']);
+        $query = piece_justificatives::query();
 
-        if (! $this->isAdmin($request)) {
-            $query->where('depositaire_id', $request->user()->id);
+        if ($request->filled('statut')) {
+            $query->where('statut', $request->query('statut'));
         }
 
-        foreach (['statut', 'type', 'convocation_id'] as $filter) {
-            if ($request->filled($filter)) {
-                $query->where($filter, $request->input($filter));
-            }
+        if ($request->filled('convocation_id')) {
+            $query->where('convocation_id', $request->query('convocation_id'));
         }
 
-        return response()->json([
-            'success' => true,
-            'data' => $query->latest()->paginate($this->perPage($request)),
-        ]);
+        $pieces = $query->latest()->paginate($request->integer('per_page', 15));
+
+        return $this->success('Liste des pièces justificatives.', $pieces);
     }
 
-    public function store(Request $request)
+    public function store(StorePieceJustificativeRequest $request)
     {
-        $validated = $request->validate([
-            'convocation_id' => ['required', 'integer', 'exists:convocations,id'],
-            'type' => ['required', 'string', 'max:100'],
-            'session' => ['nullable', 'string', 'max:100'],
-            'fichiers' => ['required', 'array', 'min:1', 'max:10'],
-            'fichiers.*' => ['required', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:10240'],
-        ]);
+        $piece = $this->enregistrerPiece($request);
 
-        $paths = [];
-        try {
-            $pieces = DB::transaction(function () use ($validated, $request, &$paths) {
-                return collect($validated['fichiers'])->map(function ($file) use ($validated, $request, &$paths) {
-                    $path = $file->store("pieces-justificatives/{$validated['convocation_id']}", 'local');
-                    $paths[] = $path;
+        return $this->success('Pièce justificative créée avec succès.', $piece, 201);
+    }
 
-                    $piece = piece_justificatives::create([
-                        'type' => $validated['type'], 'document_url' => $path, 'chemin' => $path,
-                        'nom_original' => $file->getClientOriginalName(), 'mime_type' => $file->getMimeType(),
-                        'taille' => $file->getSize(), 'date_depot' => today(),
-                        'convocation_id' => $validated['convocation_id'], 'depositaire_id' => $request->user()->id,
-                    ]);
-                    app(AccuseReceptionService::class)->genererPourPiece($piece->load('depositaire'), $validated['session'] ?? null);
-                    return $piece;
-                });
-            });
-        } catch (\Throwable $exception) {
-            foreach ($paths as $path) Storage::disk('local')->delete($path);
-            throw $exception;
+    public function show(string $id)
+    {
+        $piece = piece_justificatives::find($id);
+
+        if (! $piece) {
+            return $this->error('Pièce justificative introuvable.', 404);
         }
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Pièces justificatives déposées avec succès.',
-            'data' => $pieces,
-        ], 201);
+        return $this->success('Pièce justificative trouvée.', $piece);
     }
 
-    public function show(Request $request, piece_justificatives $piece)
+    public function update(UpdatePieceJustificativeRequest $request, string $id)
     {
-        $this->authorizeAccess($request, $piece);
+        $piece = piece_justificatives::find($id);
 
-        return response()->json([
-            'success' => true,
-            'data' => $piece->load(['convocation', 'depositaire', 'verificateur', 'validateur']),
-        ]);
+        if (! $piece) {
+            return $this->error('Pièce justificative introuvable.', 404);
+        }
+
+        $piece->update($request->validated());
+
+        return $this->success('Pièce justificative mise à jour avec succès.', $piece);
     }
 
-    public function download(Request $request, piece_justificatives $piece)
+    public function destroy(string $id)
     {
-        $this->authorizeAccess($request, $piece);
+        $piece = piece_justificatives::find($id);
 
-        $path = $piece->chemin ?? $piece->document_url;
-        abort_unless($path && Storage::disk('local')->exists($path), 404, 'Fichier introuvable.');
+        if (! $piece) {
+            return $this->error('Pièce justificative introuvable.', 404);
+        }
 
-        return Storage::disk('local')->download($path, $piece->nom_original ?? basename($path));
+        if ($piece->chemin) {
+            Storage::disk('public')->delete($piece->chemin);
+        }
+
+        $piece->delete();
+
+        return $this->success('Pièce justificative supprimée avec succès.');
     }
 
-    public function classer(Request $request, piece_justificatives $piece)
+    /**
+     * Dépôt dédié d'une pièce justificative avec fichier obligatoire.
+     */
+    public function deposer(DeposerPieceJustificativeRequest $request)
     {
-        $this->authorizeAccess($request, $piece);
-        abort_if($piece->statut === 'valide', 422, 'Une pièce validée ne peut plus être reclassée.');
+        $piece = $this->enregistrerPiece($request);
 
-        $validated = $request->validate(['type' => ['required', 'string', 'max:100']]);
-        $piece->update($validated);
-
-        return response()->json(['success' => true, 'data' => $piece->fresh()]);
+        return $this->success('Pièce justificative déposée avec succès.', $piece, 201);
     }
 
-    public function verifier(Request $request, piece_justificatives $piece)
+    public function classifier(ClassifierPieceJustificativeRequest $request, string $id)
     {
-        $this->authorizeAdmin($request);
+        $piece = piece_justificatives::find($id);
 
-        $validated = $request->validate([
-            'conforme' => ['required', 'boolean'],
-            'commentaire' => ['nullable', 'string', 'max:2000'],
-        ]);
+        if (! $piece) {
+            return $this->error('Pièce justificative introuvable.', 404);
+        }
+
+        $piece->update(['type' => $request->validated('type')]);
+
+        return $this->success('Pièce justificative classifiée avec succès.', $piece);
+    }
+
+    public function verifier(VerifierPieceJustificativeRequest $request, string $id)
+    {
+        $piece = piece_justificatives::find($id);
+
+        if (! $piece) {
+            return $this->error('Pièce justificative introuvable.', 404);
+        }
 
         $piece->update([
-            'conforme' => $validated['conforme'],
-            'commentaire_verification' => $validated['commentaire'] ?? null,
-            'verifie_par' => $request->user()->id,
+            'conforme' => $request->validated('conforme'),
+            'commentaire_verification' => $request->validated('commentaire_verification'),
+            'verifie_par' => $request->user()?->id,
             'verifie_at' => now(),
         ]);
-        app(AccuseReceptionService::class)->synchroniserDossier($piece->fresh());
 
-        return response()->json(['success' => true, 'data' => $piece->fresh()]);
+        return $this->success('Vérification enregistrée avec succès.', $piece);
     }
 
-    public function valider(Request $request, piece_justificatives $piece)
+    public function valider(Request $request, string $id)
     {
-        $this->authorizeAdmin($request);
-        abort_if($piece->conforme !== true, 422, 'La pièce doit être déclarée conforme avant validation.');
+        $piece = piece_justificatives::find($id);
+
+        if (! $piece) {
+            return $this->error('Pièce justificative introuvable.', 404);
+        }
 
         $piece->update([
             'statut' => 'valide',
-            'valide_par' => $request->user()->id,
+            'valide_par' => $request->user()?->id,
             'valide_at' => now(),
-            'commentaire_rejet' => null,
         ]);
 
-        return response()->json(['success' => true, 'data' => $piece->fresh()]);
+        return $this->success('Pièce justificative validée avec succès.', $piece);
     }
 
-    public function rejeter(Request $request, piece_justificatives $piece)
+    public function rejeter(RejeterPieceJustificativeRequest $request, string $id)
     {
-        $this->authorizeAdmin($request);
-        $validated = $request->validate(['commentaire' => ['required', 'string', 'min:3', 'max:2000']]);
+        $piece = piece_justificatives::find($id);
+
+        if (! $piece) {
+            return $this->error('Pièce justificative introuvable.', 404);
+        }
 
         $piece->update([
             'statut' => 'rejete',
-            'valide_par' => $request->user()->id,
-            'valide_at' => now(),
-            'commentaire_rejet' => $validated['commentaire'],
+            'commentaire_rejet' => $request->validated('commentaire_rejet'),
         ]);
 
-        return response()->json(['success' => true, 'data' => $piece->fresh()]);
+        return $this->success('Pièce justificative rejetée.', $piece);
     }
 
-    public function notifier(Request $request, piece_justificatives $piece)
+    public function download(string $id)
     {
-        $this->authorizeAdmin($request);
-        abort_unless(in_array($piece->statut, ['valide', 'rejete'], true), 422, 'La pièce doit être validée ou rejetée.');
+        $piece = piece_justificatives::find($id);
 
-        $message = $piece->statut === 'valide'
-            ? 'Votre pièce justificative a été validée.'
-            : 'Votre pièce justificative a été rejetée : '.$piece->commentaire_rejet;
+        if (! $piece) {
+            return $this->error('Pièce justificative introuvable.', 404);
+        }
 
-        $piece->update(['notification_at' => now(), 'notification_message' => $message]);
+        if (! $piece->chemin || ! Storage::disk('public')->exists($piece->chemin)) {
+            return $this->error('Fichier introuvable sur le serveur.', 404);
+        }
 
-        return response()->json(['success' => true, 'message' => $message, 'data' => $piece->fresh()]);
+        return Storage::disk('public')->download($piece->chemin, $piece->nom_original);
     }
 
-    private function isAdmin(Request $request): bool
+    /**
+     * Notifie le déposant du statut de sa pièce justificative.
+     *
+     * NOTE: aucun système de notification dédié (mail/DB) n'est encore
+     * branché pour ce module ; l'horodatage et le message sont donc tracés
+     * directement sur la pièce, en attendant l'intégration éventuelle avec
+     * App\Models\admin\Notification.
+     */
+    public function notifier(Request $request, string $id)
     {
-        return strtolower((string) $request->user()->loadMissing('role')->role?->libelle) === 'administrateur';
+        $piece = piece_justificatives::find($id);
+
+        if (! $piece) {
+            return $this->error('Pièce justificative introuvable.', 404);
+        }
+
+        $piece->update([
+            'notification_at' => now(),
+            'notification_message' => $request->input('message', 'Mise à jour du statut de votre pièce justificative.'),
+        ]);
+
+        return $this->success('Notification envoyée avec succès.', $piece);
     }
 
-    private function authorizeAdmin(Request $request): void
+    private function enregistrerPiece(Request $request): piece_justificatives
     {
-        abort_unless($this->isAdmin($request), 403, 'Réservé aux administrateurs.');
-    }
+        $data = $request->validated();
 
-    private function authorizeAccess(Request $request, piece_justificatives $piece): void
-    {
-        abort_unless($this->isAdmin($request) || $piece->depositaire_id === $request->user()->id, 403, 'Accès non autorisé.');
-    }
+        if ($request->hasFile('document')) {
+            $fichier = $request->file('document');
+            $data['chemin'] = $fichier->store('pieces-justificatives', 'public');
+            $data['nom_original'] = $fichier->getClientOriginalName();
+            $data['mime_type'] = $fichier->getClientMimeType();
+            $data['taille'] = $fichier->getSize();
+            unset($data['document']);
+        }
 
-    private function perPage(Request $request): int
-    {
-        return min(max($request->integer('per_page', 15), 1), 100);
+        $data['depositaire_id'] = $data['depositaire_id'] ?? $request->user()?->id;
+        $data['statut'] = $data['statut'] ?? 'depose';
+        $data['date_depot'] = $data['date_depot'] ?? now()->toDateString();
+
+        return piece_justificatives::create($data);
     }
 }

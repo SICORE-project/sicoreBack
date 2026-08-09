@@ -34,16 +34,16 @@ class piece_justificatives extends Model
 
     public function depositaire(): BelongsTo
     {
-        return $this->belongsTo(utilisateurs::class, 'depositaire_id');
+        return $this->belongsTo(\App\Models\Admin\User::class, 'depositaire_id');
     }
 
     public function verificateur(): BelongsTo
     {
-        return $this->belongsTo(utilisateurs::class, 'verifie_par');
+        return $this->belongsTo(\App\Models\Admin\User::class, 'verifie_par');
     }
 
     public function validateur(): BelongsTo
     {
-        return $this->belongsTo(utilisateurs::class, 'valide_par');
+        return $this->belongsTo(\App\Models\Admin\User::class, 'valide_par');
     }
 }

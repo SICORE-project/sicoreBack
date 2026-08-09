@@ -1,139 +1,266 @@
 <?php
 
-namespace App\Http\Controllers;
+namespace App\Http\Controllers\Api\Indemnites;
 
+use App\Http\Controllers\Controller;
+use App\Http\Controllers\Api\Indemnites\Concerns\ApiResponseTrait;
+use App\Http\Requests\Indemnites\StoreEtatPaieIndemniteRequest;
+use App\Http\Requests\Indemnites\UpdateEtatPaieIndemniteRequest;
+use App\Http\Requests\Indemnites\GenererEtatPaieIndemniteRequest;
 use App\Models\etat_paie_indemnites;
 use App\Models\indemnites;
-use App\Models\MissionDeplacement;
-use App\Models\utilisateurs;
-use App\Services\XlsxExportService;
-use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Response;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 class EtatPaieIndemnitesController extends Controller
 {
+    use ApiResponseTrait;
+
     public function index(Request $request)
     {
-        $this->admin($request);
-        $query = etat_paie_indemnites::with(['beneficiaire', 'generateur', 'validateur']);
-        foreach (['type', 'statut', 'beneficiaire_id', 'periode_debut', 'periode_fin', 'lieu_examen', 'session'] as $filter) if ($request->filled($filter)) $query->where($filter, $request->input($filter));
-        return response()->json(['success' => true, 'data' => $query->latest()->paginate($this->perPage($request))]);
+        $query = etat_paie_indemnites::query();
+
+        if ($request->filled('statut')) {
+            $query->where('statut', $request->query('statut'));
+        }
+
+        $etats = $query->latest()->paginate($request->integer('per_page', 15));
+
+        return $this->success('Liste des états de paie des indemnités.', $etats);
     }
 
-    public function genererIndividuel(Request $request)
+    public function store(StoreEtatPaieIndemniteRequest $request)
     {
-        $this->admin($request);
-        $data = $request->validate(['beneficiaire_id' => ['required', 'exists:utilisateurs,id'], 'periode_debut' => ['required', 'date'], 'periode_fin' => ['required', 'date', 'after_or_equal:periode_debut'], 'centre' => ['nullable', 'string', 'max:255'], 'session' => ['nullable', 'string', 'max:100']]);
-        $elements = $this->elements($data['periode_debut'], $data['periode_fin'], [$data['beneficiaire_id']]);
-        $etat = $this->creerEtat($request, 'individuel', $data['periode_debut'], $data['periode_fin'], $elements, $data['beneficiaire_id'], ['beneficiaires' => [$data['beneficiaire_id']]], $data['centre'] ?? null, $data['session'] ?? null);
-        return response()->json(['success' => true, 'data' => $etat->load('beneficiaire')], 201);
+        $data = $request->validated();
+        $data['reference'] = 'EP-' . Str::upper(Str::random(8));
+        $data['utilisateur_id'] = $request->user()?->id;
+        $data['statut'] = 'brouillon';
+        $data['verrouille'] = false;
+
+        $etat = etat_paie_indemnites::create($data);
+
+        return $this->success('État de paie créé avec succès.', $etat, 201);
     }
 
-    public function genererConsolide(Request $request)
+    public function show(string $id)
     {
-        $this->admin($request);
-        $data = $request->validate(['periode_debut' => ['required', 'date'], 'periode_fin' => ['required', 'date', 'after_or_equal:periode_debut'], 'beneficiaires' => ['nullable', 'array', 'min:1'], 'beneficiaires.*' => ['integer', 'exists:utilisateurs,id'], 'centre' => ['nullable', 'string', 'max:255'], 'session' => ['nullable', 'string', 'max:100']]);
-        $beneficiaires = $data['beneficiaires'] ?? null;
-        $elements = $this->elements($data['periode_debut'], $data['periode_fin'], $beneficiaires);
-        $etat = $this->creerEtat($request, 'consolide', $data['periode_debut'], $data['periode_fin'], $elements, null, ['beneficiaires' => $beneficiaires], $data['centre'] ?? null, $data['session'] ?? null);
-        return response()->json(['success' => true, 'data' => $etat], 201);
+        $etat = etat_paie_indemnites::find($id);
+
+        if (! $etat) {
+            return $this->error('État de paie introuvable.', 404);
+        }
+
+        return $this->success('État de paie trouvé.', $etat);
     }
 
-    public function show(Request $request, etat_paie_indemnites $etat)
+    public function update(UpdateEtatPaieIndemniteRequest $request, string $id)
     {
-        $this->admin($request);
-        return response()->json(['success' => true, 'data' => $etat->load(['beneficiaire', 'generateur', 'validateur'])]);
+        $etat = etat_paie_indemnites::find($id);
+
+        if (! $etat) {
+            return $this->error('État de paie introuvable.', 404);
+        }
+
+        if ($etat->verrouille) {
+            return $this->error('Cet état de paie est verrouillé et ne peut plus être modifié.', 422);
+        }
+
+        $etat->update($request->validated());
+
+        return $this->success('État de paie mis à jour avec succès.', $etat);
     }
 
-    public function coherence(Request $request, etat_paie_indemnites $etat)
+    /**
+     * CORRECTIF : avant de supprimer un état de paie, on libère les
+     * indemnités qui lui étaient rattachées (etat_paie_indemnite_id),
+     * sinon elles resteraient bloquées indéfiniment et ne pourraient
+     * plus jamais être intégrées à un futur état de paie.
+     */
+    public function destroy(string $id)
     {
-        $this->admin($request);
-        $somme = collect($etat->details['elements'] ?? [])->sum('montant');
-        return response()->json(['success' => round((float) $somme, 2) === round((float) $etat->total_montant, 2), 'data' => ['total_etat' => $etat->total_montant, 'total_elements' => round($somme, 2), 'ecart' => round($etat->total_montant - $somme, 2), 'nombre_elements' => count($etat->details['elements'] ?? [])]]);
+        $etat = etat_paie_indemnites::find($id);
+
+        if (! $etat) {
+            return $this->error('État de paie introuvable.', 404);
+        }
+
+        if ($etat->verrouille) {
+            return $this->error('Cet état de paie est verrouillé et ne peut pas être supprimé.', 422);
+        }
+
+        DB::transaction(function () use ($etat) {
+            indemnites::where('etat_paie_indemnite_id', $etat->id)
+                ->update(['etat_paie_indemnite_id' => null]);
+
+            $etat->delete();
+        });
+
+        return $this->success('État de paie supprimé avec succès.');
     }
 
-    public function valider(Request $request, etat_paie_indemnites $etat)
+    public function individuels(Request $request)
     {
-        $this->admin($request);
-        abort_unless(in_array($etat->statut, ['genere', 'a_corriger'], true) && ! $etat->verrouille, 422, 'Cet état ne peut plus être validé.');
-        $somme = collect($etat->details['elements'] ?? [])->sum('montant');
-        abort_unless(round((float) $somme, 2) === round((float) $etat->total_montant, 2), 422, 'Les totaux de l’état sont incohérents.');
-        $etat->update(['statut' => 'valide', 'verrouille' => true, 'valide_par' => $request->user()->id, 'valide_at' => now(), 'commentaire_correction' => null]);
-        return response()->json(['success' => true, 'data' => $etat->fresh()]);
+        $etats = etat_paie_indemnites::where('type', 'individuel')
+            ->when($request->filled('beneficiaire_id'), fn ($q) => $q->where('beneficiaire_id', $request->query('beneficiaire_id')))
+            ->latest()
+            ->paginate($request->integer('per_page', 15));
+
+        return $this->success('États de paie individuels.', $etats);
     }
 
-    public function renvoyerCorrection(Request $request, etat_paie_indemnites $etat)
+    public function consolides(Request $request)
     {
-        $this->admin($request);
-        abort_unless($etat->statut === 'genere' && ! $etat->verrouille, 422, 'Seul un état généré peut être renvoyé en correction.');
-        $data = $request->validate(['commentaire' => ['required', 'string', 'min:3', 'max:2000']]);
-        $etat->update(['statut' => 'a_corriger', 'commentaire_correction' => $data['commentaire']]);
-        return response()->json(['success' => true, 'data' => $etat->fresh()]);
+        $etats = etat_paie_indemnites::where('type', 'consolide')
+            ->latest()
+            ->paginate($request->integer('per_page', 15));
+
+        return $this->success('États de paie consolidés.', $etats);
     }
 
-    public function exporter(Request $request, etat_paie_indemnites $etat)
+    public function export(Request $request)
     {
-        $this->admin($request);
-        $format = $request->validate(['format' => ['required', 'in:pdf,excel']])['format'];
-        $etat->load('beneficiaire');
-        if ($format === 'pdf') return Pdf::loadView('etats-paie.document', compact('etat'))->download("{$etat->reference}.pdf");
-        $rows = [['Bénéficiaire', 'Nature', 'Référence', 'Date', 'Montant']];
-        foreach ($etat->details['elements'] ?? [] as $element) $rows[] = [$element['beneficiaire'], $element['source'] === 'indemnite' ? 'Indemnité' : 'Frais de déplacement', $element['libelle'], $element['date'], $element['montant']];
-        $rows[] = ['', '', '', 'Total', $etat->total_montant];
-        $path = app(XlsxExportService::class)->create("{$etat->reference}.xlsx", $rows);
-        return response()->download($path, "{$etat->reference}.xlsx", ['Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'])->deleteFileAfterSend(true);
-    }
+        $query = etat_paie_indemnites::query();
 
-    public function previsualiser(Request $request, etat_paie_indemnites $etat)
-    {
-        $this->admin($request); $etat->load('beneficiaire');
-        return Pdf::loadView('etats-paie.document', compact('etat'))->stream("{$etat->reference}.pdf");
-    }
+        if ($request->filled('statut')) {
+            $query->where('statut', $request->query('statut'));
+        }
 
-    public function archiver(Request $request, etat_paie_indemnites $etat)
-    {
-        $this->admin($request); abort_unless($etat->statut === 'valide' && $etat->verrouille, 422, 'Seul un état validé et verrouillé peut être archivé.');
-        $etat->update(['statut' => 'archive', 'archive_par' => $request->user()->id, 'archive_at' => now()]);
-        return response()->json(['success' => true, 'data' => $etat->fresh()]);
+        $etats = $query->get();
+
+        return $this->success('Export des états de paie.', [
+            'total' => $etats->count(),
+            'items' => $etats,
+        ]);
     }
 
     public function historique(Request $request)
     {
-        $this->admin($request);
-        return response()->json(['success' => true, 'data' => etat_paie_indemnites::with('beneficiaire')->where('statut', 'archive')->latest('archive_at')->paginate($this->perPage($request))]);
+        $etats = etat_paie_indemnites::whereIn('statut', ['valide', 'archive', 'transmis'])
+            ->latest()
+            ->paginate($request->integer('per_page', 15));
+
+        return $this->success('Historique des états de paie.', $etats);
     }
 
-    public function restaurer(Request $request, etat_paie_indemnites $etat)
+    /**
+     * Génère les détails d'un état de paie à partir des indemnités validées
+     * correspondant au périmètre demandé.
+     *
+     * CORRECTIF anti-double-paiement : seules les indemnités validées ET
+     * pas encore rattachées à un état de paie (etat_paie_indemnite_id null)
+     * sont éligibles. Elles sont verrouillées (lockForUpdate) puis marquées
+     * comme consommées dans la même transaction que la génération, pour
+     * éviter qu'une même indemnité soit tirée par deux générations
+     * concurrentes ou par un futur état de paie.
+     */
+    public function generer(GenererEtatPaieIndemniteRequest $request, string $id)
     {
-        $this->admin($request); abort_unless($etat->statut === 'archive', 422, 'Cet état n’est pas archivé.');
-        $etat->update(['statut' => 'valide', 'archive_par' => null, 'archive_at' => null]);
-        return response()->json(['success' => true, 'data' => $etat->fresh()]);
+        $etat = etat_paie_indemnites::find($id);
+
+        if (! $etat) {
+            return $this->error('État de paie introuvable.', 404);
+        }
+
+        DB::transaction(function () use ($request, $etat) {
+            $query = indemnites::where('statut', 'valide')
+                ->whereNull('etat_paie_indemnite_id')
+                ->lockForUpdate();
+
+            $utilisateurIds = $request->validated('perimetre.utilisateur_ids');
+            if (! empty($utilisateurIds)) {
+                $query->whereIn('utilisateur_id', $utilisateurIds);
+            } elseif ($etat->beneficiaire_id) {
+                $query->where('utilisateur_id', $etat->beneficiaire_id);
+            }
+
+            $indemnitesValidees = $query->get();
+
+            indemnites::whereIn('id', $indemnitesValidees->pluck('id'))
+                ->update(['etat_paie_indemnite_id' => $etat->id]);
+
+            $etat->update([
+                'details' => $indemnitesValidees->toArray(),
+                'total_montant' => $indemnitesValidees->sum('montant_total'),
+                'perimetre' => $request->validated('perimetre'),
+                'date_generation' => now(),
+                'statut' => 'genere',
+            ]);
+        });
+
+        return $this->success('État de paie généré avec succès.', $etat->fresh());
     }
 
-    public function transmettreSica(Request $request, etat_paie_indemnites $etat)
+    public function preview(string $id)
     {
-        $this->admin($request);
-        abort_unless(in_array($etat->statut, ['valide', 'archive'], true) && $etat->verrouille, 422, 'L’état doit être validé et verrouillé avant transmission à la SICA.');
-        $etat->update(['transmit_sica' => true]);
-        return response()->json(['success' => true, 'message' => 'État transmis à la SICA.', 'data' => $etat->fresh()]);
+        $etat = etat_paie_indemnites::find($id);
+
+        if (! $etat) {
+            return $this->error('État de paie introuvable.', 404);
+        }
+
+        return $this->success('Aperçu de l\'état de paie.', $etat);
     }
 
-    private function creerEtat(Request $request, string $type, string $debut, string $fin, array $elements, ?int $beneficiaireId, array $perimetre, ?string $centre = null, ?string $session = null): etat_paie_indemnites
+    public function valider(Request $request, string $id)
     {
-        return etat_paie_indemnites::create(['reference' => 'EPA-'.now()->format('Ymd').'-'.strtoupper(Str::random(6)), 'type' => $type, 'beneficiaire_id' => $beneficiaireId, 'utilisateur_id' => $request->user()->id, 'date_generation' => today(), 'periode_debut' => $debut, 'periode_fin' => $fin, 'lieu_examen' => $centre, 'session' => $session, 'perimetre' => $perimetre, 'details' => ['elements' => $elements, 'nombre_elements' => count($elements)], 'total_montant' => collect($elements)->sum('montant')]);
+        $etat = etat_paie_indemnites::find($id);
+
+        if (! $etat) {
+            return $this->error('État de paie introuvable.', 404);
+        }
+
+        $etat->update([
+            'statut' => 'valide',
+            'verrouille' => true,
+            'valide_par' => $request->user()?->id,
+            'valide_at' => now(),
+        ]);
+
+        return $this->success('État de paie validé avec succès.', $etat);
     }
 
-    private function elements(string $debut, string $fin, ?array $beneficiaires): array
+    public function archiver(Request $request, string $id)
     {
-        $indemnites = indemnites::query()->where('statut', 'valide')->whereBetween('valide_at', [$debut.' 00:00:00', $fin.' 23:59:59'])->when($beneficiaires, fn ($q) => $q->whereIn('utilisateur_id', $beneficiaires))->get()->map(fn ($i) => ['source' => 'indemnite', 'id' => $i->id, 'beneficiaire_id' => $i->utilisateur_id, 'date' => $i->valide_at?->toDateString(), 'libelle' => 'Indemnité #'.$i->id, 'montant' => (float) $i->montant_total]);
-        $missions = MissionDeplacement::query()->whereIn('statut', ['remboursement_en_attente', 'remboursee'])->whereBetween('valide_at', [$debut.' 00:00:00', $fin.' 23:59:59'])->when($beneficiaires, fn ($q) => $q->whereIn('beneficiaire_id', $beneficiaires))->get()->map(fn ($m) => ['source' => 'frais_deplacement', 'id' => $m->id, 'beneficiaire_id' => $m->beneficiaire_id, 'date' => $m->valide_at?->toDateString(), 'libelle' => 'Mission '.$m->reference, 'montant' => (float) $m->montant_approuve]);
-        $noms = utilisateurs::whereIn('id', $indemnites->pluck('beneficiaire_id')->merge($missions->pluck('beneficiaire_id'))->unique())->get()->keyBy('id');
-        return $indemnites->merge($missions)->map(function (array $element) use ($noms) { $u = $noms->get($element['beneficiaire_id']); $element['beneficiaire'] = $u ? trim($u->prenom.' '.$u->nom) : 'Bénéficiaire supprimé'; return $element; })->values()->all();
+        $etat = etat_paie_indemnites::find($id);
+
+        if (! $etat) {
+            return $this->error('État de paie introuvable.', 404);
+        }
+
+        if ($etat->statut !== 'valide') {
+            return $this->error('Seul un état de paie validé peut être archivé.', 422);
+        }
+
+        $etat->update([
+            'statut' => 'archive',
+            'archive_par' => $request->user()?->id,
+            'archive_at' => now(),
+        ]);
+
+        return $this->success('État de paie archivé avec succès.', $etat);
     }
 
-    private function isAdmin(Request $request): bool { return strtolower((string) $request->user()->loadMissing('role')->role?->libelle) === 'administrateur'; }
-    private function admin(Request $request): void { abort_unless($this->isAdmin($request), 403, 'Réservé aux administrateurs.'); }
-    private function perPage(Request $request): int { return min(max($request->integer('per_page', 15), 1), 100); }
+    /**
+     * Marque l'état de paie comme transmis (ex: au système de paie / SICA).
+     */
+    public function transmettre(string $id)
+    {
+        $etat = etat_paie_indemnites::find($id);
+
+        if (! $etat) {
+            return $this->error('État de paie introuvable.', 404);
+        }
+
+        if ($etat->statut !== 'valide') {
+            return $this->error('Seul un état de paie validé peut être transmis.', 422);
+        }
+
+        $etat->update([
+            'statut' => 'transmis',
+            'transmit_sica' => true,
+        ]);
+
+        return $this->success('État de paie transmis avec succès.', $etat);
+    }
 }
