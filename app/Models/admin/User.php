@@ -8,10 +8,12 @@ use Illuminate\Notifications\Notifiable;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Laravel\Sanctum\HasApiTokens;
 use App\Models\admin\Role;
+use App\Models\indemnites\Agent;
 use App\Models\Parametrage\LieuService;
 use App\Models\Parametrage\Ief;
 use App\Models\Parametrage\Ia;
 use App\Models\Personnel\Enseignant;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class User extends Authenticatable
 {
@@ -63,9 +65,9 @@ class User extends Authenticatable
         'password' => 'hashed',
     ];
     }
-    
+
     // === RELATIONS ===
-   
+
 
     public function enseignant()
     {
@@ -171,5 +173,10 @@ public function isParametreur()
 public function isGestionnaire()
 {
     return $this->hasRole('gestionnaire_paie') || $this->hasRole('gestionnaire_budget');
+}
+
+public function agent(): HasOne
+{
+    return $this->hasOne(Agent::class);
 }
 }
