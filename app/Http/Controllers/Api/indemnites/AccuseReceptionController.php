@@ -156,7 +156,7 @@ class AccuseReceptionController extends Controller
         AccuseReceptionService $service
     ): AccuseReceptionResource {
 
-    abort_unless(
+        abort_unless(
             $request->user()->hasPermission('accuses_reception.update'),
             403,
             'Accès interdit.'
