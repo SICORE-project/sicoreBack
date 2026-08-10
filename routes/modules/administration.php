@@ -308,4 +308,15 @@ Route::prefix('admin')->group(function () {
 
     });
 
+
+    // ✅ Protection par permission
+Route::prefix('users')->middleware(['auth:sanctum', 'permission:administration.users.update'])->group(function () {
+    
+    // Rattacher un utilisateur à une IA
+    Route::post('/{userId}/assign-ia/{iaId}', [UserController::class, 'assignUserToIa']);
+    
+    // Révoquer un utilisateur d'une IA
+    Route::delete('/{userId}/revoke-ia', [UserController::class, 'revokeUserFromIa']);
+});
+
 });

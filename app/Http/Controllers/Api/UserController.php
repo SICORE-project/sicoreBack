@@ -59,7 +59,7 @@ class UserController extends Controller
             'data' => new UserResource($user)
         ], 200);
     }
- public function assignRole(Request $request, string $id)
+public function assignRole(Request $request, string $id)
 {
     $user = $this->userService->find($id);
 
@@ -103,4 +103,28 @@ class UserController extends Controller
             'message' => 'Utilisateur supprimé avec succès.'
         ], 200);
     }
+
+/**
+ * Rattacher un utilisateur à une IA
+ * POST /api/admin/users/{userId}/assign-ia/{iaId}
+ */
+public function assignUserToIa($userId, $iaId)
+{
+    try {
+        // ✅ Appel au service
+        $user = $this->userService->assignUserToIa($userId, $iaId);
+        
+        return response()->json([
+            'success' => true,
+            'message' => 'Gestionnaire rattaché à l\'IA avec succès',
+            'data' => new UserResource($user)
+        ], 200);
+        
+    } catch (\Exception $e) {
+        return response()->json([
+            'success' => false,
+            'message' => $e->getMessage()
+        ], 400);
+    }
+}
 }

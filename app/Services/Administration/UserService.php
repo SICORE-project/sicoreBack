@@ -4,6 +4,7 @@ namespace App\Services\Administration;
 
 use App\Models\admin\User;
 use Illuminate\Support\Facades\Hash;
+use App\Models\Parametrage\Ia;
 
 class UserService
 {
@@ -73,5 +74,33 @@ class UserService
     {
         return $user->delete();
     }
+    
 
+    /**
+ * Rattacher un utilisateur à une IA
+ */
+public function assignUserToIa(int $userId, int $iaId): User
+{
+    // 1. Trouver l'utilisateur
+    $user = User::findOrFail($userId);
+    
+    // 2. ✅ VÉRIFIER QUE L'IA EXISTE
+    $ia = Ia::findOrFail($iaId);  // ← Cette ligne vérifie l'existence
+    
+    // 3. Vérifier que l'utilisateur a le bon rôle
+    if (!$user->hasRole('gestionnaire_ia')) {
+        throw new \Exception("Cet utilisateur n'a pas le rôle Gestionnaire IA.");
+    }
+
+    // 4. Vérifier s'il est déjà rattaché
+    if ($user->ia_id) {
+        throw new \Exception("Cet utilisateur est déjà rattaché à l'IA : {$user->ia->libelle}");
+    }
+
+    // 5. Rattacher
+    $user->ia_id = $iaId;
+    $user->save();
+
+    return $user->load(['ia', 'role']);
+}
 }
