@@ -9,6 +9,8 @@ use App\Http\Resources\UserResource;
 use App\Services\Administration\UserService;
 use App\Models\Admin\User;
 use Illuminate\Http\Request;
+use App\Models\Parametrage\Ia;
+use App\Models\Parametrage\Ief;
 
 class UserController extends Controller
 {
@@ -127,4 +129,69 @@ public function assignUserToIa($userId, $iaId)
         ], 400);
     }
 }
+/**
+ * Rattacher un utilisateur à une IEF
+ * POST /api/admin/users/{userId}/assign-ief/{iefId}
+ */
+    public function assignUserToIef(int $userId, int $iefId): User
+    {
+        $user = User::findOrFail($userId);
+        $ief = Ief::findOrFail($iefId);
+
+        if (!$user->hasRole('gestionnaire_ief')) {
+            throw new \Exception("Cet utilisateur n'a pas le rôle Gestionnaire IEF.");
+        }
+
+        if ($user->ief_id) {
+            throw new \Exception("Cet utilisateur est déjà rattaché à une IEF.");
+        }
+
+        $user->ief_id = $iefId;
+        $user->save();
+
+        return $user->load(['ief', 'role']);
+    }
+
+    public function revokeUserFromIef(int $userId): User
+    {
+        $user = User::findOrFail($userId);
+
+        if (!$user->ief_id) {
+            throw new \Exception("Cet utilisateur n'est rattaché à aucune IEF.");
+        }
+
+        $user->ief_id = null;
+        $user->save();
+
+        return $user->load('role');
+    }
+
+    public function getUserIef(int $userId)
+    {
+        $user = User::with('ief')->findOrFail($userId);
+        return $user->ief;
+    }
+
+    public function getGestionnairesIef()
+    {
+        return User::whereHas('role', function($query) {
+            $query->where('slug', 'gestionnaire_ief');
+        })->with(['ief', 'role'])->get();
+    }
+
+    public function getAvailableGestionnairesIef()
+    {
+        return User::whereHas('role', function($query) {
+            $query->where('slug', 'gestionnaire_ief');
+        })->whereNull('ief_id')->with('role')->get();
+    }
+
+    public function getGestionnairesByIef(int $iefId)
+    {
+        return User::whereHas('role', function($query) {
+            $query->where('slug', 'gestionnaire_ief');
+        })->where('ief_id', $iefId)->with(['ief', 'role'])->get();
+    }
+
+
 }
