@@ -203,4 +203,38 @@ class UserController extends Controller
             'data' => new UserResource($user),
         ]);
     }
+
+    public function assignUserToIef(string $userId, string $iefId)
+    {
+        return new UserResource(
+            $this->userService->assignUserToIef((int) $userId, (int) $iefId)
+        );
+    }
+
+    public function revokeUserFromIef(string $userId)
+    {
+        return new UserResource(
+            $this->userService->revokeUserFromIef((int) $userId)
+        );
+    }
+
+    public function getUserIef(string $userId)
+    {
+        return response()->json(['data' => $this->userService->getUserIef((int) $userId)]);
+    }
+
+    public function getGestionnairesIef()
+    {
+        return UserResource::collection($this->userService->getGestionnairesIef());
+    }
+
+    public function getAvailableGestionnairesIef()
+    {
+        return UserResource::collection($this->userService->getAvailableGestionnairesIef());
+    }
+
+    public function getGestionnairesByIef(string $iefId)
+    {
+        return UserResource::collection($this->userService->getGestionnairesByIef((int) $iefId));
+    }
 }

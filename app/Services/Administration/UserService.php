@@ -6,6 +6,7 @@ use App\Models\admin\User;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Hash;
 use App\Models\Parametrage\Ia;
+use App\Models\Parametrage\Ief;
 
 class UserService
 {
@@ -133,5 +134,61 @@ public function revokeUserFromIa(int $userId): User
     $user->update(['ia_id' => null]);
 
     return $user->load(['ia', 'role']);
+}
+
+public function assignUserToIef(int $userId, int $iefId): User
+{
+    $user = User::findOrFail($userId);
+    Ief::findOrFail($iefId);
+
+    if (! $user->hasRole('gestionnaire_ief')) {
+        throw new \Exception("Cet utilisateur n'a pas le rôle Gestionnaire IEF.");
+    }
+
+    if ($user->ief_id) {
+        throw new \Exception('Cet utilisateur est déjà rattaché à une IEF.');
+    }
+
+    $user->update(['ief_id' => $iefId]);
+
+    return $user->load(['ief', 'role']);
+}
+
+public function revokeUserFromIef(int $userId): User
+{
+    $user = User::findOrFail($userId);
+    $user->update(['ief_id' => null]);
+
+    return $user->load(['ief', 'role']);
+}
+
+public function getUserIef(int $userId)
+{
+    return User::with('ief')->findOrFail($userId)->ief;
+}
+
+public function getGestionnairesIef()
+{
+    return User::whereHas('role', fn ($query) => $query->where('slug', 'gestionnaire_ief'))
+        ->with(['ief', 'role'])
+        ->get();
+}
+
+public function getAvailableGestionnairesIef()
+{
+    return User::whereHas('role', fn ($query) => $query->where('slug', 'gestionnaire_ief'))
+        ->whereNull('ief_id')
+        ->with('role')
+        ->get();
+}
+
+public function getGestionnairesByIef(int $iefId)
+{
+    Ief::findOrFail($iefId);
+
+    return User::whereHas('role', fn ($query) => $query->where('slug', 'gestionnaire_ief'))
+        ->where('ief_id', $iefId)
+        ->with(['ief', 'role'])
+        ->get();
 }
 }

@@ -348,4 +348,26 @@ Route::prefix('admin')->group(function () {
             ->whereNumber('userId')
             ->middleware('permission:administration.users.update');
 
+        Route::post('/users/{userId}/assign-ief/{iefId}', [UserController::class, 'assignUserToIef'])
+            ->whereNumber(['userId', 'iefId'])
+            ->middleware('permission:administration.users.update');
+
+        Route::delete('/users/{userId}/revoke-ief', [UserController::class, 'revokeUserFromIef'])
+            ->whereNumber('userId')
+            ->middleware('permission:administration.users.update');
+
+        Route::get('/users/{userId}/ief', [UserController::class, 'getUserIef'])
+            ->whereNumber('userId')
+            ->middleware('permission:administration.users.read');
+
+        Route::get('/gestionnaires/ief', [UserController::class, 'getGestionnairesIef'])
+            ->middleware('permission:administration.users.read');
+
+        Route::get('/gestionnaires/ief/available', [UserController::class, 'getAvailableGestionnairesIef'])
+            ->middleware('permission:administration.users.read');
+
+        Route::get('/ief/{iefId}/gestionnaires', [UserController::class, 'getGestionnairesByIef'])
+            ->whereNumber('iefId')
+            ->middleware('permission:administration.users.read');
+
 });
