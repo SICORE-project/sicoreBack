@@ -96,7 +96,6 @@ class UserController extends Controller
             'data' => new UserResource($user),
         ], 200);
     }
-
     public function assignRole(Request $request, string $id)
     {
         $user = $this->userService->find($id);
@@ -179,6 +178,28 @@ class UserController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Statut de l’utilisateur mis à jour avec succès.',
+            'data' => new UserResource($user),
+        ]);
+    }
+
+    public function assignUserToIa(string $userId, string $iaId)
+    {
+        $user = $this->userService->assignUserToIa((int) $userId, (int) $iaId);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Gestionnaire rattaché à l\'IA avec succès.',
+            'data' => new UserResource($user),
+        ]);
+    }
+
+    public function revokeUserFromIa(string $userId)
+    {
+        $user = $this->userService->revokeUserFromIa((int) $userId);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Rattachement à l\'IA révoqué avec succès.',
             'data' => new UserResource($user),
         ]);
     }

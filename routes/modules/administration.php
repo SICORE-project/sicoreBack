@@ -340,4 +340,12 @@ Route::prefix('admin')->group(function () {
 
     });
 
+        Route::post('/users/{userId}/assign-ia/{iaId}', [UserController::class, 'assignUserToIa'])
+            ->whereNumber(['userId', 'iaId'])
+            ->middleware('permission:administration.users.update');
+
+        Route::delete('/users/{userId}/revoke-ia', [UserController::class, 'revokeUserFromIa'])
+            ->whereNumber('userId')
+            ->middleware('permission:administration.users.update');
+
 });

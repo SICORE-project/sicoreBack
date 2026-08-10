@@ -81,6 +81,7 @@ class RoleSeeder extends Seeder
                 'type_role_code' => 'consultation',
                 'est_actif' => true,
             ],
+            
         ];
 
         foreach ($roles as $role) {

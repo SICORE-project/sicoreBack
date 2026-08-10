@@ -69,6 +69,8 @@ class StoreUserRequest extends FormRequest
                 CompatibleRoleStructure::structureForRole($this->input('role_id')),
             ],
 
+            'ia_id' => ['nullable', 'integer', 'exists:ias,id'],
+
         ];
     }
 
