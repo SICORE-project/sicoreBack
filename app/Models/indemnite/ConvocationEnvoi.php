@@ -39,7 +39,7 @@ class ConvocationEnvoi extends Model
     public function enseignant(): BelongsTo
     {
         return $this->belongsTo(
-            Enseignants::class,
+            \App\Models\Personnel\Enseignant::class,
             'enseignant_id'
         );
     }

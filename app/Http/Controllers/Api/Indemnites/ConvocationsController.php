@@ -1,168 +1,84 @@
 <?php
 
-namespace App\Http\Controllers;
+namespace App\Http\Controllers\Api\Indemnites;
 
-use App\Models\Convocations;
+use App\Http\Controllers\Controller;
+use App\Http\Controllers\Api\Indemnites\Concerns\ApiResponseTrait;
+use App\Http\Requests\Indemnites\StoreConvocationRequest;
+use App\Http\Requests\Indemnites\UpdateConvocationRequest;
+use App\Models\Convocations as ConvocationModel;
 use Illuminate\Http\Request;
 
 class ConvocationsController extends Controller
 {
-    /**
-     * Afficher la liste de toutes les convocations.
-     *
-     * GET /api/convocations
-     */
-    public function index()
-    {
-        $convocations = Convocations::orderBy('id', 'desc')->get();
+    use ApiResponseTrait;
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Liste des convocations récupérée avec succès.',
-            'data' => $convocations,
-        ], 200);
+    public function index(Request $request)
+    {
+        $query = ConvocationModel::withCount('enseignants');
+
+        if ($request->filled('statut')) {
+            $query->where('statut', $request->query('statut'));
+        }
+
+        if ($request->filled('utilisateur_id')) {
+            $query->where('utilisateur_id', $request->query('utilisateur_id'));
+        }
+
+        $convocations = $query->latest()->paginate($request->integer('per_page', 15));
+
+        return $this->success('Liste des convocations.', $convocations);
     }
 
     /**
-     * Créer une nouvelle convocation.
+     * Créé une nouvelle convocation.
      *
-     * POST /api/convocations
+     * NOTE: le dépôt de fichier a été déplacé vers ConvocationFichierController
+     * (POST /convocations/{id}/fichier) — cette méthode ne gère plus que
+     * la création, ce qui évite la bifurcation conditionnelle ambiguë
+     * qui existait auparavant dans StoreConvocationRequest.
      */
-    public function store(Request $request)
+    public function store(StoreConvocationRequest $request)
     {
-        $validated = $request->validate([
-            'date_emission' => [
-                'required',
-                'date',
-            ],
+        $convocation = ConvocationModel::create($request->validated());
 
-            'objet' => [
-                'required',
-                'string',
-                'max:255',
-            ],
-
-            'statut' => ['nullable', 'in:en_attente,validee,annulee'],
-
-            'lieu_examen' => [
-                'required',
-                'string',
-                'max:255',
-            ],
-
-            'ordre_de_mission' => [
-                'nullable',
-                'boolean',
-            ],
-
-            'lieu_affectation' => [
-                'nullable',
-                'string',
-                'max:255',
-            ],
-
-        ]);
-
-        $convocation = Convocations::create([
-            'date_emission' => $validated['date_emission'],
-            'objet' => $validated['objet'],
-            'statut' => $validated['statut'] ?? 'en_attente',
-            'lieu_examen' => $validated['lieu_examen'],
-            'ordre_de_mission' => $validated['ordre_de_mission'] ?? false,
-            'lieu_affectation' => $validated['lieu_affectation'] ?? null,
-            'utilisateur_id' => $request->user()->id,
-        ]);
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Convocation créée avec succès.',
-            'data' => $convocation,
-        ], 201);
+        return $this->success('Convocation créée avec succès.', $convocation, 201);
     }
 
-    /**
-     * Afficher une convocation précise.
-     *
-     * GET /api/convocations/{id}
-     */
-    public function show(Convocations $convocation)
+    public function show(string $id)
     {
-        return response()->json([
-            'success' => true,
-            'message' => 'Convocation récupérée avec succès.',
-            'data' => $convocation,
-        ], 200);
+        $convocation = ConvocationModel::with('envois')->find($id);
+
+        if (! $convocation) {
+            return $this->error('Convocation introuvable.', 404);
+        }
+
+        return $this->success('Convocation trouvée.', $convocation);
     }
 
-    /**
-     * Modifier une convocation.
-     *
-     * PUT /api/convocations/{id}
-     */
-    public function update(Request $request, Convocations $convocation)
+    public function update(UpdateConvocationRequest $request, string $id)
     {
-        $validated = $request->validate([
-            'date_emission' => [
-                'sometimes',
-                'required',
-                'date',
-            ],
+        $convocation = ConvocationModel::find($id);
 
-            'objet' => [
-                'sometimes',
-                'required',
-                'string',
-                'max:255',
-            ],
+        if (! $convocation) {
+            return $this->error('Convocation introuvable.', 404);
+        }
 
-            'statut' => [
-                'sometimes',
-                'required',
-                'in:en_attente,validee,annulee,envoyee',
-            ],
+        $convocation->update($request->validated());
 
-            'lieu_examen' => [
-                'sometimes',
-                'required',
-                'string',
-                'max:255',
-            ],
-
-            'ordre_de_mission' => [
-                'sometimes',
-                'required',
-                'boolean',
-            ],
-
-            'lieu_affectation' => [
-                'nullable',
-                'string',
-                'max:255',
-            ],
-
-        ]);
-
-        $convocation->update($validated);
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Convocation modifiée avec succès.',
-            'data' => $convocation->fresh(),
-        ], 200);
+        return $this->success('Convocation mise à jour avec succès.', $convocation);
     }
 
-    /**
-     * Supprimer une convocation.
-     *
-     * DELETE /api/convocations/{id}
-     */
-    public function destroy(Convocations $convocation)
+    public function destroy(string $id)
     {
+        $convocation = ConvocationModel::find($id);
+
+        if (! $convocation) {
+            return $this->error('Convocation introuvable.', 404);
+        }
+
         $convocation->delete();
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Convocation supprimée avec succès.',
-        ], 200);
+        return $this->success('Convocation supprimée avec succès.');
     }
 }

@@ -13,7 +13,7 @@ class etat_paie_indemnites extends Model
 
     protected $casts = ['date_generation' => 'date', 'periode_debut' => 'date', 'periode_fin' => 'date', 'perimetre' => 'array', 'details' => 'array', 'total_montant' => 'decimal:2', 'transmit_sica' => 'boolean', 'verrouille' => 'boolean', 'valide_at' => 'datetime', 'archive_at' => 'datetime'];
 
-    public function beneficiaire(): BelongsTo { return $this->belongsTo(utilisateurs::class, 'beneficiaire_id'); }
-    public function generateur(): BelongsTo { return $this->belongsTo(utilisateurs::class, 'utilisateur_id'); }
-    public function validateur(): BelongsTo { return $this->belongsTo(utilisateurs::class, 'valide_par'); }
+    public function beneficiaire(): BelongsTo { return $this->belongsTo(\App\Models\Admin\User::class, 'beneficiaire_id'); }
+    public function generateur(): BelongsTo { return $this->belongsTo(\App\Models\Admin\User::class, 'utilisateur_id'); }
+    public function validateur(): BelongsTo { return $this->belongsTo(\App\Models\Admin\User::class, 'valide_par'); }
 }

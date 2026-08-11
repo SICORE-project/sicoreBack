@@ -1,19 +1,199 @@
 <?php
-namespace App\Http\Controllers;
-use App\Models\AttributionBourse; use App\Models\Etudiant; use App\Models\TypeBourse; use Illuminate\Http\Request; use Illuminate\Support\Facades\DB;
-class BoursesController extends Controller {
- public function types(Request $r){$this->admin($r);return response()->json(['success'=>true,'data'=>TypeBourse::latest()->paginate($this->per($r))]);}
- public function creerType(Request $r){$this->admin($r);$d=$r->validate(['nom'=>'required|string|max:100|unique:types_bourses,nom','montant_mensuel'=>'required|numeric|min:0','duree_mois'=>'required|integer|min:1|max:60','conditions'=>'nullable|string|max:3000','actif'=>'nullable|boolean']);return response()->json(['success'=>true,'data'=>TypeBourse::create($d)],201);}
- public function modifierType(Request $r,TypeBourse $type){$this->admin($r);$type->update($r->validate(['nom'=>'sometimes|string|max:100|unique:types_bourses,nom,'.$type->id,'montant_mensuel'=>'sometimes|numeric|min:0','duree_mois'=>'sometimes|integer|min:1|max:60','conditions'=>'nullable|string|max:3000','actif'=>'nullable|boolean']));return response()->json(['success'=>true,'data'=>$type->fresh()]);}
- public function etudiants(Request $r){$this->admin($r);$q=Etudiant::query();foreach(['filiere','niveau'] as $f)if($r->filled($f))$q->where($f,$r->input($f));return response()->json(['success'=>true,'data'=>$q->latest()->paginate($this->per($r))]);}
- public function creerEtudiant(Request $r){$this->admin($r);$d=$r->validate(['matricule'=>'required|string|max:100|unique:etudiants,matricule','nom'=>'required|string|max:100','prenom'=>'required|string|max:100','filiere'=>'required|string|max:100','niveau'=>'required|string|max:100','utilisateur_id'=>'nullable|exists:utilisateurs,id']);return response()->json(['success'=>true,'data'=>Etudiant::create($d)],201);}
- public function modifierEtudiant(Request $r,Etudiant $etudiant){$this->admin($r);$etudiant->update($r->validate(['matricule'=>'sometimes|string|max:100|unique:etudiants,matricule,'.$etudiant->id,'nom'=>'sometimes|string|max:100','prenom'=>'sometimes|string|max:100','filiere'=>'sometimes|string|max:100','niveau'=>'sometimes|string|max:100','utilisateur_id'=>'nullable|exists:utilisateurs,id']));return response()->json(['success'=>true,'data'=>$etudiant->fresh()]);}
- public function attribuer(Request $r){$this->admin($r);$d=$r->validate(['etudiant_id'=>'required|exists:etudiants,id','type_bourse_id'=>'required|exists:types_bourses,id','date_debut'=>'required|date','date_fin'=>'nullable|date|after_or_equal:date_debut','montant_mensuel'=>'nullable|numeric|min:0','commentaire'=>'nullable|string|max:3000']);$type=TypeBourse::findOrFail($d['type_bourse_id']);$fin=$d['date_fin']??now()->parse($d['date_debut'])->addMonths($type->duree_mois)->subDay()->toDateString();$a=AttributionBourse::create($d+['date_fin'=>$fin,'montant_mensuel'=>$d['montant_mensuel']??$type->montant_mensuel,'attribue_par'=>$r->user()->id]);$this->tracer($a,'attribution',$r->user()->id);return response()->json(['success'=>true,'data'=>$a],201);}
- public function attributions(Request $r){$this->admin($r);$q=AttributionBourse::query();foreach(['etudiant_id','type_bourse_id','statut']as$f)if($r->filled($f))$q->where($f,$r->input($f));return response()->json(['success'=>true,'data'=>$q->latest()->paginate($this->per($r))]);}
- public function beneficiaires(Request $r){$this->admin($r);$q=AttributionBourse::query()->join('etudiants','etudiants.id','=','attributions_bourses.etudiant_id')->join('types_bourses','types_bourses.id','=','attributions_bourses.type_bourse_id')->select('attributions_bourses.*','etudiants.nom','etudiants.prenom','etudiants.filiere','etudiants.niveau','types_bourses.nom as type_bourse');foreach(['filiere','niveau']as$f)if($r->filled($f))$q->where('etudiants.'.$f,$r->input($f));if($r->filled('type_bourse_id'))$q->where('attributions_bourses.type_bourse_id',$r->input('type_bourse_id'));return response()->json(['success'=>true,'data'=>$q->paginate($this->per($r))]);}
- public function echeances(Request $r){$this->admin($r);$jours=min(max($r->integer('jours',30),1),365);return response()->json(['success'=>true,'data'=>AttributionBourse::where('statut','active')->whereBetween('date_fin',[today(),today()->addDays($jours)])->orderBy('date_fin')->paginate($this->per($r))]);}
- public function renouveler(Request $r,AttributionBourse $attribution){$this->admin($r);abort_unless($attribution->statut==='active',422,'Bourse non renouvelable.');$d=$r->validate(['date_fin'=>'nullable|date','commentaire'=>'nullable|string|max:3000']);if(isset($d['date_fin']))abort_unless(now()->parse($d['date_fin'])->gt($attribution->date_fin),422,'La nouvelle date de fin doit être postérieure à la date de fin actuelle.');$type=TypeBourse::findOrFail($attribution->type_bourse_id);$attribution->update(['date_fin'=>$d['date_fin']??$attribution->date_fin->copy()->addMonths($type->duree_mois)->toDateString(),'commentaire'=>$d['commentaire']??$attribution->commentaire]);$this->tracer($attribution,'renouvellement',$r->user()->id);return response()->json(['success'=>true,'data'=>$attribution->fresh()]);}
- public function historique(Request $r,Etudiant $etudiant){$this->admin($r);$q=DB::table('historiques_bourses')->where('etudiant_id',$etudiant->id);if($r->filled('date_debut'))$q->whereDate('created_at','>=',$r->input('date_debut'));if($r->filled('date_fin'))$q->whereDate('created_at','<=',$r->input('date_fin'));return response()->json(['success'=>true,'data'=>$q->latest()->paginate($this->per($r))]);}
- private function tracer(AttributionBourse $a,string $action,int $u):void{DB::table('historiques_bourses')->insert(['etudiant_id'=>$a->etudiant_id,'attribution_bourse_id'=>$a->id,'action'=>$action,'details'=>json_encode($a->fresh()->toArray()),'utilisateur_id'=>$u,'created_at'=>now(),'updated_at'=>now()]);}
- private function admin(Request $r):void{abort_unless(strtolower((string)$r->user()->loadMissing('role')->role?->libelle)==='administrateur',403,'Réservé aux administrateurs.');}private function per(Request $r):int{return min(max($r->integer('per_page',15),1),100);}
+
+namespace App\Http\Controllers\Api\Indemnites;
+
+use App\Http\Controllers\Controller;
+use App\Http\Controllers\Api\Indemnites\Concerns\ApiResponseTrait;
+use App\Http\Requests\Indemnites\StoreBourseRequest;
+use App\Http\Requests\Indemnites\UpdateBourseRequest;
+use App\Http\Requests\Indemnites\RejeterBourseRequest;
+use App\Http\Requests\Indemnites\DeposerPieceBourseRequest;
+use App\Models\AttributionBourse;
+use App\Models\TypeBourse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
+
+class BoursesController extends Controller
+{
+    use ApiResponseTrait;
+
+    public function index(Request $request)
+    {
+        $query = AttributionBourse::query();
+
+        if ($request->filled('statut')) {
+            $query->where('statut', $request->query('statut'));
+        }
+
+        if ($request->filled('etudiant_id')) {
+            $query->where('etudiant_id', $request->query('etudiant_id'));
+        }
+
+        $bourses = $query->latest()->paginate($request->integer('per_page', 15));
+
+        return $this->success('Liste des dossiers de bourses.', $bourses);
+    }
+
+    public function store(StoreBourseRequest $request)
+    {
+        $data = $request->validated();
+        $data['statut'] = 'en_attente';
+
+        if (empty($data['montant_mensuel'])) {
+            $type = TypeBourse::find($data['type_bourse_id']);
+            $data['montant_mensuel'] = $type->montant_mensuel ?? 0;
+        }
+
+        $bourse = AttributionBourse::create($data);
+
+        return $this->success('Demande de bourse créée avec succès.', $bourse, 201);
+    }
+
+    public function show(string $id)
+    {
+        $bourse = AttributionBourse::find($id);
+
+        if (! $bourse) {
+            return $this->error('Dossier de bourse introuvable.', 404);
+        }
+
+        return $this->success('Dossier de bourse trouvé.', $bourse);
+    }
+
+    public function update(UpdateBourseRequest $request, string $id)
+    {
+        $bourse = AttributionBourse::find($id);
+
+        if (! $bourse) {
+            return $this->error('Dossier de bourse introuvable.', 404);
+        }
+
+        $bourse->update($request->validated());
+
+        return $this->success('Dossier de bourse mis à jour avec succès.', $bourse);
+    }
+
+    public function destroy(string $id)
+    {
+        $bourse = AttributionBourse::find($id);
+
+        if (! $bourse) {
+            return $this->error('Dossier de bourse introuvable.', 404);
+        }
+
+        $bourse->delete();
+
+        return $this->success('Dossier de bourse supprimé avec succès.');
+    }
+
+    /**
+     * Valide et attribue la bourse (le statut "valide" fait à la fois office
+     * de validation du dossier et d'attribution, en l'absence d'un statut distinct dans le schéma actuel).
+     */
+    public function valider(string $id)
+    {
+        $bourse = AttributionBourse::find($id);
+
+        if (! $bourse) {
+            return $this->error('Dossier de bourse introuvable.', 404);
+        }
+
+        $bourse->update(['statut' => 'valide']);
+
+        return $this->success('Bourse validée et attribuée avec succès.', $bourse);
+    }
+
+    public function rejeter(RejeterBourseRequest $request, string $id)
+    {
+        $bourse = AttributionBourse::find($id);
+
+        if (! $bourse) {
+            return $this->error('Dossier de bourse introuvable.', 404);
+        }
+
+        $bourse->update([
+            'statut' => 'rejete',
+            'commentaire' => $request->validated('commentaire'),
+        ]);
+
+        return $this->success('Dossier de bourse rejeté.', $bourse);
+    }
+
+    public function calculerMontant(string $id)
+    {
+        $bourse = AttributionBourse::find($id);
+
+        if (! $bourse) {
+            return $this->error('Dossier de bourse introuvable.', 404);
+        }
+
+        $type = TypeBourse::find($bourse->type_bourse_id);
+        $montantMensuel = $type->montant_mensuel ?? 0;
+        $dureeMois = $type->duree_mois ?? 1;
+
+        $bourse->update(['montant_mensuel' => $montantMensuel]);
+
+        return $this->success('Montant de la bourse calculé avec succès.', [
+            'bourse_id' => $bourse->id,
+            'montant_mensuel' => $montantMensuel,
+            'duree_mois' => $dureeMois,
+            'montant_total_estime' => $montantMensuel * $dureeMois,
+        ]);
+    }
+
+    /**
+     * Liste les pièces déposées pour un dossier de bourse.
+     *
+     * NOTE: il n'existe pas encore de table/modèle dédié aux pièces des
+     * bourses. En attendant une migration `pieces_bourses`, les fichiers
+     * sont simplement stockés sur le disque `public` sous
+     * `bourses/{id}/` et listés directement depuis le disque.
+     */
+    public function pieces(string $id)
+    {
+        $bourse = AttributionBourse::find($id);
+
+        if (! $bourse) {
+            return $this->error('Dossier de bourse introuvable.', 404);
+        }
+
+        $fichiers = collect(Storage::disk('public')->files("bourses/{$id}"))
+            ->map(fn ($chemin) => [
+                'chemin' => $chemin,
+                'url' => Storage::disk('public')->url($chemin),
+            ])->values();
+
+        return $this->success('Pièces du dossier de bourse.', $fichiers);
+    }
+
+    public function deposerPiece(DeposerPieceBourseRequest $request, string $id)
+    {
+        $bourse = AttributionBourse::find($id);
+
+        if (! $bourse) {
+            return $this->error('Dossier de bourse introuvable.', 404);
+        }
+
+        $fichier = $request->file('document');
+        $chemin = $fichier->store("bourses/{$id}", 'public');
+
+        return $this->success('Pièce déposée avec succès.', [
+            'type' => $request->validated('type'),
+            'chemin' => $chemin,
+            'url' => Storage::disk('public')->url($chemin),
+        ], 201);
+    }
+
+    public function archiver(string $id)
+    {
+        $bourse = AttributionBourse::find($id);
+
+        if (! $bourse) {
+            return $this->error('Dossier de bourse introuvable.', 404);
+        }
+
+        $bourse->update(['statut' => 'archive']);
+
+        return $this->success('Dossier de bourse archivé avec succès.', $bourse);
+    }
 }

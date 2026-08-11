@@ -1,65 +1,76 @@
 <?php
 
-namespace App\Http\Controllers;
+namespace App\Http\Controllers\Api\Indemnites;
 
+use App\Http\Controllers\Controller;
+use App\Http\Controllers\Api\Indemnites\Concerns\ApiResponseTrait;
+use App\Http\Requests\Indemnites\StoreTypeIndemniteRequest;
+use App\Http\Requests\Indemnites\UpdateTypeIndemniteRequest;
 use App\Models\type_indemnites;
 use Illuminate\Http\Request;
 
 class TypeIndemnitesController extends Controller
 {
-    /**
-     * Display a listing of the resource.
-     */
-    public function index()
+    use ApiResponseTrait;
+
+    public function index(Request $request)
     {
-        //
+        $query = type_indemnites::query();
+
+        if ($request->filled('actif')) {
+            $query->where('actif', $request->boolean('actif'));
+        }
+
+        $types = $query->orderBy('libelle')->paginate($request->integer('per_page', 15));
+
+        return $this->success('Liste des types d\'indemnités.', $types);
     }
 
-    /**
-     * Show the form for creating a new resource.
-     */
-    public function create()
+    public function store(StoreTypeIndemniteRequest $request)
     {
-        //
+        $type = type_indemnites::create($request->validated());
+
+        return $this->success('Type d\'indemnité créé avec succès.', $type, 201);
     }
 
-    /**
-     * Store a newly created resource in storage.
-     */
-    public function store(Request $request)
+    public function show(string $id)
     {
-        //
+        $type = type_indemnites::find($id);
+
+        if (! $type) {
+            return $this->error('Type d\'indemnité introuvable.', 404);
+        }
+
+        return $this->success('Type d\'indemnité trouvé.', $type);
     }
 
-    /**
-     * Display the specified resource.
-     */
-    public function show(type_indemnites $type_indemnites)
+    public function update(UpdateTypeIndemniteRequest $request, string $id)
     {
-        //
+        $type = type_indemnites::find($id);
+
+        if (! $type) {
+            return $this->error('Type d\'indemnité introuvable.', 404);
+        }
+
+        $type->update($request->validated());
+
+        return $this->success('Type d\'indemnité mis à jour avec succès.', $type);
     }
 
-    /**
-     * Show the form for editing the specified resource.
-     */
-    public function edit(type_indemnites $type_indemnites)
+    public function destroy(string $id)
     {
-        //
-    }
+        $type = type_indemnites::find($id);
 
-    /**
-     * Update the specified resource in storage.
-     */
-    public function update(Request $request, type_indemnites $type_indemnites)
-    {
-        //
-    }
+        if (! $type) {
+            return $this->error('Type d\'indemnité introuvable.', 404);
+        }
 
-    /**
-     * Remove the specified resource from storage.
-     */
-    public function destroy(type_indemnites $type_indemnites)
-    {
-        //
+        if ($type->indemnites()->exists()) {
+            return $this->error('Impossible de supprimer un type déjà utilisé par des indemnités.', 422);
+        }
+
+        $type->delete();
+
+        return $this->success('Type d\'indemnité supprimé avec succès.');
     }
 }

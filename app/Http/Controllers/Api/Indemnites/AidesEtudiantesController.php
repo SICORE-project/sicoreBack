@@ -1,19 +1,196 @@
 <?php
-namespace App\Http\Controllers;
-use App\Models\DemandeAide; use App\Models\Etudiant; use App\Models\TypeAide; use Illuminate\Http\Request; use Illuminate\Support\Facades\DB; use Illuminate\Support\Str;
-class AidesEtudiantesController extends Controller {
- public function types(Request $r){$this->admin($r);return response()->json(['success'=>true,'data'=>TypeAide::latest()->paginate($this->per($r))]);}
- public function creerType(Request $r){$this->admin($r);$d=$r->validate(['nom'=>'required|string|max:100|unique:types_aides,nom','montant_defaut'=>'nullable|numeric|min:0','periodicite'=>'required|in:mensuelle,annuelle,ponctuelle','conditions'=>'nullable|string|max:3000','actif'=>'nullable|boolean']);return response()->json(['success'=>true,'data'=>TypeAide::create($d)],201);}
- public function modifierType(Request $r,TypeAide $type){$this->admin($r);$type->update($r->validate(['nom'=>'sometimes|string|max:100|unique:types_aides,nom,'.$type->id,'montant_defaut'=>'nullable|numeric|min:0','periodicite'=>'sometimes|in:mensuelle,annuelle,ponctuelle','conditions'=>'nullable|string|max:3000','actif'=>'nullable|boolean']));return response()->json(['success'=>true,'data'=>$type->fresh()]);}
- public function index(Request $r){$q=DemandeAide::query();if(!$this->isAdmin($r))$q->where('utilisateur_id',$r->user()->id);foreach(['statut','type_aide_id']as$f)if($r->filled($f))$q->where($f,$r->input($f));if($r->filled('date_debut'))$q->whereDate('created_at','>=',$r->input('date_debut'));if($r->filled('date_fin'))$q->whereDate('created_at','<=',$r->input('date_fin'));return response()->json(['success'=>true,'data'=>$q->latest()->paginate($this->per($r))]);}
- public function store(Request $r){$d=$r->validate(['type_aide_id'=>'required|exists:types_aides,id','etudiant_id'=>'nullable|exists:etudiants,id','motif'=>'required|string|max:3000']);if(isset($d['etudiant_id']))abort_unless($this->isAdmin($r)||Etudiant::whereKey($d['etudiant_id'])->where('utilisateur_id',$r->user()->id)->exists(),403,'Étudiant non autorisé.');$demande=DemandeAide::create($d+['reference'=>'AID-'.now()->format('Ymd').'-'.strtoupper(Str::random(6)),'utilisateur_id'=>$r->user()->id]);$this->trace($demande,'creation',$r->user()->id);return response()->json(['success'=>true,'data'=>$demande],201);}
- public function soumettre(Request $r,DemandeAide $demande){$this->owner($r,$demande);abort_unless(in_array($demande->statut,['brouillon','rejetee']),422,'Demande non soumissible.');$demande->update(['statut'=>'soumise','motif_rejet'=>null]);$this->trace($demande,'soumission',$r->user()->id);return response()->json(['success'=>true,'data'=>$demande->fresh()]);}
- public function deposerPiece(Request $r,DemandeAide $demande){$this->owner($r,$demande);$d=$r->validate(['fichier'=>'required|file|mimes:pdf,jpg,jpeg,png|max:10240']);$f=$d['fichier'];$path=$f->store("aides/{$demande->id}",'local');$id=DB::table('pieces_demandes_aides')->insertGetId(['demande_aide_id'=>$demande->id,'nom_original'=>$f->getClientOriginalName(),'chemin'=>$path,'mime_type'=>$f->getMimeType(),'taille'=>$f->getSize(),'created_at'=>now(),'updated_at'=>now()]);return response()->json(['success'=>true,'data'=>DB::table('pieces_demandes_aides')->find($id)],201);}
- public function enAttente(Request $r){$this->admin($r);return response()->json(['success'=>true,'data'=>DemandeAide::whereIn('statut',['soumise','en_etude'])->latest()->paginate($this->per($r))]);}
- public function verifierPiece(Request $r,DemandeAide $demande,int $piece){$this->admin($r);$d=$r->validate(['conforme'=>'required|boolean','commentaire'=>'nullable|string|max:2000']);$p=DB::table('pieces_demandes_aides')->where('id',$piece)->where('demande_aide_id',$demande->id)->first();abort_unless($p,404);DB::table('pieces_demandes_aides')->where('id',$piece)->update($d+['verifie_par'=>$r->user()->id,'verifie_at'=>now(),'updated_at'=>now()]);$demande->update(['statut'=>'en_etude']);$this->trace($demande,'verification_piece',$r->user()->id);return response()->json(['success'=>true]);}
- public function valider(Request $r,DemandeAide $demande){$this->admin($r);abort_unless(in_array($demande->statut,['soumise','en_etude']),422,'Demande non traitable.');$pieces=DB::table('pieces_demandes_aides')->where('demande_aide_id',$demande->id);abort_unless($pieces->exists(),422,'Au moins une pièce justificative est obligatoire.');abort_if($pieces->where(fn($q)=>$q->whereNull('conforme')->orWhere('conforme',false))->exists(),422,'Toutes les pièces doivent être vérifiées conformes.');$d=$r->validate(['montant_attribue'=>'required|numeric|min:0','commentaire'=>'nullable|string|max:3000']);$demande->update(['statut'=>'validee','montant_attribue'=>$d['montant_attribue'],'commentaire_etude'=>$d['commentaire']??null,'traite_par'=>$r->user()->id,'traite_at'=>now(),'notification_at'=>now()]);$this->trace($demande,'validation',$r->user()->id);return response()->json(['success'=>true,'data'=>$demande->fresh()]);}
- public function rejeter(Request $r,DemandeAide $demande){$this->admin($r);$d=$r->validate(['motif_rejet'=>'required|string|min:3|max:3000']);$demande->update(['statut'=>'rejetee','motif_rejet'=>$d['motif_rejet'],'traite_par'=>$r->user()->id,'traite_at'=>now(),'notification_at'=>now()]);$this->trace($demande,'rejet',$r->user()->id);return response()->json(['success'=>true,'data'=>$demande->fresh()]);}
- public function show(Request $r,DemandeAide $demande){$this->access($r,$demande);$d=$demande->toArray();$d['pieces']=DB::table('pieces_demandes_aides')->where('demande_aide_id',$demande->id)->get();$d['historique']=DB::table('historiques_aides')->where('demande_aide_id',$demande->id)->latest()->get();return response()->json(['success'=>true,'data'=>$d]);}
- private function trace(DemandeAide $d,string $a,int $u):void{DB::table('historiques_aides')->insert(['demande_aide_id'=>$d->id,'action'=>$a,'details'=>json_encode($d->fresh()->toArray()),'utilisateur_id'=>$u,'created_at'=>now(),'updated_at'=>now()]);}
- private function isAdmin(Request $r):bool{return strtolower((string)$r->user()->loadMissing('role')->role?->libelle)==='administrateur';}private function admin(Request $r):void{abort_unless($this->isAdmin($r),403,'Réservé aux administrateurs.');}private function owner(Request $r,DemandeAide $d):void{abort_unless($d->utilisateur_id===$r->user()->id,403,'Accès non autorisé.');}private function access(Request $r,DemandeAide $d):void{abort_unless($this->isAdmin($r)||$d->utilisateur_id===$r->user()->id,403,'Accès non autorisé.');}private function per(Request $r):int{return min(max($r->integer('per_page',15),1),100);}
+
+namespace App\Http\Controllers\Api\Indemnites;
+
+use App\Http\Controllers\Controller;
+use App\Http\Controllers\Api\Indemnites\Concerns\ApiResponseTrait;
+use App\Http\Requests\Indemnites\StoreAideEtudianteRequest;
+use App\Http\Requests\Indemnites\UpdateAideEtudianteRequest;
+use App\Http\Requests\Indemnites\RejeterAideEtudianteRequest;
+use App\Http\Requests\Indemnites\DeposerPieceAideRequest;
+use App\Models\DemandeAide;
+use App\Models\TypeAide;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
+
+class AidesEtudiantesController extends Controller
+{
+    use ApiResponseTrait;
+
+    public function index(Request $request)
+    {
+        $query = DemandeAide::query();
+
+        if ($request->filled('statut')) {
+            $query->where('statut', $request->query('statut'));
+        }
+
+        if ($request->filled('etudiant_id')) {
+            $query->where('etudiant_id', $request->query('etudiant_id'));
+        }
+
+        $aides = $query->latest()->paginate($request->integer('per_page', 15));
+
+        return $this->success('Liste des demandes d\'aides étudiantes.', $aides);
+    }
+
+    public function store(StoreAideEtudianteRequest $request)
+    {
+        $data = $request->validated();
+        $data['reference'] = 'AIDE-' . Str::upper(Str::random(8));
+        $data['utilisateur_id'] = $data['utilisateur_id'] ?? $request->user()?->id;
+        $data['statut'] = 'en_attente';
+
+        $demande = DemandeAide::create($data);
+
+        return $this->success('Demande d\'aide créée avec succès.', $demande, 201);
+    }
+
+    public function show(string $id)
+    {
+        $demande = DemandeAide::find($id);
+
+        if (! $demande) {
+            return $this->error('Demande d\'aide introuvable.', 404);
+        }
+
+        return $this->success('Demande d\'aide trouvée.', $demande);
+    }
+
+    public function update(UpdateAideEtudianteRequest $request, string $id)
+    {
+        $demande = DemandeAide::find($id);
+
+        if (! $demande) {
+            return $this->error('Demande d\'aide introuvable.', 404);
+        }
+
+        $demande->update($request->validated());
+
+        return $this->success('Demande d\'aide mise à jour avec succès.', $demande);
+    }
+
+    public function destroy(string $id)
+    {
+        $demande = DemandeAide::find($id);
+
+        if (! $demande) {
+            return $this->error('Demande d\'aide introuvable.', 404);
+        }
+
+        $demande->delete();
+
+        return $this->success('Demande d\'aide supprimée avec succès.');
+    }
+
+    /**
+     * Valide et attribue l'aide (voir même remarque que BoursesController::valider()).
+     */
+    public function valider(Request $request, string $id)
+    {
+        $demande = DemandeAide::find($id);
+
+        if (! $demande) {
+            return $this->error('Demande d\'aide introuvable.', 404);
+        }
+
+        $demande->update([
+            'statut' => 'valide',
+            'traite_par' => $request->user()?->id,
+            'traite_at' => now(),
+        ]);
+
+        return $this->success('Aide validée et attribuée avec succès.', $demande);
+    }
+
+    public function rejeter(RejeterAideEtudianteRequest $request, string $id)
+    {
+        $demande = DemandeAide::find($id);
+
+        if (! $demande) {
+            return $this->error('Demande d\'aide introuvable.', 404);
+        }
+
+        $demande->update([
+            'statut' => 'rejete',
+            'motif_rejet' => $request->validated('motif_rejet'),
+            'traite_par' => $request->user()?->id,
+            'traite_at' => now(),
+        ]);
+
+        return $this->success('Demande d\'aide rejetée.', $demande);
+    }
+
+    public function calculerMontant(string $id)
+    {
+        $demande = DemandeAide::find($id);
+
+        if (! $demande) {
+            return $this->error('Demande d\'aide introuvable.', 404);
+        }
+
+        $type = TypeAide::find($demande->type_aide_id);
+        $montant = $type->montant_defaut ?? 0;
+
+        $demande->update(['montant_attribue' => $montant]);
+
+        return $this->success('Montant de l\'aide calculé avec succès.', [
+            'demande_id' => $demande->id,
+            'montant_attribue' => $montant,
+            'periodicite' => $type->periodicite ?? null,
+        ]);
+    }
+
+    /**
+     * Voir la note de BoursesController::pieces() : même limitation de schéma,
+     * les fichiers sont stockés sous `aides-etudiantes/{id}/`.
+     */
+    public function pieces(string $id)
+    {
+        $demande = DemandeAide::find($id);
+
+        if (! $demande) {
+            return $this->error('Demande d\'aide introuvable.', 404);
+        }
+
+        $fichiers = collect(Storage::disk('public')->files("aides-etudiantes/{$id}"))
+            ->map(fn ($chemin) => [
+                'chemin' => $chemin,
+                'url' => Storage::disk('public')->url($chemin),
+            ])->values();
+
+        return $this->success('Pièces de la demande d\'aide.', $fichiers);
+    }
+
+    public function deposerPiece(DeposerPieceAideRequest $request, string $id)
+    {
+        $demande = DemandeAide::find($id);
+
+        if (! $demande) {
+            return $this->error('Demande d\'aide introuvable.', 404);
+        }
+
+        $fichier = $request->file('document');
+        $chemin = $fichier->store("aides-etudiantes/{$id}", 'public');
+
+        return $this->success('Pièce déposée avec succès.', [
+            'type' => $request->validated('type'),
+            'chemin' => $chemin,
+            'url' => Storage::disk('public')->url($chemin),
+        ], 201);
+    }
+
+    public function archiver(string $id)
+    {
+        $demande = DemandeAide::find($id);
+
+        if (! $demande) {
+            return $this->error('Demande d\'aide introuvable.', 404);
+        }
+
+        $demande->update(['statut' => 'archive']);
+
+        return $this->success('Demande d\'aide archivée avec succès.', $demande);
+    }
 }

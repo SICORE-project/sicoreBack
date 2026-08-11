@@ -33,7 +33,7 @@ class ServiceFaitHistorique extends Model
     public function utilisateur(): BelongsTo
     {
         return $this->belongsTo(
-            Utilisateurs::class,
+            \App\Models\Admin\User::class,
             'utilisateur_id'
         );
     }

@@ -1,759 +1,268 @@
 <?php
 
-namespace App\Http\Controllers;
+namespace App\Http\Controllers\Api\Indemnites;
 
+use App\Http\Controllers\Controller;
+use App\Http\Controllers\Api\Indemnites\Concerns\ApiResponseTrait;
+use App\Http\Requests\Indemnites\StoreServiceFaitRequest;
+use App\Http\Requests\Indemnites\UpdateServiceFaitRequest;
+use App\Http\Requests\Indemnites\RejeterServiceFaitRequest;
+use App\Http\Requests\Indemnites\CorrigerServiceFaitRequest;
 use App\Models\ServiceFait;
 use App\Models\ServiceFaitHistorique;
-use Carbon\Carbon;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Response;
+use Illuminate\Support\Facades\DB;
 
 class ServicesFaitsController extends Controller
 {
-    /**
-     * Liste de tous les services faits.
-     */
+    use ApiResponseTrait;
+
     public function index(Request $request)
     {
-        $query = ServiceFait::with([
-            'enseignant',
-            'convocation',
-            'utilisateur',
-            'validateur',
-        ]);
-
-        if ($request->filled('enseignant_id')) {
-            $query->where(
-                'enseignant_id',
-                $request->input('enseignant_id')
-            );
-        }
-
-        if ($request->filled('convocation_id')) {
-            $query->where(
-                'convocation_id',
-                $request->input('convocation_id')
-            );
-        }
+        $query = ServiceFait::query();
 
         if ($request->filled('statut')) {
-            $query->where(
-                'statut',
-                $request->input('statut')
-            );
+            $query->where('statut', $request->query('statut'));
         }
-
-        if ($request->filled('date_debut')) {
-            $query->whereDate(
-                'date_debut',
-                '>=',
-                $request->input('date_debut')
-            );
-        }
-
-        if ($request->filled('date_fin')) {
-            $query->whereDate(
-                'date_fin',
-                '<=',
-                $request->input('date_fin')
-            );
-        }
-
-        $perPage = $this->perPage($request);
-
-        $servicesFaits = $query
-            ->latest()
-            ->paginate($perPage);
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Liste des services faits récupérée avec succès.',
-            'data' => $servicesFaits,
-        ]);
-    }
-
-    /**
-     * Créer une déclaration de service fait.
-     */
-    public function store(Request $request)
-    {
-        $validated = $request->validate([
-            'convocation_id' => [
-                'required',
-                'exists:convocations,id',
-            ],
-
-            'enseignant_id' => [
-                'required',
-                'exists:enseignants,id',
-            ],
-
-            'date_debut' => [
-                'required',
-                'date',
-            ],
-
-            'date_fin' => [
-                'required',
-                'date',
-                'after_or_equal:date_debut',
-            ],
-
-            'lieu' => [
-                'nullable',
-                'string',
-                'max:255',
-            ],
-
-            'description' => [
-                'nullable',
-                'string',
-            ],
-
-            'nombre_jours' => [
-                'nullable',
-                'integer',
-                'min:1',
-            ],
-        ]);
-
-        $validated['utilisateur_id'] = Auth::id();
-        $validated['statut'] = 'en_attente';
-
-        $serviceFait = ServiceFait::create($validated);
-
-        $this->creerHistorique(
-            $serviceFait,
-            'creation',
-            null,
-            $serviceFait->toArray()
-        );
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Déclaration de service fait créée avec succès.',
-            'data' => $serviceFait->load([
-                'enseignant',
-                'convocation',
-                'utilisateur',
-            ]),
-        ], 201);
-    }
-
-    /**
-     * Consulter une déclaration.
-     */
-    public function show(ServiceFait $serviceFait)
-    {
-        $serviceFait->load([
-            'enseignant',
-            'convocation',
-            'utilisateur',
-            'validateur',
-            'historiques.utilisateur',
-        ]);
-
-        return response()->json([
-            'success' => true,
-            'data' => $serviceFait,
-        ]);
-    }
-
-    /**
-     * Afficher les détails d'une prestation.
-     */
-    public function details(ServiceFait $serviceFait)
-    {
-        $serviceFait->load([
-            'enseignant',
-            'convocation',
-            'utilisateur',
-            'validateur',
-        ]);
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Détails du service fait récupérés avec succès.',
-            'data' => $serviceFait,
-        ]);
-    }
-
-    /**
-     * Afficher les déclarations en attente.
-     */
-    public function enAttente(Request $request)
-    {
-        $perPage = $this->perPage($request);
-
-        $servicesFaits = ServiceFait::with([
-            'enseignant',
-            'convocation',
-            'utilisateur',
-        ])
-            ->where('statut', 'en_attente')
-            ->latest()
-            ->paginate($perPage);
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Déclarations en attente récupérées avec succès.',
-            'data' => $servicesFaits,
-        ]);
-    }
-
-    /**
-     * Rechercher et filtrer les services faits.
-     */
-    public function rechercher(Request $request)
-    {
-        $query = ServiceFait::with([
-            'enseignant',
-            'convocation',
-            'utilisateur',
-        ]);
 
         if ($request->filled('enseignant_id')) {
-            $query->where(
-                'enseignant_id',
-                $request->input('enseignant_id')
-            );
+            $query->where('enseignant_id', $request->query('enseignant_id'));
         }
 
-        if ($request->filled('convocation_id')) {
-            $query->where(
-                'convocation_id',
-                $request->input('convocation_id')
-            );
-        }
+        $serviceFaits = $query->latest()->paginate($request->integer('per_page', 15));
 
-        if ($request->filled('statut')) {
-            $query->where(
-                'statut',
-                $request->input('statut')
-            );
-        }
-
-        if ($request->filled('date_debut')) {
-            $query->whereDate(
-                'date_debut',
-                '>=',
-                $request->input('date_debut')
-            );
-        }
-
-        if ($request->filled('date_fin')) {
-            $query->whereDate(
-                'date_fin',
-                '<=',
-                $request->input('date_fin')
-            );
-        }
-
-        if ($request->filled('periode_debut')) {
-            $query->whereDate(
-                'date_debut',
-                '>=',
-                $request->input('periode_debut')
-            );
-        }
-
-        if ($request->filled('periode_fin')) {
-            $query->whereDate(
-                'date_fin',
-                '<=',
-                $request->input('periode_fin')
-            );
-        }
-
-        $perPage = $this->perPage($request);
-
-        $servicesFaits = $query
-            ->latest()
-            ->paginate($perPage);
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Recherche effectuée avec succès.',
-            'data' => $servicesFaits,
-        ]);
+        return $this->success('Liste des services faits.', $serviceFaits);
     }
 
-    /**
-     * Modifier une déclaration.
-     */
-    public function update(
-        Request $request,
-        ServiceFait $serviceFait
-    ) {
-        if ($serviceFait->statut !== 'en_attente') {
-            return response()->json([
-                'success' => false,
-                'message' => 'Seules les déclarations en attente peuvent être modifiées.',
-            ], 422);
+    public function store(StoreServiceFaitRequest $request)
+    {
+        $data = $request->validated();
+        $data['statut'] = 'en_attente';
+        $data['nombre_jours'] = $data['nombre_jours']
+            ?? (\Carbon\Carbon::parse($data['date_debut'])->diffInDays(\Carbon\Carbon::parse($data['date_fin'])) + 1);
+
+        $serviceFait = DB::transaction(function () use ($data, $request) {
+            $sf = ServiceFait::create($data);
+
+            ServiceFaitHistorique::create([
+                'service_fait_id' => $sf->id,
+                'utilisateur_id' => $request->user()?->id,
+                'action' => 'creation',
+                'nouvelles_valeurs' => $sf->toArray(),
+            ]);
+
+            return $sf;
+        });
+
+        return $this->success('Service fait créé avec succès.', $serviceFait, 201);
+    }
+
+    public function show(string $id)
+    {
+        $serviceFait = ServiceFait::find($id);
+
+        if (! $serviceFait) {
+            return $this->error('Service fait introuvable.', 404);
         }
 
-        $validated = $request->validate([
-            'convocation_id' => [
-                'sometimes',
-                'exists:convocations,id',
-            ],
+        return $this->success('Service fait trouvé.', $serviceFait);
+    }
 
-            'enseignant_id' => [
-                'sometimes',
-                'exists:enseignants,id',
-            ],
+    public function update(UpdateServiceFaitRequest $request, string $id)
+    {
+        $serviceFait = ServiceFait::find($id);
 
-            'date_debut' => [
-                'sometimes',
-                'date',
-            ],
-
-            'date_fin' => [
-                'sometimes',
-                'date',
-                'after_or_equal:date_debut',
-            ],
-
-            'lieu' => [
-                'nullable',
-                'string',
-                'max:255',
-            ],
-
-            'description' => [
-                'nullable',
-                'string',
-            ],
-
-            'nombre_jours' => [
-                'sometimes',
-                'integer',
-                'min:1',
-            ],
-        ]);
+        if (! $serviceFait) {
+            return $this->error('Service fait introuvable.', 404);
+        }
 
         $anciennesValeurs = $serviceFait->toArray();
+        $serviceFait->update($request->validated());
 
-        $serviceFait->update($validated);
-
-        $nouvellesValeurs = $serviceFait->fresh()->toArray();
-
-        $this->creerHistorique(
-            $serviceFait,
-            'modification',
-            $anciennesValeurs,
-            $nouvellesValeurs
-        );
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Déclaration modifiée avec succès.',
-            'data' => $serviceFait->fresh()->load([
-                'enseignant',
-                'convocation',
-                'utilisateur',
-            ]),
+        ServiceFaitHistorique::create([
+            'service_fait_id' => $serviceFait->id,
+            'utilisateur_id' => $request->user()?->id,
+            'action' => 'modification',
+            'anciennes_valeurs' => $anciennesValeurs,
+            'nouvelles_valeurs' => $serviceFait->fresh()->toArray(),
         ]);
+
+        return $this->success('Service fait mis à jour avec succès.', $serviceFait);
     }
 
-    /**
-     * Corriger une déclaration avant validation.
-     */
-    public function corriger(
-        Request $request,
-        ServiceFait $serviceFait
-    ) {
-        if ($serviceFait->statut !== 'en_attente') {
-            return response()->json([
-                'success' => false,
-                'message' => 'Cette déclaration ne peut plus être corrigée.',
-            ], 422);
+    public function destroy(string $id)
+    {
+        $serviceFait = ServiceFait::find($id);
+
+        if (! $serviceFait) {
+            return $this->error('Service fait introuvable.', 404);
         }
 
-        $validated = $request->validate([
-            'convocation_id' => [
-                'sometimes',
-                'exists:convocations,id',
-            ],
+        $serviceFait->delete();
 
-            'enseignant_id' => [
-                'sometimes',
-                'exists:enseignants,id',
-            ],
-
-            'date_debut' => [
-                'sometimes',
-                'date',
-            ],
-
-            'date_fin' => [
-                'sometimes',
-                'date',
-                'after_or_equal:date_debut',
-            ],
-
-            'lieu' => [
-                'nullable',
-                'string',
-                'max:255',
-            ],
-
-            'description' => [
-                'nullable',
-                'string',
-            ],
-
-            'nombre_jours' => [
-                'sometimes',
-                'integer',
-                'min:1',
-            ],
-        ]);
-
-        $anciennesValeurs = $serviceFait->toArray();
-
-        $serviceFait->update($validated);
-
-        $nouvellesValeurs = $serviceFait->fresh()->toArray();
-
-        $this->creerHistorique(
-            $serviceFait,
-            'correction',
-            $anciennesValeurs,
-            $nouvellesValeurs
-        );
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Déclaration corrigée avec succès.',
-            'data' => $serviceFait->fresh()->load([
-                'enseignant',
-                'convocation',
-                'utilisateur',
-            ]),
-        ]);
+        return $this->success('Service fait supprimé avec succès.');
     }
 
-    /**
-     * Vérifier la conformité d'une déclaration.
-     */
-    public function verifierConformite(
-        ServiceFait $serviceFait
-    ) {
-        $erreurs = [];
+    public function valider(Request $request, string $id)
+    {
+        $serviceFait = ServiceFait::find($id);
 
-        if (! $serviceFait->convocation_id) {
-            $erreurs[] = 'La convocation est obligatoire.';
+        if (! $serviceFait) {
+            return $this->error('Service fait introuvable.', 404);
         }
-
-        if (! $serviceFait->enseignant_id) {
-            $erreurs[] = 'Le bénéficiaire est obligatoire.';
-        }
-
-        if (! $serviceFait->date_debut) {
-            $erreurs[] = 'La date de début est obligatoire.';
-        }
-
-        if (! $serviceFait->date_fin) {
-            $erreurs[] = 'La date de fin est obligatoire.';
-        }
-
-        if (
-            $serviceFait->date_debut &&
-            $serviceFait->date_fin &&
-            Carbon::parse($serviceFait->date_fin)
-                ->lt(Carbon::parse($serviceFait->date_debut))
-        ) {
-            $erreurs[] =
-                'La date de fin doit être supérieure ou égale à la date de début.';
-        }
-
-        if (
-            is_null($serviceFait->nombre_jours) ||
-            $serviceFait->nombre_jours < 1
-        ) {
-            $erreurs[] =
-                'Le nombre de jours doit être supérieur à zéro.';
-        }
-
-        return response()->json([
-            'success' => count($erreurs) === 0,
-            'conforme' => count($erreurs) === 0,
-            'message' => count($erreurs) === 0
-                ? 'La déclaration est conforme.'
-                : 'La déclaration présente des erreurs.',
-            'erreurs' => $erreurs,
-        ]);
-    }
-
-    /**
-     * Valider une déclaration.
-     */
-    public function valider(
-        ServiceFait $serviceFait
-    ) {
-        if ($serviceFait->statut !== 'en_attente') {
-            return response()->json([
-                'success' => false,
-                'message' => 'Cette déclaration a déjà été traitée.',
-            ], 422);
-        }
-
-        if (! $this->estConforme($serviceFait)) {
-            return response()->json([
-                'success' => false,
-                'message' => 'La déclaration n\'est pas conforme.',
-            ], 422);
-        }
-
-        $dateValidation = now();
-        $utilisateurId = Auth::id();
 
         $serviceFait->update([
             'statut' => 'valide',
-            'valide_par' => $utilisateurId,
-            'valide_at' => $dateValidation,
-            'motif_rejet' => null,
+            'valide_par' => $request->user()?->id,
+            'valide_at' => now(),
         ]);
 
-        $this->creerHistorique(
-            $serviceFait,
-            'validation',
-            null,
-            [
-                'statut' => 'valide',
-                'valide_par' => $utilisateurId,
-                'valide_at' => $dateValidation,
-            ]
-        );
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Service fait validé avec succès.',
-            'data' => $serviceFait->fresh()->load([
-                'enseignant',
-                'convocation',
-                'validateur',
-            ]),
+        ServiceFaitHistorique::create([
+            'service_fait_id' => $serviceFait->id,
+            'utilisateur_id' => $request->user()?->id,
+            'action' => 'validation',
+            'nouvelles_valeurs' => $serviceFait->fresh()->toArray(),
         ]);
+
+        return $this->success('Service fait validé avec succès.', $serviceFait);
     }
 
-    /**
-     * Rejeter une déclaration.
-     */
-    public function rejeter(
-        Request $request,
-        ServiceFait $serviceFait
-    ) {
-        if ($serviceFait->statut !== 'en_attente') {
-            return response()->json([
-                'success' => false,
-                'message' => 'Cette déclaration a déjà été traitée.',
-            ], 422);
+    public function rejeter(RejeterServiceFaitRequest $request, string $id)
+    {
+        $serviceFait = ServiceFait::find($id);
+
+        if (! $serviceFait) {
+            return $this->error('Service fait introuvable.', 404);
         }
-
-        $validated = $request->validate([
-            'motif_rejet' => [
-                'required',
-                'string',
-                'min:3',
-            ],
-        ]);
-
-        $dateRejet = now();
-        $utilisateurId = Auth::id();
 
         $serviceFait->update([
             'statut' => 'rejete',
-            'motif_rejet' => $validated['motif_rejet'],
-            'valide_par' => $utilisateurId,
-            'valide_at' => $dateRejet,
+            'motif_rejet' => $request->validated('motif_rejet'),
         ]);
 
-        $this->creerHistorique(
-            $serviceFait,
-            'rejet',
-            null,
-            [
-                'statut' => 'rejete',
-                'motif_rejet' => $validated['motif_rejet'],
-                'valide_par' => $utilisateurId,
-                'valide_at' => $dateRejet,
-            ]
-        );
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Service fait rejeté avec succès.',
-            'data' => $serviceFait->fresh()->load([
-                'enseignant',
-                'convocation',
-                'validateur',
-            ]),
+        ServiceFaitHistorique::create([
+            'service_fait_id' => $serviceFait->id,
+            'utilisateur_id' => $request->user()?->id,
+            'action' => 'rejet',
+            'nouvelles_valeurs' => $serviceFait->fresh()->toArray(),
         ]);
+
+        return $this->success('Service fait rejeté.', $serviceFait);
     }
 
-    /**
-     * Notifier le déclarant du résultat.
-     */
-    public function notifier(
-        ServiceFait $serviceFait
-    ) {
-        if (! in_array(
-            $serviceFait->statut,
-            ['valide', 'rejete'],
-            true
-        )) {
-            return response()->json([
-                'success' => false,
-                'message' => 'La déclaration doit être validée ou rejetée avant notification.',
-            ], 422);
+    public function corriger(CorrigerServiceFaitRequest $request, string $id)
+    {
+        $serviceFait = ServiceFait::find($id);
+
+        if (! $serviceFait) {
+            return $this->error('Service fait introuvable.', 404);
         }
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Le déclarant a été notifié du résultat.',
-            'statut' => $serviceFait->statut,
+        $anciennesValeurs = $serviceFait->toArray();
+        $donnees = collect($request->validated())->except('commentaire')->toArray();
+        $serviceFait->fill($donnees);
+        $serviceFait->statut = 'en_attente';
+        $serviceFait->save();
+
+        ServiceFaitHistorique::create([
+            'service_fait_id' => $serviceFait->id,
+            'utilisateur_id' => $request->user()?->id,
+            'action' => 'correction : ' . ($request->validated('commentaire') ?? ''),
+            'anciennes_valeurs' => $anciennesValeurs,
+            'nouvelles_valeurs' => $serviceFait->fresh()->toArray(),
         ]);
+
+        return $this->success('Service fait corrigé avec succès.', $serviceFait);
     }
 
-    /**
-     * Afficher l'historique.
-     */
-    public function historique(
-        ServiceFait $serviceFait
-    ) {
-        $historiques = $serviceFait
-            ->historiques()
-            ->with('utilisateur')
+    public function historique(string $id)
+    {
+        $serviceFait = ServiceFait::find($id);
+
+        if (! $serviceFait) {
+            return $this->error('Service fait introuvable.', 404);
+        }
+
+        $historique = ServiceFaitHistorique::where('service_fait_id', $id)
             ->latest()
             ->paginate(15);
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Historique récupéré avec succès.',
-            'data' => $historiques,
-        ]);
+        return $this->success('Historique du service fait.', $historique);
     }
 
-    /**
-     * Exporter l'historique.
-     */
+    public function rechercher(Request $request)
+    {
+        $query = ServiceFait::query();
+
+        if ($request->filled('q')) {
+            $terme = $request->query('q');
+            $query->where(function ($q) use ($terme) {
+                $q->where('description', 'like', "%{$terme}%")
+                    ->orWhere('lieu', 'like', "%{$terme}%");
+            });
+        }
+
+        if ($request->filled('statut')) {
+            $query->where('statut', $request->query('statut'));
+        }
+
+        if ($request->filled('date_debut')) {
+            $query->whereDate('date_debut', '>=', $request->query('date_debut'));
+        }
+
+        if ($request->filled('date_fin')) {
+            $query->whereDate('date_fin', '<=', $request->query('date_fin'));
+        }
+
+        $resultats = $query->latest()->paginate($request->integer('per_page', 15));
+
+        return $this->success('Résultats de la recherche.', $resultats);
+    }
+
     public function export(Request $request)
     {
-        $query = ServiceFaitHistorique::with([
-            'serviceFait',
-            'utilisateur',
+        $query = ServiceFait::query();
+
+        if ($request->filled('statut')) {
+            $query->where('statut', $request->query('statut'));
+        }
+
+        $serviceFaits = $query->get();
+
+        return $this->success('Export des services faits.', [
+            'total' => $serviceFaits->count(),
+            'items' => $serviceFaits,
         ]);
+    }
 
-        if ($request->filled('service_fait_id')) {
-            $query->where(
-                'service_fait_id',
-                $request->input('service_fait_id')
-            );
+    /**
+     * Vérifie la conformité d'un service fait (dates cohérentes, pièces requises).
+     */
+    public function verifierConformite(string $id)
+    {
+        $serviceFait = ServiceFait::find($id);
+
+        if (! $serviceFait) {
+            return $this->error('Service fait introuvable.', 404);
         }
 
-        if ($request->filled('utilisateur_id')) {
-            $query->where(
-                'utilisateur_id',
-                $request->input('utilisateur_id')
-            );
+        $erreurs = [];
+
+        if (! $serviceFait->date_debut || ! $serviceFait->date_fin) {
+            $erreurs[] = 'Dates de début/fin manquantes.';
+        } elseif ($serviceFait->date_fin < $serviceFait->date_debut) {
+            $erreurs[] = 'La date de fin est antérieure à la date de début.';
         }
 
-        $historiques = $query
-            ->latest()
-            ->get();
-
-        $stream = fopen('php://temp', 'r+');
-
-        fputcsv($stream, [
-            'ID',
-            'Service fait',
-            'Utilisateur',
-            'Action',
-            'Date',
-        ], ';');
-
-        foreach ($historiques as $historique) {
-            fputcsv($stream, [
-                $historique->id,
-                $historique->service_fait_id,
-                $historique->utilisateur_id,
-                $this->csvValue($historique->action),
-                $historique->created_at,
-            ], ';');
+        if (! $serviceFait->nombre_jours || $serviceFait->nombre_jours <= 0) {
+            $erreurs[] = 'Le nombre de jours doit être supérieur à zéro.';
         }
 
-        rewind($stream);
-        $csv = stream_get_contents($stream);
-        fclose($stream);
+        $conforme = empty($erreurs);
 
-        return Response::make(
-            $csv,
-            200,
-            [
-                'Content-Type' => 'text/csv; charset=UTF-8',
-
-                'Content-Disposition' => 'attachment; filename="historique-services-faits.csv"',
-            ]
+        return $this->success(
+            $conforme ? 'Service fait conforme.' : 'Service fait non conforme.',
+            ['conforme' => $conforme, 'erreurs' => $erreurs]
         );
-    }
-
-    /**
-     * Vérifier la conformité interne.
-     */
-    private function estConforme(
-        ServiceFait $serviceFait
-    ): bool {
-        if (
-            ! $serviceFait->convocation_id ||
-            ! $serviceFait->enseignant_id ||
-            ! $serviceFait->date_debut ||
-            ! $serviceFait->date_fin ||
-            is_null($serviceFait->nombre_jours) ||
-            $serviceFait->nombre_jours < 1
-        ) {
-            return false;
-        }
-
-        return Carbon::parse($serviceFait->date_fin)
-            ->gte(
-                Carbon::parse($serviceFait->date_debut)
-            );
-    }
-
-    private function perPage(Request $request): int
-    {
-        return min(max($request->integer('per_page', 15), 1), 100);
-    }
-
-    private function csvValue(mixed $value): string
-    {
-        $value = (string) $value;
-
-        return preg_match('/^[=+\-@]/', $value) ? "'{$value}" : $value;
-    }
-
-    /**
-     * Créer une entrée dans l'historique.
-     */
-    private function creerHistorique(
-        ServiceFait $serviceFait,
-        string $action,
-        ?array $anciennesValeurs,
-        ?array $nouvellesValeurs
-    ): void {
-        ServiceFaitHistorique::create([
-            'service_fait_id' => $serviceFait->id,
-
-            'utilisateur_id' => Auth::id() ?? $serviceFait->utilisateur_id,
-
-            'action' => $action,
-
-            'anciennes_valeurs' => $anciennesValeurs,
-
-            'nouvelles_valeurs' => $nouvellesValeurs,
-        ]);
     }
 }

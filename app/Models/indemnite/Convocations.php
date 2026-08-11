@@ -17,6 +17,7 @@ class Convocations extends Model
         'lieu_examen',
         'ordre_de_mission',
         'lieu_affectation',
+        'fichier_chemin',
         'statut',
         'utilisateur_id',
     ];
@@ -29,7 +30,7 @@ class Convocations extends Model
     public function utilisateur(): BelongsTo
     {
         return $this->belongsTo(
-            Utilisateurs::class,
+            \App\Models\Admin\User::class,
             'utilisateur_id'
         );
     }
@@ -40,11 +41,11 @@ class Convocations extends Model
     public function enseignants(): BelongsToMany
     {
         return $this->belongsToMany(
-            Enseignants::class,
+            \App\Models\Personnel\Enseignant::class,
             'convocation_enseignant',
             'convocation_id',
             'enseignant_id'
-        )->withTimestamps();
+        )->withPivot('fonction')->withTimestamps();
     }
 
     public function envois(): HasMany
