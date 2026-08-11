@@ -45,7 +45,7 @@ class Convocations extends Model
             'convocation_enseignant',
             'convocation_id',
             'enseignant_id'
-        )->withTimestamps();
+        )->withPivot('fonction')->withTimestamps();
     }
 
     public function envois(): HasMany

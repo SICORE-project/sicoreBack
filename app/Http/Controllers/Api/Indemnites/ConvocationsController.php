@@ -15,7 +15,7 @@ class ConvocationsController extends Controller
 
     public function index(Request $request)
     {
-        $query = ConvocationModel::query();
+        $query = ConvocationModel::withCount('enseignants');
 
         if ($request->filled('statut')) {
             $query->where('statut', $request->query('statut'));

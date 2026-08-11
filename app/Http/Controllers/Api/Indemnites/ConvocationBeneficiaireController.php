@@ -33,7 +33,21 @@ class ConvocationBeneficiaireController extends Controller
             return $this->error('Convocation introuvable.', 404);
         }
 
-        $convocation->enseignants()->syncWithoutDetaching($request->validated('enseignant_ids'));
+        $beneficiaires = $request->validated('beneficiaires');
+
+        if ($beneficiaires) {
+            // Nouveau format : [ ['enseignant_id' => 1, 'fonction' => 'President de jury'], ... ]
+            $sync = collect($beneficiaires)->mapWithKeys(fn ($b) => [
+                $b['enseignant_id'] => ['fonction' => $b['fonction'] ?? null],
+            ])->all();
+        } else {
+            // Ancien format : liste brute d'IDs, sans fonction.
+            $sync = collect($request->validated('enseignant_ids'))->mapWithKeys(fn ($enseignantId) => [
+                $enseignantId => ['fonction' => null],
+            ])->all();
+        }
+
+        $convocation->enseignants()->syncWithoutDetaching($sync);
 
         return $this->success(
             'Bénéficiaires ajoutés avec succès.',

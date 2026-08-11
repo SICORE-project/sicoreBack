@@ -14,8 +14,15 @@ class AttachBeneficiairesConvocationRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'enseignant_ids' => ['required', 'array', 'min:1'],
+            // Ancien format (conserve pour compatibilite) : liste brute d'IDs.
+            'enseignant_ids' => ['required_without:beneficiaires', 'array', 'min:1'],
             'enseignant_ids.*' => ['integer', 'exists:enseignants,id'],
+
+            // Nouveau format : chaque beneficiaire porte sa propre fonction
+            // dans CETTE convocation (President de jury, Surveillant/correcteur, ...).
+            'beneficiaires' => ['required_without:enseignant_ids', 'array', 'min:1'],
+            'beneficiaires.*.enseignant_id' => ['required_with:beneficiaires', 'integer', 'exists:enseignants,id'],
+            'beneficiaires.*.fonction' => ['nullable', 'string', 'max:100'],
         ];
     }
 }
