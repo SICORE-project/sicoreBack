@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\Indemnites\IndemnitesController;
 use App\Http\Controllers\Api\Indemnites\TypeIndemnitesController;
 use App\Http\Controllers\Api\Indemnites\ConvocationsController;
 use App\Http\Controllers\Api\Indemnites\ConvocationBeneficiaireController;
+use App\Http\Controllers\Api\Indemnites\ConvocationCentreController;
 use App\Http\Controllers\Api\Indemnites\ConvocationEnvoiController;
 use App\Http\Controllers\Api\Indemnites\ConvocationPdfController;
 use App\Http\Controllers\Api\Indemnites\ConvocationFichierController;
@@ -56,6 +57,9 @@ Route::post('convocations/{id}/fichier', [ConvocationFichierController::class, '
 
 Route::get('convocations/{id}/beneficiaires', [ConvocationBeneficiaireController::class, 'index']);
 Route::post('convocations/{id}/beneficiaires', [ConvocationBeneficiaireController::class, 'store']);
+
+Route::get('convocations/{id}/centres', [ConvocationCentreController::class, 'index']);
+Route::post('convocations/{id}/centres', [ConvocationCentreController::class, 'store']);
 
 Route::get('convocations/{id}/pdf', [ConvocationPdfController::class, 'generer']);
 Route::get('convocations/{id}/download', [ConvocationPdfController::class, 'download']);

@@ -45,7 +45,17 @@ class Convocations extends Model
             'convocation_enseignant',
             'convocation_id',
             'enseignant_id'
-        )->withPivot('fonction')->withTimestamps();
+        )->withPivot('fonction', 'centre_id')->withTimestamps();
+    }
+
+    /**
+     * Centres d'examen rattaches a cette convocation (cf. modele papier :
+     * une convocation peut couvrir plusieurs centres, chacun avec son
+     * propre jury/metier/chef de centre).
+     */
+    public function centres(): HasMany
+    {
+        return $this->hasMany(ConvocationCentre::class, 'convocation_id');
     }
 
     public function envois(): HasMany
