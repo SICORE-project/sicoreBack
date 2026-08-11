@@ -47,7 +47,7 @@ class ConvocationsController extends Controller
 
     public function show(string $id)
     {
-        $convocation = ConvocationModel::with('envois')->find($id);
+        $convocation = ConvocationModel::with(['envois', 'centres.chefCentre', 'typeConvocation'])->find($id);
 
         if (! $convocation) {
             return $this->error('Convocation introuvable.', 404);

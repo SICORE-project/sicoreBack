@@ -14,7 +14,11 @@ class UpdateConvocationRequest extends FormRequest
     public function rules(): array
     {
         return [
+            'type_convocation_id' => ['nullable', 'integer', 'exists:types_convocation,id'],
             'date_emission' => ['sometimes', 'date'],
+            'date_debut' => ['nullable', 'date'],
+            'date_fin' => ['nullable', 'date', 'after_or_equal:date_debut'],
+            'heure_debut' => ['nullable', 'date_format:H:i'],
             'objet' => ['sometimes', 'string', 'max:255'],
             'lieu_examen' => ['nullable', 'string', 'max:255'],
             'ordre_de_mission' => ['nullable', 'boolean'],

@@ -48,6 +48,8 @@ class Enseignant extends Model
         'ief_id',
         'ia_id',
         'nationalite_id',
+        'statut_enseignant_id',   // FK déjà en base (statuts_enseignant), oubliée du fillable
++        'categorie_personnel',    // vacataire / contractuel / fonctionnaire — distinct de statuts_enseignant.categorie
         'statut',
         'date_statut',
         'date_recrutement',
@@ -159,6 +161,7 @@ class Enseignant extends Model
     {
         return $this->belongsTo(StatutEnseignant::class, 'statut_enseignant_id');
     }
+    
 
     // === RELATIONS MANY TO MANY ===
     public function syndicats()

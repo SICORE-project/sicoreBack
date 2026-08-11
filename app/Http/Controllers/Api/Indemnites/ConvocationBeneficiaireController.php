@@ -53,13 +53,14 @@ class ConvocationBeneficiaireController extends Controller
                     $b['enseignant_id'] => [
                         'fonction' => $b['fonction'] ?? null,
                         'centre_id' => $centreId,
+                        'provenance' => $b['provenance'] ?? null,
                     ],
                 ];
             })->all();
         } else {
             // Ancien format : liste brute d'IDs, sans fonction ni centre.
             $sync = collect($request->validated('enseignant_ids'))->mapWithKeys(fn ($enseignantId) => [
-                $enseignantId => ['fonction' => null, 'centre_id' => null],
+                $enseignantId => ['fonction' => null, 'centre_id' => null, 'provenance' => null],
             ])->all();
         }
 

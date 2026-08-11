@@ -3,6 +3,7 @@
 use Illuminate\Support\Facades\Route;
 
 use App\Http\Controllers\Api\EnseignantsController;
+use App\Http\Controllers\Api\Indemnites\TypeConvocationController;
 use App\Http\Controllers\Api\Indemnites\IndemnitesController;
 use App\Http\Controllers\Api\Indemnites\TypeIndemnitesController;
 use App\Http\Controllers\Api\Indemnites\ConvocationsController;
@@ -43,6 +44,16 @@ Route::get('indemnites/{id}/frais', [IndemnitesController::class, 'listeFrais'])
 */
 
 Route::get('enseignants', [EnseignantsController::class, 'index']);
+
+
+/*
+|--------------------------------------------------------------------------
+| Types de convocation (paramétrage minimal, utilisé par le select du
+| formulaire de création de convocation)
+|--------------------------------------------------------------------------
+*/
+
+Route::get('types-convocation', [TypeConvocationController::class, 'index']);
 
 
 /*

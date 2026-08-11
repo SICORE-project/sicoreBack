@@ -101,6 +101,7 @@ class ConvocationEnvoiController extends Controller
         }
 
         $envois = ConvocationEnvoi::where('convocation_id', $id)
+            ->with('enseignant')
             ->latest('date_envoi')
             ->paginate(15);
 

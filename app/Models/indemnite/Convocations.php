@@ -12,7 +12,11 @@ class Convocations extends Model
     protected $table = 'convocations';
 
     protected $fillable = [
+        'type_convocation_id',
         'date_emission',
+        'date_debut',
+        'date_fin',
+        'heure_debut',
         'objet',
         'lieu_examen',
         'ordre_de_mission',
@@ -24,8 +28,18 @@ class Convocations extends Model
 
     protected $casts = [
         'date_emission' => 'date',
+        'date_debut' => 'date',
+        'date_fin' => 'date',
         'ordre_de_mission' => 'boolean',
     ];
+
+    public function typeConvocation(): BelongsTo
+    {
+        return $this->belongsTo(
+            \App\Models\Parametrage\TypeConvocation::class,
+            'type_convocation_id'
+        );
+    }
 
     public function utilisateur(): BelongsTo
     {
@@ -45,7 +59,7 @@ class Convocations extends Model
             'convocation_enseignant',
             'convocation_id',
             'enseignant_id'
-        )->withPivot('fonction', 'centre_id')->withTimestamps();
+        )->withPivot('fonction', 'centre_id', 'provenance')->withTimestamps();
     }
 
     /**
