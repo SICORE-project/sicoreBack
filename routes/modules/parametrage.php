@@ -4,10 +4,19 @@ use App\Http\Controllers\Api\Parametrage\CategorieController;
 use App\Http\Controllers\Api\Parametrage\CompteBancaireEnseignantController;
 use App\Http\Controllers\Api\Parametrage\CorpsController;
 use App\Http\Controllers\Api\Parametrage\InstitutFinancierController;
+use App\Http\Controllers\Api\Parametrage\IaController;
 use App\Http\Controllers\Api\Parametrage\LieuServiceController;
 use App\Http\Controllers\Api\Parametrage\AnneeAcademiqueController;
 use App\Http\Controllers\Api\Parametrage\SyndicatController;
 use Illuminate\Support\Facades\Route;
+
+Route::prefix('parametrage/ia')->group(function () {
+    Route::get('/', [IaController::class, 'index']);
+    Route::post('/', [IaController::class, 'store']);
+    Route::get('/{id}', [IaController::class, 'show'])->whereNumber('id');
+    Route::put('/{id}', [IaController::class, 'update'])->whereNumber('id');
+    Route::delete('/{id}', [IaController::class, 'destroy'])->whereNumber('id');
+});
 
 /*
 |--------------------------------------------------------------------------
