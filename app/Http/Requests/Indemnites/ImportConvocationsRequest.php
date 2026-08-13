@@ -14,11 +14,12 @@ class ImportConvocationsRequest extends FormRequest
     public function rules(): array
     {
         return [
-            // Fichier remis par la DECPC (option A du workflow DAGE). CSV
-            // uniquement pour cette première version (pas de dépendance
-            // xlsx/maatwebsite ajoutée à composer.json) — voir
-            // GUIDE-IMPORT-CONVOCATIONS.md pour le format attendu.
-            'fichier' => ['required', 'file', 'mimes:csv,txt', 'max:5120'],
+            // Fichier remis par la DECPC (option A du workflow DAGE). CSV,
+            // ou Word (.docx) si le tableau de convocation est fourni sous
+            // forme de document (cf. ConvocationImportController — parsing
+            // via phpoffice/phpword, 1re ligne du 1er tableau = en-têtes,
+            // mêmes alias de colonnes que le format CSV).
+            'fichier' => ['required', 'file', 'mimes:csv,txt,docx', 'max:5120'],
 
             // La DAGE qui réalise l'import — les convocations créées lui
             // sont rattachées (utilisateur_id, non nullable en base).

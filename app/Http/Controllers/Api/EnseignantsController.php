@@ -27,7 +27,7 @@ class EnseignantsController extends Controller
         }
 
         $enseignants = $query
-            ->select(['id', 'matricule', 'nom', 'prenom', 'telephone', 'email'])
+            ->select(['id', 'matricule', 'nom', 'prenom', 'telephone', 'email', 'categorie_personnel'])
             ->orderBy('nom')
             ->paginate($request->integer('per_page', 15));
 

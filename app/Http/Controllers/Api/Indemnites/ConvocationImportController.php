@@ -14,14 +14,15 @@ use Illuminate\Support\Str;
 
 /**
  * Option A du workflow "Transmission des convocations à la DAGE" : la
- * DECPC remet un fichier (CSV) listant les convocations à créer, la DAGE
- * l'importe ici. Chaque ligne du fichier devient UNE convocation (avec,
- * si les colonnes sont renseignées, un centre d'examen et un bénéficiaire
- * rattachés) — cf. GUIDE-IMPORT-CONVOCATIONS.md pour le format exact.
+ * DECPC remet un fichier (CSV ou Word) listant les convocations à créer,
+ * la DAGE l'importe ici. Chaque ligne du tableau devient UNE convocation
+ * (avec, si les colonnes sont renseignées, un centre d'examen et un
+ * bénéficiaire rattachés) — cf. GUIDE-IMPORT-CONVOCATIONS.md pour le
+ * format exact.
  *
  * Une ligne dont une information est absente ou non reconnue (agent
  * introuvable, type inconnu...) n'est PAS rejetée : elle est quand même
- * créée avec le statut "a_completer", pour que la DAGE la retrouve dans
+ * créée avec le statut "brouillon", pour que la DAGE la retrouve dans
  * la liste et la complète via le formulaire (option B). Seule une ligne
  * totalement invalide (objet impossible à déterminer) est ignorée et
  * remontée en erreur.
@@ -41,6 +42,7 @@ class ConvocationImportController extends Controller
         'session' => ['session'],
         'centre' => ['centre', 'centreexamen'],
         'role' => ['role', 'fonction'],
+        'provenance' => ['provenance'],
         'date_debut' => ['datedebut', 'debut', 'du'],
         'date_fin' => ['datefin', 'fin', 'au'],
         'date_emission' => ['dateemission', 'demission'],
@@ -50,30 +52,26 @@ class ConvocationImportController extends Controller
 
     public function store(ImportConvocationsRequest $request)
     {
-        $chemin = $request->file('fichier')->getRealPath();
+        $fichier = $request->file('fichier');
+        $chemin = $fichier->getRealPath();
+        $extension = Str::lower((string) $fichier->getClientOriginalExtension());
         $utilisateurId = (int) $request->validated('utilisateur_id');
 
-        $poignee = fopen($chemin, 'r');
-
-        if ($poignee === false) {
-            return $this->error("Impossible de lire le fichier transmis.", 422);
+        try {
+            [$ligneEntete, $lignesDonnees] = $extension === 'docx'
+                ? $this->lireDocx($chemin)
+                : $this->lireCsv($chemin);
+        } catch (\Throwable $e) {
+            return $this->error("Impossible de lire le fichier transmis : {$e->getMessage()}", 422);
         }
-
-        $separateur = $this->detecterSeparateur($chemin);
-
-        // Retire le BOM UTF-8 eventuel (Excel l'ajoute systematiquement),
-        // sinon la 1ere colonne de l'entete ne matche jamais son alias.
-        $premiersOctets = fread($poignee, 3);
-        if ($premiersOctets !== "\xEF\xBB\xBF") {
-            rewind($poignee);
-        }
-
-        $ligneEntete = fgetcsv($poignee, 0, $separateur);
 
         if (! $ligneEntete) {
-            fclose($poignee);
-
-            return $this->error("Le fichier est vide ou son entête est illisible.", 422);
+            return $this->error(
+                $extension === 'docx'
+                    ? "Aucun tableau trouvé dans ce document Word."
+                    : "Le fichier est vide ou son entête est illisible.",
+                422
+            );
         }
 
         $colonnes = $this->indexerColonnes($ligneEntete);
@@ -83,11 +81,11 @@ class ConvocationImportController extends Controller
         $erreurs = [];
         $numeroLigne = 1; // la ligne 1 est l'entete
 
-        while (($ligne = fgetcsv($poignee, 0, $separateur)) !== false) {
+        foreach ($lignesDonnees as $ligne) {
             $numeroLigne++;
 
             // Ignore les lignes entierement vides (fin de fichier, lignes
-            // blanches laissees par Excel...).
+            // blanches laissees par Excel/Word...).
             if (count(array_filter($ligne, fn ($v) => trim((string) $v) !== '')) === 0) {
                 continue;
             }
@@ -107,8 +105,6 @@ class ConvocationImportController extends Controller
             }
         }
 
-        fclose($poignee);
-
         return $this->success(
             count($crees) > 0
                 ? count($crees).' convocation(s) importée(s).'
@@ -124,10 +120,128 @@ class ConvocationImportController extends Controller
     }
 
     /**
+     * Lit un fichier CSV : renvoie [ligne d'entete, lignes de donnees].
+     */
+    private function lireCsv(string $chemin): array
+    {
+        $poignee = fopen($chemin, 'r');
+
+        if ($poignee === false) {
+            throw new \RuntimeException('lecture impossible.');
+        }
+
+        $separateur = $this->detecterSeparateur($chemin);
+
+        // Retire le BOM UTF-8 eventuel (Excel l'ajoute systematiquement),
+        // sinon la 1ere colonne de l'entete ne matche jamais son alias.
+        $premiersOctets = fread($poignee, 3);
+        if ($premiersOctets !== "\xEF\xBB\xBF") {
+            rewind($poignee);
+        }
+
+        $ligneEntete = fgetcsv($poignee, 0, $separateur);
+
+        if (! $ligneEntete) {
+            fclose($poignee);
+
+            return [null, []];
+        }
+
+        $lignes = [];
+
+        while (($ligne = fgetcsv($poignee, 0, $separateur)) !== false) {
+            $lignes[] = $ligne;
+        }
+
+        fclose($poignee);
+
+        return [$ligneEntete, $lignes];
+    }
+
+    /**
+     * Lit le premier tableau d'un document Word (.docx) : renvoie
+     * [ligne d'entete, lignes de donnees], sur le meme principe que
+     * lireCsv() (1re ligne du tableau = en-tetes, memes alias de
+     * colonnes que le format CSV — cf. self::ALIAS).
+     */
+    private function lireDocx(string $chemin): array
+    {
+        $phpWord = \PhpOffice\PhpWord\IOFactory::load($chemin);
+
+        $table = null;
+
+        foreach ($phpWord->getSections() as $section) {
+            foreach ($section->getElements() as $element) {
+                if ($element instanceof \PhpOffice\PhpWord\Element\Table) {
+                    $table = $element;
+                    break 2;
+                }
+            }
+        }
+
+        if (! $table) {
+            return [null, []];
+        }
+
+        $lignesBrutes = [];
+
+        foreach ($table->getRows() as $ligne) {
+            $cellules = [];
+
+            foreach ($ligne->getCells() as $cellule) {
+                $cellules[] = $this->extraireTexteCellule($cellule);
+            }
+
+            $lignesBrutes[] = $cellules;
+        }
+
+        if (empty($lignesBrutes)) {
+            return [null, []];
+        }
+
+        $ligneEntete = array_shift($lignesBrutes);
+
+        return [$ligneEntete, $lignesBrutes];
+    }
+
+    /**
+     * Concatene le texte d'une cellule de tableau Word (les elements
+     * "Text" simples et les "TextRun" imbriques suffisent pour un
+     * tableau de convocation classique — pas de gestion des liens,
+     * notes de bas de page ou objets plus complexes).
+     */
+    private function extraireTexteCellule(\PhpOffice\PhpWord\Element\Cell $cellule): string
+    {
+        $morceaux = [];
+
+        foreach ($cellule->getElements() as $element) {
+            if (method_exists($element, 'getText')) {
+                $texte = $element->getText();
+
+                if (is_string($texte)) {
+                    $morceaux[] = $texte;
+                }
+            } elseif (method_exists($element, 'getElements')) {
+                foreach ($element->getElements() as $sousElement) {
+                    if (method_exists($sousElement, 'getText')) {
+                        $texte = $sousElement->getText();
+
+                        if (is_string($texte)) {
+                            $morceaux[] = $texte;
+                        }
+                    }
+                }
+            }
+        }
+
+        return trim(implode(' ', array_filter($morceaux, fn ($t) => $t !== '')));
+    }
+
+    /**
      * Cree la convocation (+ centre + beneficiaire eventuels) pour une
      * ligne du fichier. Renvoie un resume de ce qui a ete cree ainsi que
      * les avertissements (info manquante ou non reconnue -> statut
-     * "a_completer").
+     * "brouillon").
      */
     private function importerLigne(array $ligne, array $colonnes, int $utilisateurId): array
     {
@@ -219,6 +333,9 @@ class ConvocationImportController extends Controller
             $incomplete = true;
         }
 
+        // --- Provenance --------------------------------------------------
+        $provenance = $valeur('provenance');
+
         // --- Persistance -------------------------------------------------
         $convocation = ConvocationModel::create([
             'type_convocation_id' => $type->id ?? null,
@@ -228,7 +345,7 @@ class ConvocationImportController extends Controller
             'objet' => $objet !== '' ? $objet : 'Convocation importée',
             'session' => $session,
             'lieu_examen' => $lieuExamen,
-            'statut' => $incomplete ? 'a_completer' : 'emise',
+            'statut' => $incomplete ? 'brouillon' : 'emise',
             'utilisateur_id' => $utilisateurId,
         ]);
 
@@ -246,6 +363,7 @@ class ConvocationImportController extends Controller
             $convocation->enseignants()->attach($enseignant->id, [
                 'fonction' => $role,
                 'centre_id' => $centreId,
+                'provenance' => $provenance,
             ]);
         }
 

@@ -38,6 +38,23 @@ class ConvocationsController extends Controller
             $query->whereDate('date_emission', $request->query('date'));
         }
 
+        // Metier et Centre vivent sur convocation_centres (hasMany), pas
+        // directement sur convocations : whereHas() pour ne garder que les
+        // convocations ayant AU MOINS un centre correspondant au filtre.
+        if ($request->filled('metier')) {
+            $metier = $request->query('metier');
+            $query->whereHas('centres', function ($q) use ($metier) {
+                $q->where('metier', 'like', '%'.$metier.'%');
+            });
+        }
+
+        if ($request->filled('centre')) {
+            $centre = $request->query('centre');
+            $query->whereHas('centres', function ($q) use ($centre) {
+                $q->where('centre', 'like', '%'.$centre.'%');
+            });
+        }
+
         $convocations = $query->latest()->paginate($request->integer('per_page', 15));
 
         return $this->success('Liste des convocations.', $convocations);
@@ -66,6 +83,8 @@ class ConvocationsController extends Controller
         $convocation = ConvocationModel::with([
             'envois',
             'centres.chefCentre',
+            'centres.presidentJury',
+            'centres.metiers',
             'centres.enseignants.lieuService',
             'enseignants.lieuService',
             'typeConvocation',

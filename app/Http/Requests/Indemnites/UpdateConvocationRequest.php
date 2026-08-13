@@ -26,7 +26,7 @@ class UpdateConvocationRequest extends FormRequest
             'lieu_examen' => ['nullable', 'string', 'max:255'],
             'ordre_de_mission' => ['nullable', 'boolean'],
             'lieu_affectation' => ['nullable', 'string', 'max:255'],
-            'statut' => ['nullable', 'in:brouillon,a_completer,emise,envoyee,cloturee'],
+            'statut' => ['nullable', 'in:brouillon,emise,envoyee,cloturee'],
             'utilisateur_id' => ['sometimes', 'integer', 'exists:users,id'],
         ];
     }
