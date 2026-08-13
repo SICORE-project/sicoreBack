@@ -15,8 +15,12 @@ class AttachBeneficiairesConvocationRequest extends FormRequest
     {
         return [
             // Ancien format (conserve pour compatibilite) : liste brute d'IDs.
+            // "distinct" : un meme enseignant ne peut pas etre convoque plus
+            // d'une fois sur la meme convocation (cf. meme regle sur
+            // "beneficiaires.*.enseignant_id" plus bas, et
+            // SyncConvocationStructureRequest pour la fiche "Modifier").
             'enseignant_ids' => ['required_without:beneficiaires', 'array', 'min:1'],
-            'enseignant_ids.*' => ['integer', 'exists:enseignants,id'],
+            'enseignant_ids.*' => ['integer', 'exists:enseignants,id', 'distinct'],
 
             // Nouveau format : chaque beneficiaire porte sa propre fonction
             // dans CETTE convocation (President de jury, Surveillant/correcteur, ...),
@@ -24,7 +28,7 @@ class AttachBeneficiairesConvocationRequest extends FormRequest
             // utile pour le calcul des indemnites), et peut etre rattache a
             // un centre d'examen precis de la convocation.
             'beneficiaires' => ['required_without:enseignant_ids', 'array', 'min:1'],
-            'beneficiaires.*.enseignant_id' => ['required_with:beneficiaires', 'integer', 'exists:enseignants,id'],
+            'beneficiaires.*.enseignant_id' => ['required_with:beneficiaires', 'integer', 'exists:enseignants,id', 'distinct'],
             'beneficiaires.*.fonction' => ['nullable', 'string', 'max:100'],
             'beneficiaires.*.centre_id' => ['nullable', 'integer', 'exists:convocation_centres,id'],
             // Metier precis du centre (un centre peut en avoir plusieurs) —
@@ -32,6 +36,14 @@ class AttachBeneficiairesConvocationRequest extends FormRequest
             'beneficiaires.*.centre_metier_id' => ['nullable', 'integer', 'exists:convocation_centre_metiers,id'],
             'beneficiaires.*.provenance' => ['nullable', 'string', 'max:255'],
             'beneficiaires.*.categorie_personnel' => ['nullable', 'in:fonctionnaire,contractuel,vacataire'],
+        ];
+    }
+
+    public function messages(): array
+    {
+        return [
+            'enseignant_ids.*.distinct' => "Un bénéficiaire ne peut pas être convoqué plus d'une fois sur la même convocation.",
+            'beneficiaires.*.enseignant_id.distinct' => "Un bénéficiaire ne peut pas être convoqué plus d'une fois sur la même convocation.",
         ];
     }
 }

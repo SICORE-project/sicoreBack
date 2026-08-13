@@ -43,7 +43,7 @@ class SyncConvocationStructureRequest extends FormRequest
             'statut' => ['nullable', 'in:brouillon,emise,envoyee,cloturee'],
 
             // Centres d'examen — une convocation doit toujours en avoir au
-            // moins un (cf. demande explicite de l'utilisatrice).
+            // moins un.
             'centres' => ['required', 'array', 'min:1'],
             'centres.*.id' => ['nullable', 'integer'],
             'centres.*.centre' => ['required', 'string', 'max:255'],
@@ -66,12 +66,21 @@ class SyncConvocationStructureRequest extends FormRequest
             // n'ont pas encore d'id reel cote client pour les nouveaux
             // centres/metiers ajoutes dans le wizard.
             'beneficiaires' => ['nullable', 'array'],
-            'beneficiaires.*.enseignant_id' => ['required_with:beneficiaires', 'integer', 'exists:enseignants,id'],
+            // "distinct" : un meme enseignant ne peut pas etre convoque
+            // plus d'une fois sur la meme convocation .
+            'beneficiaires.*.enseignant_id' => ['required_with:beneficiaires', 'integer', 'exists:enseignants,id', 'distinct'],
             'beneficiaires.*.fonction' => ['nullable', 'string', 'max:100'],
             'beneficiaires.*.provenance' => ['nullable', 'string', 'max:255'],
             'beneficiaires.*.categorie_personnel' => ['nullable', 'in:fonctionnaire,contractuel,vacataire'],
             'beneficiaires.*.centre_index' => ['nullable', 'integer'],
             'beneficiaires.*.metier_index' => ['nullable', 'integer'],
+        ];
+    }
+
+    public function messages(): array
+    {
+        return [
+            'beneficiaires.*.enseignant_id.distinct' => "Un bénéficiaire ne peut pas être convoqué plus d'une fois sur la même convocation.",
         ];
     }
 }

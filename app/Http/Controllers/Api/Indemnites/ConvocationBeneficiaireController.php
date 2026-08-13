@@ -43,6 +43,31 @@ class ConvocationBeneficiaireController extends Controller
 
         $beneficiaires = $request->validated('beneficiaires');
 
+        // "UN BENEFICIAIRE NE PEUT PAS ETRE CONVOQUE PLUS DE UNE FOIS" :
+        // AttachBeneficiairesConvocationRequest ("distinct") empeche deja
+        // les doublons AU SEIN de cette requete, mais pas un enseignant
+        // DEJA rattache a la convocation (ajoute lors d'un appel
+        // precedent) - sans ce garde-fou, syncWithoutDetaching() ecraserait
+        // silencieusement sa fonction/son centre au lieu de signaler le
+        // doublon.
+        $enseignantIdsSoumis = collect($beneficiaires ?: $request->validated('enseignant_ids'))
+            ->map(fn ($b) => is_array($b) ? ($b['enseignant_id'] ?? null) : $b)
+            ->filter()
+            ->all();
+
+        $dejaConvoques = $convocation->enseignants()
+            ->whereIn('enseignant_id', $enseignantIdsSoumis)
+            ->get(['nom', 'prenom']);
+
+        if ($dejaConvoques->isNotEmpty()) {
+            $noms = $dejaConvoques->map(fn ($e) => trim("{$e->prenom} {$e->nom}"))->implode(', ');
+
+            return $this->error(
+                "Déjà convoqué(e) sur cette convocation : {$noms}. Un bénéficiaire ne peut pas être convoqué plus d'une fois.",
+                422
+            );
+        }
+
         if ($beneficiaires) {
             // Les centre_id / centre_metier_id valides doivent appartenir a
             // CETTE convocation (les regles 'exists:...' ne verifient que
