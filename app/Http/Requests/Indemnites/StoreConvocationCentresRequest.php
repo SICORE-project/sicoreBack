@@ -20,6 +20,8 @@ class StoreConvocationCentresRequest extends FormRequest
             'centres.*.metier' => ['nullable', 'string', 'max:255'],
             'centres.*.chef_centre_id' => ['nullable', 'integer', 'exists:enseignants,id'],
             'centres.*.chef_centre_telephone' => ['nullable', 'string', 'max:30'],
+            'centres.*.president_jury_id' => ['nullable', 'integer', 'exists:enseignants,id'],
+            'centres.*.president_jury_telephone' => ['nullable', 'string', 'max:30'],
         ];
     }
 }

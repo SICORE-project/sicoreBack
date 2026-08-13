@@ -25,6 +25,7 @@ class AttachBeneficiairesConvocationRequest extends FormRequest
             'beneficiaires.*.enseignant_id' => ['required_with:beneficiaires', 'integer', 'exists:enseignants,id'],
             'beneficiaires.*.fonction' => ['nullable', 'string', 'max:100'],
             'beneficiaires.*.centre_id' => ['nullable', 'integer', 'exists:convocation_centres,id'],
+            'beneficiaires.*.centre_metier_id' => ['nullable', 'integer', 'exists:convocation_centre_metiers,id'],
             'beneficiaires.*.provenance' => ['nullable', 'string', 'max:255'],
         ];
     }

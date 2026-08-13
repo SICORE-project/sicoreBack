@@ -13,25 +13,7 @@ use App\Services\Indemnites\ConvocationWordTemplateService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 
-/**
- * Import d'une convocation depuis le modèle Word téléchargeable (voir
- * ConvocationModeleWordController) : un document rempli décrit UNE
- * convocation complète (infos générales + centres d'examen + membres du
- * jury), avec les mêmes champs que le formulaire de saisie manuelle.
- *
- * La création réutilise exactement les mêmes règles de validation
- * (StoreConvocationRequest, StoreConvocationCentresRequest,
- * AttachBeneficiairesConvocationRequest) et les mêmes appels Eloquent que
- * ConvocationsController::store / ConvocationCentreController::store /
- * ConvocationBeneficiaireController::store — seule la source des données
- * change (fichier Word au lieu du formulaire HTML).
- *
- * Un centre ou un membre dont une donnée est invalide ou introuvable
- * (agent non reconnu, centre vide...) n'empêche pas la création de la
- * convocation : il est ignoré et remonté en avertissement, à charge pour
- * la DAGE de compléter ensuite via le formulaire (même philosophie que
- * l'ancien import CSV).
- */
+
 class ConvocationImportController extends Controller
 {
     use ApiResponseTrait;
@@ -69,8 +51,8 @@ class ConvocationImportController extends Controller
         $convocation = DB::transaction(function () use ($validateurConvocation, $donnees, &$avertissements) {
             $convocation = ConvocationModel::create($validateurConvocation->validated());
 
-            $centresCrees = $this->creerCentres($convocation, $donnees['centres'], $avertissements);
-            $this->attacherBeneficiaires($convocation, $donnees['beneficiaires'], $centresCrees, $avertissements);
+            [$centresCrees, $metiersCrees] = $this->creerCentres($convocation, $donnees['centres'], $avertissements);
+            $this->attacherBeneficiaires($convocation, $donnees['beneficiaires'], $centresCrees, $metiersCrees, $avertissements);
 
             return $convocation;
         });
@@ -95,15 +77,17 @@ class ConvocationImportController extends Controller
      * Crée les centres valides (mêmes règles que
      * StoreConvocationCentresRequest, "centres" rendu facultatif ici
      * puisqu'une convocation importée peut ne pas encore en avoir).
-     * Renvoie les centres créés indexés par nom (normalisé) pour le
+     * Renvoie les centres créés ET leur métier créé (colonne "Métier /
+     * spécialité" du tableau Centres — un seul métier par centre importé),
+     * tous deux indexés par nom de centre (normalisé), pour le
      * rattachement des membres du jury.
      *
-     * @return array<string, \App\Models\Indemnite\ConvocationCentre>
+     * @return array{0: array<string, \App\Models\Indemnite\ConvocationCentre>, 1: array<string, \App\Models\Indemnite\ConvocationCentreMetier>}
      */
     private function creerCentres(ConvocationModel $convocation, array $centres, array &$avertissements): array
     {
         if (empty($centres)) {
-            return [];
+            return [[], []];
         }
 
         $regles = (new StoreConvocationCentresRequest())->rules();
@@ -128,6 +112,7 @@ class ConvocationImportController extends Controller
         $indexInvalides = array_unique($indexInvalides);
 
         $centresCrees = [];
+        $metiersCrees = [];
 
         foreach ($centres as $index => $donnees) {
             if (in_array($index, $indexInvalides, true)) {
@@ -135,10 +120,20 @@ class ConvocationImportController extends Controller
             }
 
             $centre = $convocation->centres()->create($donnees);
-            $centresCrees[$this->normaliserNom($donnees['centre'])] = $centre;
+            $nomNormalise = $this->normaliserNom($donnees['centre']);
+            $centresCrees[$nomNormalise] = $centre;
+
+            // Un seul métier par centre importé (colonne "Métier /
+            // spécialité" du tableau Centres) : sans ce sous-enregistrement,
+            // les membres rattachés à ce centre ne peuvent pas être reliés à
+            // un métier (centre_metier_id), et n'apparaissent pas groupés
+            // sur la fiche de la convocation — voir attacherBeneficiaires().
+            if (! empty($donnees['metier'])) {
+                $metiersCrees[$nomNormalise] = $centre->metiers()->create(['metier' => $donnees['metier']]);
+            }
         }
 
-        return $centresCrees;
+        return [$centresCrees, $metiersCrees];
     }
 
     /**
@@ -147,7 +142,7 @@ class ConvocationImportController extends Controller
      * Le centre de chaque membre est retrouvé par nom parmi les centres
      * qui viennent d'être créés (colonne "Centre" du tableau Membres).
      */
-    private function attacherBeneficiaires(ConvocationModel $convocation, array $membres, array $centresCrees, array &$avertissements): void
+    private function attacherBeneficiaires(ConvocationModel $convocation, array $membres, array $centresCrees, array $metiersCrees, array &$avertissements): void
     {
         if (empty($membres)) {
             return;
@@ -157,12 +152,15 @@ class ConvocationImportController extends Controller
 
         foreach ($membres as $membre) {
             $centreId = null;
+            $centreMetierId = null;
 
             if (! empty($membre['centre_nom'])) {
-                $centre = $centresCrees[$this->normaliserNom($membre['centre_nom'])] ?? null;
+                $nomNormalise = $this->normaliserNom($membre['centre_nom']);
+                $centre = $centresCrees[$nomNormalise] ?? null;
 
                 if ($centre) {
                     $centreId = $centre->id;
+                    $centreMetierId = $metiersCrees[$nomNormalise]->id ?? null;
                 } else {
                     $avertissements[] = "membre rattaché au centre « {$membre['centre_nom']} » introuvable parmi les centres importés.";
                 }
@@ -172,6 +170,7 @@ class ConvocationImportController extends Controller
                 'enseignant_id' => $membre['enseignant_id'],
                 'fonction' => $membre['fonction'],
                 'centre_id' => $centreId,
+                'centre_metier_id' => $centreMetierId,
                 'provenance' => $membre['provenance'],
             ];
         }
@@ -195,6 +194,7 @@ class ConvocationImportController extends Controller
             $b['enseignant_id'] => [
                 'fonction' => $b['fonction'],
                 'centre_id' => $b['centre_id'],
+                'centre_metier_id' => $b['centre_metier_id'],
                 'provenance' => $b['provenance'],
             ],
         ])->all();

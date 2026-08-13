@@ -66,6 +66,8 @@ class ConvocationsController extends Controller
         $convocation = ConvocationModel::with([
             'envois',
             'centres.chefCentre',
+            'centres.presidentJury',
+            'centres.metiers',
             'centres.enseignants.lieuService',
             'enseignants.lieuService',
             'typeConvocation',

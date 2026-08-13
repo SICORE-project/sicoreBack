@@ -21,7 +21,7 @@ class ConvocationCentreController extends Controller
 
         return $this->success(
             'Centres de la convocation.',
-            $convocation->centres()->get()
+            $convocation->centres()->with(['chefCentre', 'presidentJury', 'metiers'])->get()
         );
     }
 

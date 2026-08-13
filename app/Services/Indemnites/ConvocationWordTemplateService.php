@@ -58,7 +58,11 @@ class ConvocationWordTemplateService
         'Jury' => 'jury',
         'Métier / spécialité' => 'metier',
         'Chef de centre (nom complet)' => 'chef_centre',
-        'Téléphone du chef de centre' => 'telephone',
+        'Téléphone du chef de centre' => 'chef_centre_telephone',
+        // Contact academique du centre, distinct du chef de centre
+        // (contact administratif) — voir convocation_centres.president_jury_id.
+        'Président du jury (nom complet)' => 'president_jury',
+        'Téléphone du président du jury' => 'president_jury_telephone',
     ];
 
     private const CHAMPS_MEMBRE = [
@@ -68,6 +72,11 @@ class ConvocationWordTemplateService
         'Fonction' => 'fonction',
         'Catégorie de personnel (Fonctionnaire, Contractuelle, Vacataire)' => 'categorie_personnel',
         'Provenance' => 'provenance',
+        // Informatif (ex: contacter le President de jury) : la table pivot
+        // convocation_enseignant n'a pas de colonne telephone (seulement
+        // fonction/centre_id/provenance), donc cette valeur n'est pas
+        // persistee — voir resoudreMembre(), qui l'ignore volontairement.
+        'Téléphone' => 'telephone',
     ];
 
     /** Marqueur (libellé de colonne) qui identifie chaque type de tableau à la lecture. */
@@ -382,12 +391,26 @@ class ConvocationWordTemplateService
             $chefCentreId = $enseignant?->id;
         }
 
+        $presidentJuryId = null;
+
+        if (! empty($ligne['president_jury'])) {
+            $enseignant = $this->trouverEnseignantParNom($ligne['president_jury']);
+
+            if (! $enseignant) {
+                $avertissements[] = "président du jury « {$ligne['president_jury']} » (centre « {$ligne['centre']} ») non reconnu.";
+            }
+
+            $presidentJuryId = $enseignant?->id;
+        }
+
         return [
             'centre' => $ligne['centre'],
             'jury' => $ligne['jury'] ?: null,
             'metier' => $ligne['metier'] ?: null,
             'chef_centre_id' => $chefCentreId,
-            'chef_centre_telephone' => $ligne['telephone'] ?: null,
+            'chef_centre_telephone' => $ligne['chef_centre_telephone'] ?: null,
+            'president_jury_id' => $presidentJuryId,
+            'president_jury_telephone' => $ligne['president_jury_telephone'] ?: null,
         ];
     }
 
