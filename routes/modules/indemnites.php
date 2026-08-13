@@ -12,6 +12,7 @@ use App\Http\Controllers\Api\Indemnites\ConvocationCentreController;
 use App\Http\Controllers\Api\Indemnites\ConvocationEnvoiController;
 use App\Http\Controllers\Api\Indemnites\ConvocationPdfController;
 use App\Http\Controllers\Api\Indemnites\ConvocationFichierController;
+use App\Http\Controllers\Api\Indemnites\ConvocationImportController;
 use App\Http\Controllers\Api\Indemnites\ServicesFaitsController;
 use App\Http\Controllers\Api\Indemnites\PieceJustificativesController;
 use App\Http\Controllers\Api\Indemnites\AccuseReceptionController;
@@ -61,6 +62,11 @@ Route::get('types-convocation', [TypeConvocationController::class, 'index']);
 | Convocations
 |--------------------------------------------------------------------------
 */
+
+// Route à segment fixe déclarée AVANT apiResource() pour ne pas être
+// interceptée par la route "show" (GET convocations/{id}) — option A du
+// workflow DAGE (import du fichier DECPC).
+Route::post('convocations/import', [ConvocationImportController::class, 'store']);
 
 Route::apiResource('convocations', ConvocationsController::class);
 Route::post('convocations/{id}/fichier', [ConvocationFichierController::class, 'store']);

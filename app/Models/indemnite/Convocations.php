@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Models;
+namespace App\Models\Indemnite;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -18,6 +18,7 @@ class Convocations extends Model
         'date_fin',
         'heure_debut',
         'objet',
+        'session',
         'lieu_examen',
         'ordre_de_mission',
         'lieu_affectation',
@@ -36,7 +37,7 @@ class Convocations extends Model
     public function typeConvocation(): BelongsTo
     {
         return $this->belongsTo(
-            \App\Models\Parametrage\TypeConvocation::class,
+            \App\Models\Indemnite\TypeConvocation::class,
             'type_convocation_id'
         );
     }
@@ -55,7 +56,7 @@ class Convocations extends Model
     public function enseignants(): BelongsToMany
     {
         return $this->belongsToMany(
-            \App\Models\Personnel\Enseignant::class,
+            \App\Models\Parametrage\Enseignant::class,
             'convocation_enseignant',
             'convocation_id',
             'enseignant_id'

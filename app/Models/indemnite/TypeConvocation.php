@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Models\Indemnites;
+namespace App\Models\Indemnite;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -22,6 +22,6 @@ class TypeConvocation extends Model
 
     public function convocations(): HasMany
     {
-        return $this->hasMany(\App\Models\Convocations::class, 'type_convocation_id');
+        return $this->hasMany(\App\Models\Indemnite\Convocations::class, 'type_convocation_id');
     }
 }

@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Models;
+namespace App\Models\Indemnite;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -26,7 +26,7 @@ class ConvocationCentre extends Model
 
     public function chefCentre(): BelongsTo
     {
-        return $this->belongsTo(\App\Models\Personnel\Enseignant::class, 'chef_centre_id');
+        return $this->belongsTo(\App\Models\Parametrage\Enseignant::class, 'chef_centre_id');
     }
 
     /**
@@ -36,7 +36,7 @@ class ConvocationCentre extends Model
     public function enseignants(): BelongsToMany
     {
         return $this->belongsToMany(
-            \App\Models\Personnel\Enseignant::class,
+            \App\Models\Parametrage\Enseignant::class,
             'convocation_enseignant',
             'centre_id',
             'enseignant_id'

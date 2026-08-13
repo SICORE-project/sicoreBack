@@ -4,7 +4,7 @@ namespace App\Http\Controllers\Api\Indemnites;
 
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\Api\Indemnites\Concerns\ApiResponseTrait;
-use App\Models\Indemnites\TypeConvocation;
+use App\Models\Indemnite\TypeConvocation;
 
 /**
  * Endpoint minimal (liste seule) pour alimenter le <select> "Type de

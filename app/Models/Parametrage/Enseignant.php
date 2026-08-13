@@ -1,16 +1,11 @@
 <?php
 
-namespace App\Models\Personnel;
+namespace App\Models\Parametrage;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use App\Models\Admin\User;
-use App\Models\Parametrage\{
-    Corps, Grade, Echelon, Diplome, Discipline, Specialite, Categorie,
-    LieuService, LieuPaiement, Ief, Ia, Nationalite, SituationFamiliale,
-    Syndicat, InstitutFinancier, CentreFormation, StatutEnseignant
-};
 
 class Enseignant extends Model
 {
@@ -49,7 +44,7 @@ class Enseignant extends Model
         'ia_id',
         'nationalite_id',
         'statut_enseignant_id',   // FK déjà en base (statuts_enseignant), oubliée du fillable
-+        'categorie_personnel',    // vacataire / contractuel / fonctionnaire — distinct de statuts_enseignant.categorie
+        'categorie_personnel',    // vacataire / contractuel / fonctionnaire — distinct de statuts_enseignant.categorie
         'statut',
         'date_statut',
         'date_recrutement',
