@@ -19,10 +19,13 @@ class AttachBeneficiairesConvocationRequest extends FormRequest
             'enseignant_ids.*' => ['integer', 'exists:enseignants,id'],
 
             // Nouveau format : chaque beneficiaire porte sa propre fonction
-            // dans CETTE convocation (President de jury, Surveillant/correcteur, ...).
+            // dans CETTE convocation (President de jury, Surveillant/correcteur, ...),
+            // et peut etre rattache a un centre d'examen precis de la convocation.
             'beneficiaires' => ['required_without:enseignant_ids', 'array', 'min:1'],
             'beneficiaires.*.enseignant_id' => ['required_with:beneficiaires', 'integer', 'exists:enseignants,id'],
             'beneficiaires.*.fonction' => ['nullable', 'string', 'max:100'],
+            'beneficiaires.*.centre_id' => ['nullable', 'integer', 'exists:convocation_centres,id'],
+            'beneficiaires.*.provenance' => ['nullable', 'string', 'max:255'],
         ];
     }
 }

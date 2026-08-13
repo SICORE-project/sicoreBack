@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Models;
+namespace App\Models\Indemnite;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -12,8 +12,13 @@ class Convocations extends Model
     protected $table = 'convocations';
 
     protected $fillable = [
+        'type_convocation_id',
         'date_emission',
+        'date_debut',
+        'date_fin',
+        'heure_debut',
         'objet',
+        'session',
         'lieu_examen',
         'ordre_de_mission',
         'lieu_affectation',
@@ -24,8 +29,18 @@ class Convocations extends Model
 
     protected $casts = [
         'date_emission' => 'date',
+        'date_debut' => 'date',
+        'date_fin' => 'date',
         'ordre_de_mission' => 'boolean',
     ];
+
+    public function typeConvocation(): BelongsTo
+    {
+        return $this->belongsTo(
+            \App\Models\Indemnite\TypeConvocation::class,
+            'type_convocation_id'
+        );
+    }
 
     public function utilisateur(): BelongsTo
     {
@@ -41,11 +56,21 @@ class Convocations extends Model
     public function enseignants(): BelongsToMany
     {
         return $this->belongsToMany(
-            \App\Models\Personnel\Enseignant::class,
+            \App\Models\Parametrage\Enseignant::class,
             'convocation_enseignant',
             'convocation_id',
             'enseignant_id'
-        )->withPivot('fonction')->withTimestamps();
+        )->withPivot('fonction', 'centre_id', 'provenance')->withTimestamps();
+    }
+
+    /**
+     * Centres d'examen rattaches a cette convocation (cf. modele papier :
+     * une convocation peut couvrir plusieurs centres, chacun avec son
+     * propre jury/metier/chef de centre).
+     */
+    public function centres(): HasMany
+    {
+        return $this->hasMany(ConvocationCentre::class, 'convocation_id');
     }
 
     public function envois(): HasMany

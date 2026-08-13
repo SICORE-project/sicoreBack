@@ -12,6 +12,19 @@ class ConvocationPdfController extends Controller
     use ApiResponseTrait;
 
     /**
+     * Relations nécessaires aux blades pdf/convocation.blade.php et ses
+     * partials (_jury_examen, _generique). Centralisé ici pour ne pas
+     * désynchroniser generer() et un futur aperçu/preview() qui utiliserait
+     * la même vue.
+     */
+    private const RELATIONS_POUR_PDF = [
+        'typeConvocation',
+        'enseignants.lieuService',
+        'centres.chefCentre',
+        'centres.enseignants.lieuService',
+    ];
+
+    /**
      * Génère le PDF de la convocation et le stocke sur le disque `public`.
      *
      * NOTE: nécessite le package barryvdh/laravel-dompdf, ajouté à
@@ -21,7 +34,7 @@ class ConvocationPdfController extends Controller
      */
     public function generer(string $id)
     {
-        $convocation = ConvocationModel::with('enseignants')->find($id);
+        $convocation = ConvocationModel::with(self::RELATIONS_POUR_PDF)->find($id);
 
         if (! $convocation) {
             return $this->error('Convocation introuvable.', 404);

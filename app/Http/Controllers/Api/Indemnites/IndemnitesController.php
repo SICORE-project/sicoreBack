@@ -9,7 +9,9 @@ use App\Http\Requests\Indemnites\UpdateIndemniteRequest;
 use App\Http\Requests\Indemnites\CalculerIndemniteRequest;
 use App\Http\Requests\Indemnites\ValiderCalculIndemniteRequest;
 use App\Http\Requests\Indemnites\AjouterFraisIndemniteRequest;
+use App\Models\Convocations;
 use App\Models\indemnites;
+use App\Models\Personnel\Enseignant;
 use App\Models\type_indemnites;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -99,22 +101,29 @@ class IndemnitesController extends Controller
 
     /**
      * Calcule le montant d'une indemnité à partir de son type/barème et la persiste.
+     *
+     * MODIFIÉ : si `type_indemnite_id` n'est pas fourni, il est résolu
+     * automatiquement à partir de `convocation_id`/`enseignant_id`
+     * (cf. resoudreTypeIndemnite()).
      */
     public function calculer(CalculerIndemniteRequest $request)
     {
         $data = $request->validated();
-        $type = type_indemnites::find($data['type_indemnite_id']);
+
+        [$type, $erreur, $codeErreur] = $this->resoudreTypeIndemnite($data);
 
         if (! $type) {
-            return $this->error('Type d\'indemnité (barème) introuvable.', 404);
+            return $this->error($erreur, $codeErreur);
         }
 
         $detail = $this->calculerMontant($type, $data);
 
-        $indemnite = DB::transaction(function () use ($data, $detail) {
+        $indemnite = DB::transaction(function () use ($data, $detail, $type) {
             return indemnites::create([
                 'utilisateur_id' => $data['utilisateur_id'],
-                'type_indemnite_id' => $data['type_indemnite_id'],
+                'type_indemnite_id' => $type->id,
+                'convocation_id' => $data['convocation_id'] ?? null,
+                'enseignant_id' => $data['enseignant_id'] ?? null,
                 'montant_base' => $detail['montant_base'],
                 'frais_deplacement' => $detail['frais_deplacement'],
                 'montant_total' => $detail['montant_total'],
@@ -137,10 +146,11 @@ class IndemnitesController extends Controller
     public function simuler(CalculerIndemniteRequest $request)
     {
         $data = $request->validated();
-        $type = type_indemnites::find($data['type_indemnite_id']);
+
+        [$type, $erreur, $codeErreur] = $this->resoudreTypeIndemnite($data);
 
         if (! $type) {
-            return $this->error('Type d\'indemnité (barème) introuvable.', 404);
+            return $this->error($erreur, $codeErreur);
         }
 
         $detail = $this->calculerMontant($type, $data);
@@ -213,6 +223,75 @@ class IndemnitesController extends Controller
             'frais_deplacement' => $indemnite->frais_deplacement,
             'montant_total' => $indemnite->montant_total,
         ]);
+    }
+
+    /**
+     * Résout le type_indemnite (barème) applicable.
+     *
+     * - Si `type_indemnite_id` est fourni explicitement, il est utilisé tel
+     *   quel (comportement historique inchangé, rétro-compatible).
+     * - Sinon, résolution automatique à partir de :
+     *     - `convocation_id` → `convocations.type_convocation_id`
+     *     - `enseignant_id`  → `enseignants.categorie_personnel`
+     *   Le barème le plus SPÉCIFIQUE l'emporte (celui qui matche le plus de
+     *   critères explicitement, un barème avec un champ NULL agissant comme
+     *   joker "s'applique à tous"). En cas d'égalité entre plusieurs
+     *   barèmes de même spécificité, ou si aucun ne correspond, on échoue
+     *   en 422 plutôt que de deviner — il s'agit d'argent, une ambiguïté ou
+     *   un trou de paramétrage doit être corrigé à la source, pas contourné
+     *   silencieusement par le code.
+     *
+     * @return array{0: ?type_indemnites, 1: ?string, 2: ?int} [$type, $messageErreur, $codeHttp]
+     */
+    private function resoudreTypeIndemnite(array $data): array
+    {
+        if (! empty($data['type_indemnite_id'])) {
+            $type = type_indemnites::find($data['type_indemnite_id']);
+
+            return $type
+                ? [$type, null, null]
+                : [null, "Type d'indemnité (barème) introuvable.", 404];
+        }
+
+        $convocation = ! empty($data['convocation_id'])
+            ? Convocations::find($data['convocation_id'])
+            : null;
+
+        $enseignant = ! empty($data['enseignant_id'])
+            ? Enseignant::find($data['enseignant_id'])
+            : null;
+
+        $typeConvocationId = $convocation?->type_convocation_id;
+        $categoriePersonnel = $enseignant?->categorie_personnel;
+
+        $candidats = type_indemnites::candidatsPour($typeConvocationId, $categoriePersonnel)->get();
+
+        if ($candidats->isEmpty()) {
+            return [
+                null,
+                "Aucun barème ne correspond à cette combinaison (type de convocation / catégorie de personnel). "
+                    . "Créez un barème adapté, ou un barème générique (sans critère) qui servira de valeur par défaut.",
+                422,
+            ];
+        }
+
+        $parSpecificite = $candidats->groupBy(function (type_indemnites $t) {
+            return (int) ($t->type_convocation_id !== null) + (int) ($t->categorie_personnel !== null);
+        });
+
+        $meilleurs = $parSpecificite->get($parSpecificite->keys()->max());
+
+        if ($meilleurs->count() > 1) {
+            return [
+                null,
+                'Plusieurs barèmes de même niveau de spécificité correspondent (ids : '
+                    . $meilleurs->pluck('id')->implode(', ')
+                    . '). Corrigez le paramétrage des barèmes avant de recalculer.',
+                422,
+            ];
+        }
+
+        return [$meilleurs->first(), null, null];
     }
 
     /**

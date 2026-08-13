@@ -5,7 +5,7 @@ namespace App\Http\Controllers\Api\Indemnites;
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\Api\Indemnites\Concerns\ApiResponseTrait;
 use App\Http\Requests\Indemnites\UploadFichierConvocationRequest;
-use App\Models\Convocations as ConvocationModel;
+use App\Models\Indemnite\Convocations as ConvocationModel;
 use Illuminate\Support\Facades\Storage;
 
 /**

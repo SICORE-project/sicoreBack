@@ -5,7 +5,7 @@ namespace App\Http\Controllers\Api\Indemnites;
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\Api\Indemnites\Concerns\ApiResponseTrait;
 use App\Http\Requests\Indemnites\AttachBeneficiairesConvocationRequest;
-use App\Models\Convocations as ConvocationModel;
+use App\Models\Indemnite\Convocations as ConvocationModel;
 
 class ConvocationBeneficiaireController extends Controller
 {
@@ -36,14 +36,31 @@ class ConvocationBeneficiaireController extends Controller
         $beneficiaires = $request->validated('beneficiaires');
 
         if ($beneficiaires) {
-            // Nouveau format : [ ['enseignant_id' => 1, 'fonction' => 'President de jury'], ... ]
-            $sync = collect($beneficiaires)->mapWithKeys(fn ($b) => [
-                $b['enseignant_id'] => ['fonction' => $b['fonction'] ?? null],
-            ])->all();
+            // Les centre_id valides doivent appartenir a CETTE convocation
+            // (la regle 'exists:convocation_centres,id' ne verifie que
+            // l'existence de la ligne, pas son rattachement).
+            $centresValides = $convocation->centres()->pluck('id')->all();
+
+            // Nouveau format : [ ['enseignant_id' => 1, 'fonction' => 'President de jury', 'centre_id' => 3], ... ]
+            $sync = collect($beneficiaires)->mapWithKeys(function (array $b) use ($centresValides) {
+                $centreId = $b['centre_id'] ?? null;
+
+                if ($centreId && ! in_array($centreId, $centresValides, true)) {
+                    $centreId = null;
+                }
+
+                return [
+                    $b['enseignant_id'] => [
+                        'fonction' => $b['fonction'] ?? null,
+                        'centre_id' => $centreId,
+                        'provenance' => $b['provenance'] ?? null,
+                    ],
+                ];
+            })->all();
         } else {
-            // Ancien format : liste brute d'IDs, sans fonction.
+            // Ancien format : liste brute d'IDs, sans fonction ni centre.
             $sync = collect($request->validated('enseignant_ids'))->mapWithKeys(fn ($enseignantId) => [
-                $enseignantId => ['fonction' => null],
+                $enseignantId => ['fonction' => null, 'centre_id' => null, 'provenance' => null],
             ])->all();
         }
 

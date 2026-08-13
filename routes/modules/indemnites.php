@@ -3,13 +3,16 @@
 use Illuminate\Support\Facades\Route;
 
 use App\Http\Controllers\Api\EnseignantsController;
+use App\Http\Controllers\Api\Indemnites\TypeConvocationController;
 use App\Http\Controllers\Api\Indemnites\IndemnitesController;
 use App\Http\Controllers\Api\Indemnites\TypeIndemnitesController;
 use App\Http\Controllers\Api\Indemnites\ConvocationsController;
 use App\Http\Controllers\Api\Indemnites\ConvocationBeneficiaireController;
+use App\Http\Controllers\Api\Indemnites\ConvocationCentreController;
 use App\Http\Controllers\Api\Indemnites\ConvocationEnvoiController;
 use App\Http\Controllers\Api\Indemnites\ConvocationPdfController;
 use App\Http\Controllers\Api\Indemnites\ConvocationFichierController;
+use App\Http\Controllers\Api\Indemnites\ConvocationImportController;
 use App\Http\Controllers\Api\Indemnites\ServicesFaitsController;
 use App\Http\Controllers\Api\Indemnites\PieceJustificativesController;
 use App\Http\Controllers\Api\Indemnites\AccuseReceptionController;
@@ -46,9 +49,24 @@ Route::get('enseignants', [EnseignantsController::class, 'index']);
 
 /*
 |--------------------------------------------------------------------------
+| Types de convocation (paramétrage minimal, utilisé par le select du
+| formulaire de création de convocation)
+|--------------------------------------------------------------------------
+*/
+
+Route::get('types-convocation', [TypeConvocationController::class, 'index']);
+
+
+/*
+|--------------------------------------------------------------------------
 | Convocations
 |--------------------------------------------------------------------------
 */
+
+// Route à segment fixe déclarée AVANT apiResource() pour ne pas être
+// interceptée par la route "show" (GET convocations/{id}) — option A du
+// workflow DAGE (import du fichier DECPC).
+Route::post('convocations/import', [ConvocationImportController::class, 'store']);
 
 Route::apiResource('convocations', ConvocationsController::class);
 Route::post('convocations/{id}/fichier', [ConvocationFichierController::class, 'store']);
@@ -56,6 +74,9 @@ Route::post('convocations/{id}/fichier', [ConvocationFichierController::class, '
 
 Route::get('convocations/{id}/beneficiaires', [ConvocationBeneficiaireController::class, 'index']);
 Route::post('convocations/{id}/beneficiaires', [ConvocationBeneficiaireController::class, 'store']);
+
+Route::get('convocations/{id}/centres', [ConvocationCentreController::class, 'index']);
+Route::post('convocations/{id}/centres', [ConvocationCentreController::class, 'store']);
 
 Route::get('convocations/{id}/pdf', [ConvocationPdfController::class, 'generer']);
 Route::get('convocations/{id}/download', [ConvocationPdfController::class, 'download']);

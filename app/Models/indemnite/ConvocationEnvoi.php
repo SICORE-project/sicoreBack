@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Models;
+namespace App\Models\Indemnite;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -39,7 +39,7 @@ class ConvocationEnvoi extends Model
     public function enseignant(): BelongsTo
     {
         return $this->belongsTo(
-            \App\Models\Personnel\Enseignant::class,
+            \App\Models\Parametrage\Enseignant::class,
             'enseignant_id'
         );
     }

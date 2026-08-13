@@ -4,7 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\Api\Indemnites\Concerns\ApiResponseTrait;
-use App\Models\Personnel\Enseignant;
+use App\Models\Parametrage\Enseignant;
 use Illuminate\Http\Request;
 
 /**
