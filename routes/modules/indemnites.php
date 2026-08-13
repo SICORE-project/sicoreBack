@@ -13,6 +13,7 @@ use App\Http\Controllers\Api\Indemnites\ConvocationEnvoiController;
 use App\Http\Controllers\Api\Indemnites\ConvocationPdfController;
 use App\Http\Controllers\Api\Indemnites\ConvocationFichierController;
 use App\Http\Controllers\Api\Indemnites\ConvocationImportController;
+use App\Http\Controllers\Api\Indemnites\ConvocationModeleWordController;
 use App\Http\Controllers\Api\Indemnites\ServicesFaitsController;
 use App\Http\Controllers\Api\Indemnites\PieceJustificativesController;
 use App\Http\Controllers\Api\Indemnites\AccuseReceptionController;
@@ -63,9 +64,11 @@ Route::get('types-convocation', [TypeConvocationController::class, 'index']);
 |--------------------------------------------------------------------------
 */
 
-// Route à segment fixe déclarée AVANT apiResource() pour ne pas être
-// interceptée par la route "show" (GET convocations/{id}) — option A du
-// workflow DAGE (import du fichier DECPC).
+// Routes à segment fixe déclarées AVANT apiResource() pour ne pas être
+// interceptées par la route "show" (GET convocations/{id}) — modèle Word
+// téléchargeable puis import du document rempli (une convocation par
+// document, avec ses centres et ses membres du jury).
+Route::get('convocations/modele-word', [ConvocationModeleWordController::class, 'telecharger']);
 Route::post('convocations/import', [ConvocationImportController::class, 'store']);
 
 Route::apiResource('convocations', ConvocationsController::class);
