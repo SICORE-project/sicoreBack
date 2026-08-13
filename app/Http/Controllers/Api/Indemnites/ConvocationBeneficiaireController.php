@@ -21,12 +21,7 @@ class ConvocationBeneficiaireController extends Controller
             return $this->error('Convocation introuvable.', 404);
         }
 
-        // PAS de pagination ici : le front (show/edit) affiche TOUS les
-        // membres d'un coup, groupes par centre/metier — il n'y a pas de
-        // pagination cote UI. Avec paginate(15), toute convocation ayant
-        // plus de 15 membres au total (tous centres confondus) se
-        // retrouvait amputee des suivants, silencieusement (show/edit
-        // "n'affiche pas tout").
+       
         return $this->success(
             'Bénéficiaires de la convocation.',
             $convocation->enseignants()->get()

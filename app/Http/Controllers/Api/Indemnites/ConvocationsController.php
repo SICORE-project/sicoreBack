@@ -38,9 +38,7 @@ class ConvocationsController extends Controller
             $query->whereDate('date_emission', $request->query('date'));
         }
 
-        // Metier et Centre vivent sur convocation_centres (hasMany), pas
-        // directement sur convocations : whereHas() pour ne garder que les
-        // convocations ayant AU MOINS un centre correspondant au filtre.
+        
         if ($request->filled('metier')) {
             $metier = $request->query('metier');
             $query->whereHas('centres', function ($q) use ($metier) {
