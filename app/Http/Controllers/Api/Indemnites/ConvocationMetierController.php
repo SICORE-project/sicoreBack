@@ -7,12 +7,7 @@ use App\Http\Controllers\Api\Indemnites\Concerns\ApiResponseTrait;
 use App\Http\Requests\Indemnites\StoreConvocationMetierRequest;
 use App\Models\Indemnite\ConvocationCentre;
 
-/**
- * Metiers/specialites d'UN centre d'examen (un centre peut en couvrir
- * plusieurs, chacun avec ses propres membres du jury — voir
- * ConvocationCentreMetier et Convocations::enseignants() dont le pivot
- * porte centre_metier_id).
- */
+
 class ConvocationMetierController extends Controller
 {
     use ApiResponseTrait;
@@ -51,9 +46,7 @@ class ConvocationMetierController extends Controller
             return $this->error('Métier introuvable pour ce centre.', 404);
         }
 
-        // Les membres qui y etaient rattaches ne sont pas supprimes, seul
-        // leur rattachement a ce metier l'est (meme esprit que
-        // ConvocationCentreController::destroy pour les centres).
+      
         $metier->delete();
 
         return $this->success('Métier supprimé avec succès.');
