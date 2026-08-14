@@ -7,10 +7,9 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 /**
- * Un métier/spécialité couvert par un centre d'examen (un centre peut en
- * couvrir plusieurs — cf. modèle papier "convocation jury"). Les membres
- * du jury sont rattachés à un métier précis via
- * convocation_enseignant.centre_metier_id.
+ * Un metier au sein d'UN centre d'examen (cf. modele papier "convocation
+ * jury BT" : un centre a un jury et un chef de centre uniques, mais peut
+ * couvrir plusieurs metiers, chacun avec ses propres membres du jury).
  */
 class ConvocationCentreMetier extends Model
 {
@@ -26,6 +25,10 @@ class ConvocationCentreMetier extends Model
         return $this->belongsTo(ConvocationCentre::class, 'convocation_centre_id');
     }
 
+    /**
+     * Membres du jury affectes a CE metier precis (cf.
+     * convocation_enseignant.centre_metier_id).
+     */
     public function enseignants(): BelongsToMany
     {
         return $this->belongsToMany(
@@ -33,6 +36,6 @@ class ConvocationCentreMetier extends Model
             'convocation_enseignant',
             'centre_metier_id',
             'enseignant_id'
-        )->withPivot('fonction', 'centre_id', 'provenance')->withTimestamps();
+        )->withPivot('fonction', 'provenance', 'centre_id')->withTimestamps();
     }
 }
