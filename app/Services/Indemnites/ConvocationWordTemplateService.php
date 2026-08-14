@@ -12,30 +12,6 @@ use PhpOffice\PhpWord\Element\Table as WordTable;
 use PhpOffice\PhpWord\IOFactory;
 use PhpOffice\PhpWord\PhpWord;
 
-/**
- * Génère le modèle Word téléchargeable pour la création d'une convocation
- * (mêmes champs que le formulaire de saisie manuelle, cf.
- * resources/views/pages/indemnites/convocations/create.blade.php côté
- * sicoreFront) et lit un modèle rempli pour en extraire les données.
- *
- * Un seul document = une seule convocation (avec ses centres et ses
- * membres du jury qui lui sont rattachés) : seule la 1re ligne de données
- * du tableau "Informations générales" est utilisée si plusieurs sont
- * remplies ; en revanche TOUTES les lignes remplies des tableaux Centres
- * et Membres sont prises en compte (plusieurs centres/membres par
- * convocation).
- *
- * Chaque tableau a une ligne d'en-tête (les champs, en colonnes) suivie de
- * lignes de données : 10 colonnes × 11 lignes pour les informations
- * générales, 5 colonnes × 3 lignes pour les centres d'examen, 6 colonnes ×
- * 3 lignes pour les membres du jury. L'utilisateur peut ajouter des lignes
- * supplémentaires dans Word (centres/membres) si besoin.
- *
- * Le type de convocation n'est PAS un champ du document : il est choisi
- * dans le formulaire d'import (modal) à côté du fichier, et transmis
- * séparément — voir ImportConvocationsRequest::rules() côté API et
- * ConvocationsController::import() côté sicoreFront.
- */
 class ConvocationWordTemplateService
 {
     private const CHEMIN_MODELE = 'convocations/modele-convocation.docx';
@@ -59,8 +35,7 @@ class ConvocationWordTemplateService
         'Métier / spécialité' => 'metier',
         'Chef de centre (nom complet)' => 'chef_centre',
         'Téléphone du chef de centre' => 'chef_centre_telephone',
-        // Contact academique du centre, distinct du chef de centre
-        // (contact administratif) — voir convocation_centres.president_jury_id.
+      
         'Président du jury (nom complet)' => 'president_jury',
         'Téléphone du président du jury' => 'president_jury_telephone',
     ];
@@ -72,25 +47,17 @@ class ConvocationWordTemplateService
         'Fonction' => 'fonction',
         'Catégorie de personnel (Fonctionnaire, Contractuelle, Vacataire)' => 'categorie_personnel',
         'Provenance' => 'provenance',
-        // Informatif (ex: contacter le President de jury) : la table pivot
-        // convocation_enseignant n'a pas de colonne telephone (seulement
-        // fonction/centre_id/provenance), donc cette valeur n'est pas
-        // persistee — voir resoudreMembre(), qui l'ignore volontairement.
+        
         'Téléphone' => 'telephone',
     ];
 
-    /** Marqueur (libellé de colonne) qui identifie chaque type de tableau à la lecture. */
     private const MARQUEUR_INFOS = 'objet';
 
     private const MARQUEUR_CENTRE = 'centredexamen';
 
     private const MARQUEUR_MEMBRE = 'prenom';
 
-    /**
-     * Chemin (sur le disque `public`) du modèle téléchargeable, généré une
-     * seule fois puis mis en cache — même logique paresseuse que
-     * ConvocationPdfController::download().
-     */
+   
     public function cheminModele(): string
     {
         if (! Storage::disk('public')->exists(self::CHEMIN_MODELE)) {
@@ -131,11 +98,7 @@ class ConvocationWordTemplateService
         IOFactory::createWriter($phpWord, 'Word2007')->save($chemin);
     }
 
-    /**
-     * Ajoute un tableau "large" : une ligne d'en-tête (les libellés
-     * fournis, un par colonne) suivie de $lignesVides lignes de données
-     * vides à remplir.
-     */
+    
     private function ajouterTableau($section, array $entetes, int $lignesVides): WordTable
     {
         $table = $section->addTable(['borderSize' => 6, 'borderColor' => '999999', 'cellMargin' => 80]);
@@ -155,14 +118,7 @@ class ConvocationWordTemplateService
         return $table;
     }
 
-    /**
-     * Lit un .docx rempli et retourne les données prêtes à être validées
-     * par StoreConvocationRequest / StoreConvocationCentresRequest /
-     * AttachBeneficiairesConvocationRequest. Les entités référencées par
-     * leur nom (chef de centre, agent) sont déjà résolues en id ici ; seul
-     * le rattachement centre<->membre (par nom)
-     * reste à faire côté appelant, une fois les centres persistés.
-     */
+    
     public function lire(string $cheminFichier): array
     {
         $phpWord = IOFactory::load($cheminFichier);
@@ -182,8 +138,7 @@ class ConvocationWordTemplateService
             $colonnes = $this->mapperColonnes($tableInfos, self::CHAMPS_INFOS);
             $lignes = $this->lireLignesDonnees($tableInfos, $colonnes);
 
-            // Une seule convocation par document : seule la 1re ligne
-            // remplie compte, les suivantes ne servent qu'à l'espacement.
+           
             if (! empty($lignes)) {
                 $convocation = $this->resoudreInfos($lignes[0], $avertissements);
             }
@@ -239,11 +194,7 @@ class ConvocationWordTemplateService
         return $tables;
     }
 
-    /**
-     * Retrouve, parmi les tableaux du document, celui dont la ligne
-     * d'en-tête contient une colonne correspondant au marqueur donné —
-     * indépendant de la position/l'ordre des tableaux dans le document.
-     */
+  
     private function trouverTableau(array $tables, string $marqueur): ?WordTable
     {
         foreach ($tables as $table) {
@@ -263,16 +214,7 @@ class ConvocationWordTemplateService
         return null;
     }
 
-    /**
-     * Associe chaque index de colonne de la ligne d'en-tête au nom de
-     * champ interne correspondant (via $champs, libellé => champ interne),
-     * par correspondance "contient" une fois normalisé — les libellés les
-     * plus longs sont testés en premier pour éviter qu'un libellé court
-     * ("Nom") ne matche à tort une colonne plus longue qui le contient
-     * ("Prénom").
-     *
-     * @return array<int, string> index de colonne => champ interne
-     */
+   
     private function mapperColonnes(WordTable $table, array $champs): array
     {
         $alias = [];
@@ -456,10 +398,7 @@ class ConvocationWordTemplateService
     private function texteElement(mixed $element): string
     {
         if (method_exists($element, 'getText')) {
-            // Le lecteur PhpWord renvoie le texte encode en entites HTML
-            // (ex: apostrophe -> "&#039;") au lieu du caractere brut : sans
-            // ce decodage, toute comparaison ("d'examen", noms avec
-            // apostrophe...) echoue silencieusement.
+            
             return html_entity_decode((string) $element->getText(), ENT_QUOTES | ENT_XML1);
         }
 
@@ -484,12 +423,7 @@ class ConvocationWordTemplateService
         return preg_replace('/[^a-z0-9]/', '', $valeur);
     }
 
-    /**
-     * Recherche un enseignant par nom complet, dans les deux ordres
-     * possibles ("Prénom Nom" et "Nom Prénom") — même logique que
-     * l'ancien import CSV. Une ambiguïté (plusieurs correspondances) n'est
-     * pas résolue automatiquement.
-     */
+    
     private function trouverEnseignantParNom(string $nomComplet): ?Enseignant
     {
         $mots = preg_split('/\s+/', trim($nomComplet), -1, PREG_SPLIT_NO_EMPTY);
