@@ -15,10 +15,7 @@ class ConvocationsController extends Controller
 
     public function index(Request $request)
     {
-        // Eager loading nécessaire à la liste DAGE (point 3 du cahier des
-        // charges "Transmission des convocations") : Agent / Type / Session /
-        // Centre / Rôle / Lieu de service proviennent tous des relations,
-        // pas seulement des colonnes de `convocations`.
+        
         $query = ConvocationModel::withCount('enseignants')
             ->with(['typeConvocation', 'centres', 'enseignants.lieuService']);
 
@@ -58,17 +55,8 @@ class ConvocationsController extends Controller
         return $this->success('Liste des convocations.', $convocations);
     }
 
-    /**
-     * Créé une nouvelle convocation.
-     *
-     * NOTE: le dépôt de fichier a été déplacé vers ConvocationFichierController
-     * (POST /convocations/{id}/fichier) — cette méthode ne gère plus que
-     * la création, ce qui évite la bifurcation conditionnelle ambiguë
-     * qui existait auparavant dans StoreConvocationRequest.
-     *
-     * L'import en masse (option A du workflow DAGE : fichier DECPC ->
-     * enregistrements) est géré séparément par ConvocationImportController.
-     */
+    
+   
     public function store(StoreConvocationRequest $request)
     {
         $convocation = ConvocationModel::create($request->validated());

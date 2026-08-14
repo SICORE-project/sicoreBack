@@ -74,11 +74,7 @@ class ConvocationSyncController extends Controller
                 foreach ($metiersDonnees as $metierIndex => $metierDonnees) {
                     $nomMetier = $metierDonnees['metier'] ?? null;
 
-                    // Groupe "general" du wizard (sans nom de metier) : pas
-                    // de ligne convocation_centre_metiers a creer, ses
-                    // membres restent sans centre_metier_id — regroupes
-                    // sous "Non classés" cote affichage (voir
-                    // grouperBeneficiairesParMetier() cote front).
+                    
                     if (empty($nomMetier)) {
                         continue;
                     }
@@ -96,21 +92,14 @@ class ConvocationSyncController extends Controller
                     $metierIdParIndexParCentre[$centreIndex][$metierIndex] = $metier->id;
                 }
 
-                // Metiers de CE centre absents de la requete = retires par
-                // l'utilisatrice dans le wizard -> supprimes (les membres
-                // qui y etaient rattaches restent, seul centre_metier_id
-                // repasse a null, cf. migration nullOnDelete).
+              
                 $centre->metiers()->whereNotIn('id', $metiersSoumisIds)->delete();
             }
 
-            // Centres absents de la requete = retires dans le wizard ->
-            // supprimes (cascadeOnDelete sur leurs metiers, nullOnDelete
-            // sur les membres qui y etaient rattaches).
+           
             $convocation->centres()->whereNotIn('id', $centresSoumisIds)->delete();
 
-            // Membres du jury : remplacement complet (sync(), pas
-            // syncWithoutDetaching()) — un enseignant retire du wizard
-            // avant l'enregistrement doit disparaitre de la convocation.
+            
             $sync = [];
 
             foreach (($donnees['beneficiaires'] ?? []) as $beneficiaire) {

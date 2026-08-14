@@ -38,13 +38,7 @@ class ConvocationBeneficiaireController extends Controller
 
         $beneficiaires = $request->validated('beneficiaires');
 
-        // "UN BENEFICIAIRE NE PEUT PAS ETRE CONVOQUE PLUS DE UNE FOIS" :
-        // AttachBeneficiairesConvocationRequest ("distinct") empeche deja
-        // les doublons AU SEIN de cette requete, mais pas un enseignant
-        // DEJA rattache a la convocation (ajoute lors d'un appel
-        // precedent) - sans ce garde-fou, syncWithoutDetaching() ecraserait
-        // silencieusement sa fonction/son centre au lieu de signaler le
-        // doublon.
+        
         $enseignantIdsSoumis = collect($beneficiaires ?: $request->validated('enseignant_ids'))
             ->map(fn ($b) => is_array($b) ? ($b['enseignant_id'] ?? null) : $b)
             ->filter()
@@ -64,9 +58,7 @@ class ConvocationBeneficiaireController extends Controller
         }
 
         if ($beneficiaires) {
-            // Les centre_id / centre_metier_id valides doivent appartenir a
-            // CETTE convocation (les regles 'exists:...' ne verifient que
-            // l'existence de la ligne, pas son rattachement).
+            
             $centresValides = $convocation->centres()->pluck('id')->all();
             $metiersValides = \App\Models\Indemnite\ConvocationCentreMetier::whereIn('convocation_centre_id', $centresValides)->pluck('id')->all();
 
@@ -119,12 +111,7 @@ class ConvocationBeneficiaireController extends Controller
         );
     }
 
-    /**
-     * Modifie UN beneficiaire deja rattache a la convocation (fiche
-     * "Modifier"). Identifie par enseignant_id (unique par convocation,
-     * cf. contrainte sur convocation_enseignant) plutot que par un id de
-     * pivot, pour rester coherent avec store()/AttachBeneficiairesConvocationRequest.
-     */
+  
     public function update(UpdateConvocationBeneficiaireRequest $request, string $id, string $enseignantId)
     {
         $convocation = ConvocationModel::find($id);
@@ -177,8 +164,7 @@ class ConvocationBeneficiaireController extends Controller
     }
 
     /**
-     * Retire un beneficiaire de la convocation (detach du pivot — ne
-     * supprime pas l'enseignant lui-meme).
+     * Retire un beneficiaire de la convocation .
      */
     public function destroy(string $id, string $enseignantId)
     {

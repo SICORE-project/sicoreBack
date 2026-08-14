@@ -63,11 +63,7 @@ class Convocations extends Model
         )->withPivot('fonction', 'centre_id', 'centre_metier_id', 'provenance')->withTimestamps();
     }
 
-    /**
-     * Centres d'examen rattaches a cette convocation (cf. modele papier :
-     * une convocation peut couvrir plusieurs centres, chacun avec son
-     * propre jury/metier/chef de centre).
-     */
+    
     public function centres(): HasMany
     {
         return $this->hasMany(ConvocationCentre::class, 'convocation_id');

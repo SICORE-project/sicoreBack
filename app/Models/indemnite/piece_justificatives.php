@@ -5,7 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-class piece_justificatives extends Model
+class Piece_justificatives extends Model
 {
     protected $table = 'piece_justificatives';
 
