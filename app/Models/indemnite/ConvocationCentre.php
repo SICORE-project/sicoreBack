@@ -44,6 +44,9 @@ class ConvocationCentre extends Model
     /**
      * Membres du jury affectes a CE centre precis, au sein de la
      * convocation (voir la colonne centre_id sur convocation_enseignant).
+     * Conserve pour retrocompatibilite : desormais, chaque membre est plus
+     * precisement rattache a un METIER de ce centre (voir metiers() ci-
+     * dessus et ConvocationCentreMetier::enseignants()).
      */
     public function enseignants(): BelongsToMany
     {

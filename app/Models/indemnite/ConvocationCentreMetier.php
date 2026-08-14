@@ -26,6 +26,10 @@ class ConvocationCentreMetier extends Model
         return $this->belongsTo(ConvocationCentre::class, 'convocation_centre_id');
     }
 
+    /**
+     * Membres du jury affectes a CE metier precis (cf.
+     * convocation_enseignant.centre_metier_id).
+     */
     public function enseignants(): BelongsToMany
     {
         return $this->belongsToMany(
@@ -33,6 +37,6 @@ class ConvocationCentreMetier extends Model
             'convocation_enseignant',
             'centre_metier_id',
             'enseignant_id'
-        )->withPivot('fonction', 'centre_id', 'provenance')->withTimestamps();
+        )->withPivot('fonction', 'provenance', 'centre_id')->withTimestamps();
     }
 }

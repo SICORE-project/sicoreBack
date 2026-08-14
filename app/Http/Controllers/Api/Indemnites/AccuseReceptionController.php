@@ -84,14 +84,7 @@ class AccuseReceptionController extends Controller
         return $this->success('Accusé de réception supprimé avec succès.');
     }
 
-    /**
-     * NOTE ROUTAGE: cette route (GET accuses-reception/modeles) est déclarée
-     * après apiResource() dans routes/modules/indemnites.php. Comme le
-     * show() de l'apiResource écoute déjà sur GET accuses-reception/{id},
-     * Laravel fera correspondre "modeles" à {id} et cette méthode ne sera
-     * jamais atteinte. Il faut déplacer ces routes nominatives AVANT
-     * Route::apiResource('accuses-reception', ...) pour qu'elles fonctionnent.
-     */
+   
     public function modeles(Request $request)
     {
         $modeles = ModeleAccuseReception::when(
