@@ -8,13 +8,7 @@ use App\Http\Requests\Indemnites\UploadFichierConvocationRequest;
 use App\Models\Indemnite\Convocations as ConvocationModel;
 use Illuminate\Support\Facades\Storage;
 
-/**
- * Gère le dépôt du fichier associé à une convocation existante.
- *
- * Auparavant cette action était réalisée en bifurquant dans la méthode
- * store() de ConvocationsController selon la présence d'un {id} de route.
- * Elle est désormais isolée dans son propre controller pour plus de clarté.
- */
+
 class ConvocationFichierController extends Controller
 {
     use ApiResponseTrait;

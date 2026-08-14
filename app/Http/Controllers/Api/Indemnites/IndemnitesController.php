@@ -99,13 +99,7 @@ class IndemnitesController extends Controller
         return $this->success('Indemnité supprimée avec succès.');
     }
 
-    /**
-     * Calcule le montant d'une indemnité à partir de son type/barème et la persiste.
-     *
-     * MODIFIÉ : si `type_indemnite_id` n'est pas fourni, il est résolu
-     * automatiquement à partir de `convocation_id`/`enseignant_id`
-     * (cf. resoudreTypeIndemnite()).
-     */
+   
     public function calculer(CalculerIndemniteRequest $request)
     {
         $data = $request->validated();
@@ -180,14 +174,7 @@ class IndemnitesController extends Controller
         return $this->success('Calcul validé avec succès.', $indemnite);
     }
 
-    /**
-     * Ajoute un frais complémentaire à une indemnité et recalcule le montant total.
-     *
-     * NOTE (limite connue): il n'existe pas encore de table dédiée à l'historique
-     * détaillé des frais par indemnité ; ce endpoint agrège donc le montant dans
-     * la colonne `frais_deplacement` de l'indemnité. Si un historique ligne par
-     * ligne est nécessaire, prévoir une table `frais_indemnites` dédiée.
-     */
+   
     public function ajouterFrais(AjouterFraisIndemniteRequest $request, string $id)
     {
         $indemnite = indemnites::find($id);

@@ -9,13 +9,7 @@ use App\Http\Requests\Indemnites\UpdateConvocationCentreMetierRequest;
 use App\Models\Indemnite\ConvocationCentre;
 use App\Models\Indemnite\Convocations as ConvocationModel;
 
-/**
- * Metiers d'UN centre d'examen (cf. modele papier "convocation jury BT" :
- * un centre peut couvrir plusieurs metiers, chacun avec ses propres
- * membres du jury). Imbrique sous
- * /convocations/{id}/centres/{centreId}/metiers pour garantir que le
- * metier appartient bien a CE centre de CETTE convocation.
- */
+
 class ConvocationCentreMetierController extends Controller
 {
     use ApiResponseTrait;
@@ -52,12 +46,7 @@ class ConvocationCentreMetierController extends Controller
         return $this->success('Métier mis à jour avec succès.', $metier);
     }
 
-    /**
-     * Supprime UN metier. Les beneficiaires qui y etaient rattaches
-     * (convocation_enseignant.centre_metier_id) restent, seul leur
-     * rattachement a ce metier est retire (colonne nullOnDelete, voir
-     * migration add_centre_metier_id_to_convocation_enseignant_table).
-     */
+    
     public function destroy(string $id, string $centreId, string $metierId)
     {
         $centre = $this->trouverCentre($id, $centreId);
