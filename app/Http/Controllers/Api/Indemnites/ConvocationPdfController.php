@@ -29,7 +29,9 @@ class ConvocationPdfController extends Controller
      * Génère le PDF de la convocation et le stocke sur le disque `public`.
      *
      * NOTE: nécessite le package barryvdh/laravel-dompdf, ajouté à
-     * composer.json (voir README-corrections.md).
+     * composer.json (voir README-corrections.md). Le code reste défensif
+     * (class_exists) au cas où le package ne serait pas encore installé
+     * sur l'environnement courant.
      */
     public function generer(string $id)
     {

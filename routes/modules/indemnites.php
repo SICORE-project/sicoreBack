@@ -68,25 +68,16 @@ Route::get('types-convocation', [TypeConvocationController::class, 'index']);
 */
 
 // Routes à segment fixe déclarées AVANT apiResource() pour ne pas être
-<<<<<<< HEAD
 // interceptées par la route "show" (GET convocations/{id}) — modèle Word
 // téléchargeable puis import du document rempli (une convocation par
 // document, avec ses centres et ses membres du jury).
-=======
-// interceptées par la route "show" (GET convocations/{id}) — option A du
-// workflow DAGE (import du fichier DECPC) : modèle Word vierge à
-// télécharger, puis fichier rempli à réimporter.
->>>>>>> 9cfc357 (Convocations)
 Route::get('convocations/modele-word', [ConvocationModeleWordController::class, 'telecharger']);
 Route::post('convocations/import', [ConvocationImportController::class, 'store']);
 
 Route::apiResource('convocations', ConvocationsController::class);
 Route::post('convocations/{id}/fichier', [ConvocationFichierController::class, 'store']);
 
-// Fiche "Modifier" alignee sur l'assistant de creation (meme wizard,
-// pre-rempli) : remplace en UNE requete toute la structure de la
-// convocation (infos + centres + metiers + membres), cf.
-// ConvocationSyncController.
+
 Route::put('convocations/{id}/structure', [ConvocationSyncController::class, 'sync']);
 
 

@@ -22,7 +22,14 @@ class ConvocationCentreController extends Controller
 
         return $this->success(
             'Centres de la convocation.',
-           
+            // "chefCentre"/"presidentJury" doivent etre charges explicitement
+            // (relations BelongsTo) : sans with(), elles sont absentes du
+            // JSON renvoye (pas d'acces = pas de lazy loading serialise),
+            // donc la fiche "Modifier" affichait toujours "—" meme quand
+            // chef_centre_id etait bien renseigne en base — cf. show() qui
+            // charge deja correctement "centres.chefCentre". "metiers" idem :
+            // necessaire a la fiche centree sur un centre (Metiers + membres
+            // par metier).
             $convocation->centres()->with(['chefCentre', 'presidentJury', 'metiers'])->get()
         );
     }

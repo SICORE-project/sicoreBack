@@ -9,7 +9,8 @@ use App\Models\Indemnite\TypeConvocation;
 /**
  * Endpoint minimal (liste seule) pour alimenter le <select> "Type de
  * convocation" du formulaire front (resources/views/.../convocations/create.blade.php).
- 
+ * Pas de CRUD ici : la table se gère par migration/seed pour l'instant
+ * (cf. 2026_08_12_090000_create_types_convocation_table.php).
  */
 class TypeConvocationController extends Controller
 {

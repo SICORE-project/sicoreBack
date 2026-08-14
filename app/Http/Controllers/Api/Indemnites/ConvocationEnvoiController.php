@@ -117,14 +117,7 @@ class ConvocationEnvoiController extends Controller
         return $convocation->enseignants()->get();
     }
 
-    /**
-     * Tente l'envoi réel de la convocation.
-     *
-     * Seul le canal "email" est implémenté (via le Mailable ConvocationMail).
-     * Les canaux "sms" et "courrier" sont acceptés par la validation mais
-     * ne disposent pas d'intégration technique à ce jour : on le trace
-     * honnêtement en "echec" plutôt que de mentir sur un envoi réussi.
-     */
+
     private function tenterEnvoi($enseignant, ConvocationModel $convocation, string $canal, ?string $message): string
     {
         if ($canal !== 'email') {
