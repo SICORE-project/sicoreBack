@@ -33,22 +33,12 @@ class ConvocationCentre extends Model
     }
 
     /**
-     * President du jury de CE centre — une seule personne pour tout le
-     * centre (comme le chef de centre), pas rattachee a un metier precis.
-     * Cf. modele papier "convocation jury" fourni par l'utilisatrice.
+     * Contact academique du centre (distinct du chef de centre, contact
+     * administratif) — cf. colonnes president_jury_id/president_jury_telephone.
      */
     public function presidentJury(): BelongsTo
     {
         return $this->belongsTo(\App\Models\Parametrage\Enseignant::class, 'president_jury_id');
-    }
-
-    /**
-     * Metiers couverts par ce centre (un centre peut en avoir plusieurs,
-     * chacun avec ses propres membres du jury — cf. ConvocationCentreMetier).
-     */
-    public function metiers(): HasMany
-    {
-        return $this->hasMany(ConvocationCentreMetier::class, 'convocation_centre_id');
     }
 
     /**
@@ -65,6 +55,16 @@ class ConvocationCentre extends Model
             'convocation_enseignant',
             'centre_id',
             'enseignant_id'
-        )->withPivot('fonction', 'provenance')->withTimestamps();
+        )->withPivot('fonction', 'centre_metier_id', 'provenance')->withTimestamps();
+    }
+
+    /**
+     * Metiers/specialites couverts par ce centre (un centre peut en
+     * couvrir plusieurs, chacun avec ses propres membres du jury — cf.
+     * ConvocationCentreMetier).
+     */
+    public function metiers(): HasMany
+    {
+        return $this->hasMany(ConvocationCentreMetier::class, 'convocation_centre_id');
     }
 }

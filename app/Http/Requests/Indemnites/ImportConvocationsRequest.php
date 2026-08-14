@@ -14,12 +14,15 @@ class ImportConvocationsRequest extends FormRequest
     public function rules(): array
     {
         return [
-            // Fichier remis par la DECPC (option A du workflow DAGE). CSV,
-            // ou Word (.docx) si le tableau de convocation est fourni sous
-            // forme de document (cf. ConvocationImportController — parsing
-            // via phpoffice/phpword, 1re ligne du 1er tableau = en-têtes,
-            // mêmes alias de colonnes que le format CSV).
-            'fichier' => ['required', 'file', 'mimes:csv,txt,docx', 'max:5120'],
+            // Modèle Word (.docx) téléchargeable depuis la liste des
+            // convocations (voir ConvocationModeleWordController) — un
+            // document rempli décrit UNE convocation complète (infos +
+            // centres + membres du jury), cf. ConvocationWordTemplateService.
+            'fichier' => ['required', 'file', 'mimes:docx', 'max:5120'],
+
+            // Choisi dans le formulaire d'import (modal), pas dans le
+            // document Word — voir ConvocationWordTemplateService.
+            'type_convocation_id' => ['required', 'integer', 'exists:types_convocation,id'],
 
             // La DAGE qui réalise l'import — les convocations créées lui
             // sont rattachées (utilisateur_id, non nullable en base).

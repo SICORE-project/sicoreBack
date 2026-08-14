@@ -26,9 +26,21 @@ class EnseignantSeeder extends Seeder
         $prenoms = ['Awa', 'Moussa', 'Fatou', 'Ibrahima', 'Aissatou', 'Mamadou', 'Khady', 'Ousmane', 'Bineta', 'Cheikh', 'Aminata', 'Modou', 'Sokhna', 'Assane', 'Ndeye'];
         $noms    = ['Diop', 'Ndiaye', 'Fall', 'Sarr', 'Ba', 'Sow', 'Diallo', 'Gueye', 'Faye', 'Cissé', 'Ndour', 'Sy', 'Kane', 'Dieng', 'Thiam'];
 
-        foreach (range(1, 20) as $i) {
-            $prenom = $prenoms[array_rand($prenoms)];
-            $nom = $noms[array_rand($noms)];
+        // Combinaisons prenom+nom tirees sans remise : deux enseignants de
+        // test avec le meme nom complet rendent le rattachement par nom
+        // (import Word, recherche "Chef de centre"/"Membres du jury")
+        // volontairement ambigu et donc rejete (voir
+        // ConvocationWordTemplateService::trouverEnseignantParNom()).
+        $combinaisons = [];
+        foreach ($prenoms as $prenom) {
+            foreach ($noms as $nom) {
+                $combinaisons[] = [$prenom, $nom];
+            }
+        }
+        shuffle($combinaisons);
+
+        foreach (array_slice($combinaisons, 0, 20) as $i => [$prenom, $nom]) {
+            $i++;
 
             Enseignant::create([
                 'matricule' => 'ENS' . str_pad((string) $i, 5, '0', STR_PAD_LEFT),
