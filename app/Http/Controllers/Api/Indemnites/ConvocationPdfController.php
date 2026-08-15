@@ -4,7 +4,7 @@ namespace App\Http\Controllers\Api\Indemnites;
 
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\Api\Indemnites\Concerns\ApiResponseTrait;
-use App\Models\Convocations as ConvocationModel;
+use App\Models\Indemnite\Convocations as ConvocationModel;
 use Illuminate\Support\Facades\Storage;
 
 class ConvocationPdfController extends Controller
@@ -21,16 +21,15 @@ class ConvocationPdfController extends Controller
         'typeConvocation',
         'enseignants.lieuService',
         'centres.chefCentre',
-        'centres.enseignants.lieuService',
+        'centres.presidentJury',
+        'centres.metiers.enseignants.lieuService',
     ];
 
     /**
      * Génère le PDF de la convocation et le stocke sur le disque `public`.
      *
      * NOTE: nécessite le package barryvdh/laravel-dompdf, ajouté à
-     * composer.json (voir README-corrections.md). Le code reste défensif
-     * (class_exists) au cas où le package ne serait pas encore installé
-     * sur l'environnement courant.
+     * composer.json (voir README-corrections.md).
      */
     public function generer(string $id)
     {

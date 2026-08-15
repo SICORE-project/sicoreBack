@@ -10,6 +10,8 @@ use App\Http\Controllers\Api\Indemnites\ConvocationsController;
 use App\Http\Controllers\Api\Indemnites\ConvocationBeneficiaireController;
 use App\Http\Controllers\Api\Indemnites\ConvocationCentreController;
 use App\Http\Controllers\Api\Indemnites\ConvocationMetierController;
+use App\Http\Controllers\Api\Indemnites\ConvocationCentreMetierController;
+use App\Http\Controllers\Api\Indemnites\ConvocationSyncController;
 use App\Http\Controllers\Api\Indemnites\ConvocationEnvoiController;
 use App\Http\Controllers\Api\Indemnites\ConvocationPdfController;
 use App\Http\Controllers\Api\Indemnites\ConvocationFichierController;
@@ -75,9 +77,17 @@ Route::post('convocations/import', [ConvocationImportController::class, 'store']
 Route::apiResource('convocations', ConvocationsController::class);
 Route::post('convocations/{id}/fichier', [ConvocationFichierController::class, 'store']);
 
+// Fiche "Modifier" alignee sur l'assistant de creation (meme wizard,
+// pre-rempli) : remplace en UNE requete toute la structure de la
+// convocation (infos + centres + metiers + membres), cf.
+// ConvocationSyncController.
+Route::put('convocations/{id}/structure', [ConvocationSyncController::class, 'sync']);
+
 
 Route::get('convocations/{id}/beneficiaires', [ConvocationBeneficiaireController::class, 'index']);
 Route::post('convocations/{id}/beneficiaires', [ConvocationBeneficiaireController::class, 'store']);
+Route::put('convocations/{id}/beneficiaires/{enseignantId}', [ConvocationBeneficiaireController::class, 'update']);
+Route::delete('convocations/{id}/beneficiaires/{enseignantId}', [ConvocationBeneficiaireController::class, 'destroy']);
 
 Route::get('convocations/{id}/centres', [ConvocationCentreController::class, 'index']);
 Route::post('convocations/{id}/centres', [ConvocationCentreController::class, 'store']);
