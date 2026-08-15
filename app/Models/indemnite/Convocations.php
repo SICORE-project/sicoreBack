@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\DB;
 
 class Convocations extends Model
 {
@@ -79,5 +80,33 @@ class Convocations extends Model
             ConvocationEnvoi::class,
             'convocation_id'
         );
+    }
+
+    /**
+     * Nettoyage manuel a la suppression : convocation_centres,
+     * convocation_centre_metiers, convocation_enseignant et
+     * convocation_envois sont en MyISAM, moteur qui n'applique PAS les
+     * contraintes de cle etrangere declarees dans les migrations
+     * (cascadeOnDelete/nullOnDelete y sont silencieusement ignorees) — sans
+     * ce hook, chaque suppression de convocation laisse des lignes
+     * orphelines dans ces tables (constate en base : ~40 lignes orphelines
+     * accumulees avant ce correctif).
+     */
+    protected static function booted(): void
+    {
+        static::deleting(function (self $convocation) {
+            $centreIds = $convocation->centres()->pluck('id');
+
+            DB::table('convocation_centre_metiers')
+                ->whereIn('convocation_centre_id', $centreIds)
+                ->delete();
+
+            DB::table('convocation_enseignant')
+                ->where('convocation_id', $convocation->id)
+                ->delete();
+
+            $convocation->centres()->delete();
+            $convocation->envois()->delete();
+        });
     }
 }

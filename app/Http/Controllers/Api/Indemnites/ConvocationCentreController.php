@@ -76,12 +76,17 @@ class ConvocationCentreController extends Controller
     }
 
     /**
-     * Supprime UN centre d'une convocation, sans toucher aux autres centres
-     * ni supprimer la convocation elle-meme (voir demande utilisateur :
-     * "je ne veux pas que la suppression d'une convocation entraine la
-     * suppression de tous les centres differents"). Les membres du jury
-     * rattaches a ce centre ne sont pas supprimes de la convocation, seul
-     * leur rattachement au centre/metier est retire.
+     * Supprime UN centre d'une convocation, sans toucher aux AUTRES centres
+     * (voir demande utilisateur : "je ne veux pas que la suppression d'une
+     * convocation entraine la suppression de tous les centres differents").
+     * Les membres du jury rattaches a ce centre ne sont pas supprimes de la
+     * convocation, seul leur rattachement au centre/metier est retire.
+     *
+     * Si c'etait le DERNIER centre de la convocation, la convocation
+     * elle-meme est supprimee avec : la laisser exister sans aucun centre
+     * ne sert a rien et ne fait que trainer dans la liste avec un tiret
+     * dans la colonne Centre — voir retour utilisateur (capture d'ecran
+     * d'une convocation "fantome" apres suppression de son unique centre).
      *
      * Nettoyage fait explicitement ici (pas de cascade au niveau base) car
      * convocation_centres/convocation_centre_metiers/convocation_enseignant
@@ -97,15 +102,29 @@ class ConvocationCentreController extends Controller
             return $this->error('Centre introuvable pour cette convocation.', 404);
         }
 
-        DB::transaction(function () use ($centre) {
+        $convocationSupprimee = DB::transaction(function () use ($centre) {
             DB::table('convocation_enseignant')
                 ->where('centre_id', $centre->id)
                 ->update(['centre_id' => null, 'centre_metier_id' => null]);
 
             $centre->metiers()->delete();
+
+            $convocation = $centre->convocation;
             $centre->delete();
+
+            $etaitLeDernier = $convocation->centres()->doesntExist();
+
+            if ($etaitLeDernier) {
+                $convocation->delete();
+            }
+
+            return $etaitLeDernier;
         });
 
-        return $this->success('Centre supprimé avec succès.');
+        return $this->success(
+            $convocationSupprimee
+                ? "Centre supprimé — c'était le dernier de cette convocation, elle a donc été supprimée aussi."
+                : 'Centre supprimé avec succès.'
+        );
     }
 }
