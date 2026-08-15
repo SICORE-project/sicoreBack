@@ -88,6 +88,7 @@ class ConvocationBeneficiaireController extends Controller
                         'centre_id' => $centreId,
                         'centre_metier_id' => $centreMetierId,
                         'provenance' => $b['provenance'] ?? null,
+                        'categorie_personnel' => $b['categorie_personnel'] ?? null,
                     ],
                 ];
             })->all();

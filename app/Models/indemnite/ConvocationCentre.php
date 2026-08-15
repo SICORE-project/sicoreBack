@@ -52,7 +52,7 @@ class ConvocationCentre extends Model
             'convocation_enseignant',
             'centre_id',
             'enseignant_id'
-        )->withPivot('fonction', 'centre_metier_id', 'provenance')->withTimestamps();
+        )->withPivot('fonction', 'centre_metier_id', 'provenance', 'categorie_personnel')->withTimestamps();
     }
 
     /**

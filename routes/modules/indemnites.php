@@ -94,12 +94,6 @@ Route::post('convocations/{id}/centres', [ConvocationCentreController::class, 's
 Route::put('convocations/{id}/centres/{centreId}', [ConvocationCentreController::class, 'update']);
 Route::delete('convocations/{id}/centres/{centreId}', [ConvocationCentreController::class, 'destroy']);
 
-// Metiers d'UN centre (un centre peut en couvrir plusieurs, chacun avec
-// ses propres membres du jury) — voir ConvocationCentreMetierController.
-Route::post('convocations/{id}/centres/{centreId}/metiers', [ConvocationCentreMetierController::class, 'store']);
-Route::put('convocations/{id}/centres/{centreId}/metiers/{metierId}', [ConvocationCentreMetierController::class, 'update']);
-Route::delete('convocations/{id}/centres/{centreId}/metiers/{metierId}', [ConvocationCentreMetierController::class, 'destroy']);
-
 Route::post('convocations/{id}/centres/{centreId}/metiers', [ConvocationMetierController::class, 'store']);
 Route::put('convocations/{id}/centres/{centreId}/metiers/{metierId}', [ConvocationMetierController::class, 'update']);
 Route::delete('convocations/{id}/centres/{centreId}/metiers/{metierId}', [ConvocationMetierController::class, 'destroy']);
