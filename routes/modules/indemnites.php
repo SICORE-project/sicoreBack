@@ -81,6 +81,8 @@ Route::post('convocations/{id}/beneficiaires', [ConvocationBeneficiaireControlle
 
 Route::get('convocations/{id}/centres', [ConvocationCentreController::class, 'index']);
 Route::post('convocations/{id}/centres', [ConvocationCentreController::class, 'store']);
+Route::put('convocations/{id}/centres/{centreId}', [ConvocationCentreController::class, 'update']);
+Route::delete('convocations/{id}/centres/{centreId}', [ConvocationCentreController::class, 'destroy']);
 
 Route::post('convocations/{id}/centres/{centreId}/metiers', [ConvocationMetierController::class, 'store']);
 Route::put('convocations/{id}/centres/{centreId}/metiers/{metierId}', [ConvocationMetierController::class, 'update']);

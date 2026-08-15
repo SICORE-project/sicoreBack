@@ -119,11 +119,23 @@ class ConvocationImportController extends Controller
                 continue;
             }
 
-            $centre = $convocation->centres()->create($donnees);
             $nomNormalise = $this->normaliserNom($donnees['centre']);
+
+            // Plusieurs lignes du tableau Word peuvent partager le même nom
+            // de centre (un centre qui couvre plusieurs métiers, saisi sur
+            // une ligne par métier) : une seule ConvocationCentre est créée
+            // par nom, les lignes suivantes du même nom n'ajoutent qu'un
+            // métier supplémentaire dessus. Sans ça, chaque ligne créait sa
+            // propre ConvocationCentre, indexée par nom dans $centresCrees
+            // ci-dessous — la ligne suivante du même nom écrasait l'entrée
+            // précédente, si bien que tous les membres rattachés à ce nom de
+            // centre finissaient attachés à la DERNIÈRE ConvocationCentre
+            // créée, et les précédentes restaient visibles mais vides
+            // (aucun membre) : symptôme "je ne vois que le centre conservé".
+            $centre = $centresCrees[$nomNormalise] ?? $convocation->centres()->create($donnees);
             $centresCrees[$nomNormalise] = $centre;
 
-            // Un seul métier par centre importé (colonne "Métier /
+            // Un seul métier par ligne importée (colonne "Métier /
             // spécialité" du tableau Centres) : sans ce sous-enregistrement,
             // les membres rattachés à ce centre ne peuvent pas être reliés à
             // un métier (centre_metier_id), et n'apparaissent pas groupés
@@ -172,6 +184,7 @@ class ConvocationImportController extends Controller
                 'centre_id' => $centreId,
                 'centre_metier_id' => $centreMetierId,
                 'provenance' => $membre['provenance'],
+                'categorie_personnel' => $membre['categorie_personnel'],
             ];
         }
 
@@ -196,6 +209,7 @@ class ConvocationImportController extends Controller
                 'centre_id' => $b['centre_id'],
                 'centre_metier_id' => $b['centre_metier_id'],
                 'provenance' => $b['provenance'],
+                'categorie_personnel' => $b['categorie_personnel'],
             ],
         ])->all();
 

@@ -27,6 +27,7 @@ class AttachBeneficiairesConvocationRequest extends FormRequest
             'beneficiaires.*.centre_id' => ['nullable', 'integer', 'exists:convocation_centres,id'],
             'beneficiaires.*.centre_metier_id' => ['nullable', 'integer', 'exists:convocation_centre_metiers,id'],
             'beneficiaires.*.provenance' => ['nullable', 'string', 'max:255'],
+            'beneficiaires.*.categorie_personnel' => ['nullable', 'in:fonctionnaire,contractuel,vacataire'],
         ];
     }
 }

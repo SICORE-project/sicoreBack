@@ -33,6 +33,6 @@ class ConvocationCentreMetier extends Model
             'convocation_enseignant',
             'centre_metier_id',
             'enseignant_id'
-        )->withPivot('fonction', 'centre_id', 'provenance')->withTimestamps();
+        )->withPivot('fonction', 'centre_id', 'provenance', 'categorie_personnel')->withTimestamps();
     }
 }
