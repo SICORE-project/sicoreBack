@@ -14,26 +14,12 @@ use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 
-/**
- * "En tant qu'utilisateur, je veux envoyer une convocation aux
- * bénéficiaires afin de les informer officiellement." — le corps de cette
- * classe était vide alors que les 3 routes (envoyer/relancer/suivi)
- * étaient déjà déclarées dans routes/modules/indemnites.php : rien ne
- * fonctionnait malgré les apparences (ConvocationMail avait en plus de
- * mauvais namespaces, corrigés séparément).
- */
+
 class ConvocationEnvoiController extends Controller
 {
     use ApiResponseTrait;
 
-    /**
-     * Envoie la convocation par e-mail à ses bénéficiaires — tous par
-     * défaut, ou seulement enseignant_ids si fournis. Un ConvocationEnvoi
-     * est enregistré pour CHAQUE tentative (succès ou échec), pour
-     * alimenter suivi()/relancer() ci-dessous. Si au moins un envoi
-     * réussit, la convocation passe au statut "envoyee" (sauf si déjà
-     * clôturée — on ne rétrograde pas un dossier fermé).
-     */
+  
     public function envoyer(EnvoyerConvocationRequest $request, string $id)
     {
         $convocation = ConvocationModel::with('typeConvocation')->slugOuId($id)->first();
