@@ -67,14 +67,31 @@ class NotificationService
         return $notification; */
 
         return DB::transaction(function () use ($data, $userIds) {
-        $notification = Notification::create($data);
+            $notification = Notification::create($data);
 
-        $notification->users()->attach(
-            collect($userIds)->mapWithKeys(fn ($id) => [$id => ['est_lu' => false]])->all()
-        );
+            $notification->users()->attach(
+                collect($userIds)->mapWithKeys(fn ($id) => [$id => ['est_lu' => false]])->all()
+            );
 
-        return $notification;
-    });
+            return $notification;
+        });
 
     }
+
+    public function resolveTargetUserIds(array $filters): \Illuminate\Support\Collection
+    {
+        $query = User::query();
+
+        if (! empty($filters['role_id'])) {
+            $query->where('role_id', $filters['role_id']);
+        }
+
+        if (! empty($filters['lieu_service_id'])) {
+            $query->where('lieu_service_id', $filters['lieu_service_id']);
+        }
+
+        return $query->pluck('id');
+    }
+
+
 }

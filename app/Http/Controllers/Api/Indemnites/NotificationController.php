@@ -51,12 +51,23 @@ class NotificationController extends Controller
      */
     public function store(StoreNotificationRequest $request)
     {
-        $userIds = $request->validated('user_ids')
+        /* $userIds = $request->validated('user_ids')
         ?? User::query()->pluck('id'); // fallback : tous les utilisateurs
 
         $notification = $this->notificationService->createAndDispatch(
         [...$request->only(['titre', 'message', 'type', 'url']), 'created_by'
             => $request->user()->id], $userIds
+        ); */
+
+        $userIds = $request->validated('user_ids')
+            ?? $this->notificationService->resolveTargetUserIds($request
+                ->validated('filters', []));
+
+        $notification = $this->notificationService->createAndDispatch(
+            [
+                ...$request->only(['titre', 'message', 'type', 'url']),
+                'created_by' => $request->user()->id,
+            ], $userIds
         );
 
         /* $notification = $this->notificationService->createAndDispatch(

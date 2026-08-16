@@ -23,6 +23,11 @@ class StoreNotificationRequest extends FormRequest
             // Destinataires ciblés (optionnel)
             'user_ids'   => ['sometimes', 'array', 'min:1'],
             'user_ids.*' => ['integer', 'exists:users,id'],
+
+            // Ciblage par critère
+            'filters'                  => ['sometimes', 'array'],
+            'filters.role_id'          => ['sometimes', 'integer', 'exists:roles,id'],
+            'filters.lieu_service_id'  => ['sometimes', 'integer', 'exists:lieu_de_services,id'],
         ];
     }
 }
