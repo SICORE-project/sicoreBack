@@ -35,7 +35,7 @@ class ConvocationCentreMetierController extends Controller
             return $this->error('Centre introuvable pour cette convocation.', 404);
         }
 
-        $metier = $centre->metiers()->find($metierId);
+        $metier = $centre->metiers()->slugOuId($metierId)->first();
 
         if (! $metier) {
             return $this->error('Métier introuvable pour ce centre.', 404);
@@ -55,7 +55,7 @@ class ConvocationCentreMetierController extends Controller
             return $this->error('Centre introuvable pour cette convocation.', 404);
         }
 
-        $metier = $centre->metiers()->find($metierId);
+        $metier = $centre->metiers()->slugOuId($metierId)->first();
 
         if (! $metier) {
             return $this->error('Métier introuvable pour ce centre.', 404);
@@ -68,12 +68,12 @@ class ConvocationCentreMetierController extends Controller
 
     private function trouverCentre(string $id, string $centreId): ?ConvocationCentre
     {
-        $convocation = ConvocationModel::find($id);
+        $convocation = ConvocationModel::trouverParSlugOuId($id);
 
         if (! $convocation) {
             return null;
         }
 
-        return $convocation->centres()->find($centreId);
+        return $convocation->centres()->slugOuId($centreId)->first();
     }
 }

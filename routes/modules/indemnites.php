@@ -74,6 +74,11 @@ Route::get('types-convocation', [TypeConvocationController::class, 'index']);
 Route::get('convocations/modele-word', [ConvocationModeleWordController::class, 'telecharger']);
 Route::post('convocations/import', [ConvocationImportController::class, 'store']);
 
+// Valeurs distinctes existantes (objet/centre/metier/date/statut) pour
+// alimenter les menus deroulants des filtres de la liste front — memes
+// contraintes de placement que ci-dessus (avant apiResource).
+Route::get('convocations/filtres-options', [ConvocationsController::class, 'optionsFiltres']);
+
 Route::apiResource('convocations', ConvocationsController::class);
 Route::post('convocations/{id}/fichier', [ConvocationFichierController::class, 'store']);
 

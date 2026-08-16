@@ -2,6 +2,7 @@
 
 namespace App\Models\Indemnite;
 
+use App\Helpers\Indemnites\HasOpaqueSlug;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -9,6 +10,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Convocations extends Model
 {
+    use HasOpaqueSlug;
+
     protected $table = 'convocations';
 
     protected $fillable = [

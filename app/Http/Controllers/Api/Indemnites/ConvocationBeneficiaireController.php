@@ -15,7 +15,7 @@ class ConvocationBeneficiaireController extends Controller
 
     public function index(string $id)
     {
-        $convocation = ConvocationModel::find($id);
+        $convocation = ConvocationModel::trouverParSlugOuId($id);
 
         if (! $convocation) {
             return $this->error('Convocation introuvable.', 404);
@@ -30,7 +30,7 @@ class ConvocationBeneficiaireController extends Controller
 
     public function store(AttachBeneficiairesConvocationRequest $request, string $id)
     {
-        $convocation = ConvocationModel::find($id);
+        $convocation = ConvocationModel::trouverParSlugOuId($id);
 
         if (! $convocation) {
             return $this->error('Convocation introuvable.', 404);
@@ -122,7 +122,7 @@ class ConvocationBeneficiaireController extends Controller
    
     public function update(UpdateConvocationBeneficiaireRequest $request, string $id, string $enseignantId)
     {
-        $convocation = ConvocationModel::find($id);
+        $convocation = ConvocationModel::trouverParSlugOuId($id);
 
         if (! $convocation) {
             return $this->error('Convocation introuvable.', 404);
@@ -177,7 +177,7 @@ class ConvocationBeneficiaireController extends Controller
      */
     public function destroy(string $id, string $enseignantId)
     {
-        $convocation = ConvocationModel::find($id);
+        $convocation = ConvocationModel::trouverParSlugOuId($id);
 
         if (! $convocation) {
             return $this->error('Convocation introuvable.', 404);

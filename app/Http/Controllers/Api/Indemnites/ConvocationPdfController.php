@@ -29,13 +29,11 @@ class ConvocationPdfController extends Controller
      * Génère le PDF de la convocation et le stocke sur le disque `public`.
      *
      * NOTE: nécessite le package barryvdh/laravel-dompdf, ajouté à
-     * composer.json (voir README-corrections.md). Le code reste défensif
-     * (class_exists) au cas où le package ne serait pas encore installé
-     * sur l'environnement courant.
+     * composer.json (voir README-corrections.md).
      */
     public function generer(string $id)
     {
-        $convocation = ConvocationModel::with(self::RELATIONS_POUR_PDF)->find($id);
+        $convocation = ConvocationModel::with(self::RELATIONS_POUR_PDF)->slugOuId($id)->first();
 
         if (! $convocation) {
             return $this->error('Convocation introuvable.', 404);
@@ -69,7 +67,7 @@ class ConvocationPdfController extends Controller
      */
     public function download(string $id)
     {
-        $convocation = ConvocationModel::find($id);
+        $convocation = ConvocationModel::trouverParSlugOuId($id);
 
         if (! $convocation) {
             return $this->error('Convocation introuvable.', 404);

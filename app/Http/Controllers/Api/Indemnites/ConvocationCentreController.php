@@ -14,7 +14,7 @@ class ConvocationCentreController extends Controller
 
     public function index(string $id)
     {
-        $convocation = ConvocationModel::find($id);
+        $convocation = ConvocationModel::trouverParSlugOuId($id);
 
         if (! $convocation) {
             return $this->error('Convocation introuvable.', 404);
@@ -30,7 +30,7 @@ class ConvocationCentreController extends Controller
     
     public function store(StoreConvocationCentresRequest $request, string $id)
     {
-        $convocation = ConvocationModel::find($id);
+        $convocation = ConvocationModel::trouverParSlugOuId($id);
 
         if (! $convocation) {
             return $this->error('Convocation introuvable.', 404);
@@ -63,13 +63,13 @@ class ConvocationCentreController extends Controller
     
     public function update(UpdateConvocationCentreRequest $request, string $id, string $centreId)
     {
-        $convocation = ConvocationModel::find($id);
+        $convocation = ConvocationModel::trouverParSlugOuId($id);
 
         if (! $convocation) {
             return $this->error('Convocation introuvable.', 404);
         }
 
-        $centre = $convocation->centres()->find($centreId);
+        $centre = $convocation->centres()->slugOuId($centreId)->first();
 
         if (! $centre) {
             return $this->error('Centre introuvable pour cette convocation.', 404);
@@ -83,13 +83,13 @@ class ConvocationCentreController extends Controller
    
     public function destroy(string $id, string $centreId)
     {
-        $convocation = ConvocationModel::find($id);
+        $convocation = ConvocationModel::trouverParSlugOuId($id);
 
         if (! $convocation) {
             return $this->error('Convocation introuvable.', 404);
         }
 
-        $centre = $convocation->centres()->find($centreId);
+        $centre = $convocation->centres()->slugOuId($centreId)->first();
 
         if (! $centre) {
             return $this->error('Centre introuvable pour cette convocation.', 404);
