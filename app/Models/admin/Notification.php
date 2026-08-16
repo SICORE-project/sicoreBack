@@ -2,6 +2,7 @@
 
 namespace App\Models\Log;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use App\Models\Admin\User;
@@ -45,5 +46,19 @@ class Notification extends Model
     public function scopeByType($query, $type)
     {
         return $query->where('type', $type);
+    }
+
+    public function scopeForUser(Builder $query, User $user): Builder
+    {
+        return $query->whereHas('users', function (Builder $q) use ($user) {
+            $q->where('users.id', $user->id);
+        });
+    }
+
+    public function scopeUnreadFor(Builder $query, User $user): Builder
+    {
+        return $query->whereHas('users', function (Builder $q) use ($user) {
+            $q->where('users.id', $user->id)->where('notification_user.est_lu', false);
+        });
     }
 }
