@@ -74,6 +74,11 @@ Route::get('types-convocation', [TypeConvocationController::class, 'index']);
 Route::get('convocations/modele-word', [ConvocationModeleWordController::class, 'telecharger']);
 Route::post('convocations/import', [ConvocationImportController::class, 'store']);
 
+// Valeurs distinctes deja utilisees (objet/session/centre), pour peupler
+// des menus deroulants de filtre (ex: page Pieces justificatives) plutot
+// que de la saisie libre.
+Route::get('convocations/filtres', [ConvocationsController::class, 'filtres']);
+
 Route::apiResource('convocations', ConvocationsController::class);
 Route::post('convocations/{id}/fichier', [ConvocationFichierController::class, 'store']);
 
@@ -138,6 +143,7 @@ Route::post('services-faits/{id}/verifier-conformite', [ServicesFaitsController:
 Route::apiResource('pieces-justificatives', PieceJustificativesController::class);
 
 Route::post('pieces-justificatives/deposer', [PieceJustificativesController::class, 'deposer']);
+Route::post('pieces-justificatives/deposer-lot', [PieceJustificativesController::class, 'deposerLot']);
 
 Route::put('pieces-justificatives/{id}/classifier', [PieceJustificativesController::class, 'classifier']);
 

@@ -7,10 +7,11 @@ use App\Http\Controllers\Api\Indemnites\Concerns\ApiResponseTrait;
 use App\Http\Requests\Indemnites\StorePieceJustificativeRequest;
 use App\Http\Requests\Indemnites\UpdatePieceJustificativeRequest;
 use App\Http\Requests\Indemnites\DeposerPieceJustificativeRequest;
+use App\Http\Requests\Indemnites\DeposerLotPiecesJustificativesRequest;
 use App\Http\Requests\Indemnites\ClassifierPieceJustificativeRequest;
 use App\Http\Requests\Indemnites\VerifierPieceJustificativeRequest;
 use App\Http\Requests\Indemnites\RejeterPieceJustificativeRequest;
-use App\Models\piece_justificatives;
+use App\Models\Indemnite\piece_justificatives;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 
@@ -93,6 +94,116 @@ class PieceJustificativesController extends Controller
         return $this->success('Pièce justificative déposée avec succès.', $piece, 201);
     }
 
+    /**
+     * Depot groupe des pieces d'UN membre depuis la modale "Ajouter une
+     * piece" (page Pieces justificatives, un bouton par membre) : 5
+     * fichiers manuels obligatoires (service_fait/ordre_mission/
+     * rapport_mission/bulletin_salaire/accuse_reception — voir
+     * DeposerLotPiecesJustificativesRequest), plus le "dossier_convocation"
+     * qui est toujours rattache automatiquement (jamais televerse) — voir
+     * attacherDossierConvocation(). Total attendu : 6 documents par membre.
+     */
+    public function deposerLot(DeposerLotPiecesJustificativesRequest $request)
+    {
+        $convocationId = (int) $request->validated('convocation_id');
+        $enseignantId = (int) $request->validated('enseignant_id');
+        $centreId = $request->validated('centre_id');
+        $depositaireId = $request->user()?->id;
+
+        $piecesCreees = [];
+
+        foreach (array_keys(piece_justificatives::TYPES) as $type) {
+            if ($type === 'dossier_convocation' || ! $request->hasFile($type)) {
+                continue;
+            }
+
+            $fichier = $request->file($type);
+
+            $piecesCreees[] = piece_justificatives::create([
+                'type' => $type,
+                'convocation_id' => $convocationId,
+                'enseignant_id' => $enseignantId,
+                'centre_id' => $centreId,
+                'depositaire_id' => $depositaireId,
+                'statut' => 'depose',
+                'date_depot' => now()->toDateString(),
+                'chemin' => $fichier->store('pieces-justificatives', 'public'),
+                'nom_original' => $fichier->getClientOriginalName(),
+                'mime_type' => $fichier->getClientMimeType(),
+                'taille' => $fichier->getSize(),
+            ]);
+        }
+
+        $dossierConvocation = $this->attacherDossierConvocation($convocationId, $enseignantId, $centreId, $depositaireId);
+
+        if ($dossierConvocation) {
+            $piecesCreees[] = $dossierConvocation;
+        }
+
+        if (empty($piecesCreees)) {
+            // Rien de NOUVEAU cette fois (aucun fichier fourni) : si le
+            // dossier de convocation etait deja rattache lors d'un depot
+            // precedent, ce n'est pas une erreur — seulement s'il n'y a
+            // litteralement aucun document pour ce membre.
+            $dossierDejaPresent = piece_justificatives::where('convocation_id', $convocationId)
+                ->where('enseignant_id', $enseignantId)
+                ->where('type', 'dossier_convocation')
+                ->exists();
+
+            if (! $dossierDejaPresent) {
+                return $this->error("Aucun document reçu et le dossier de convocation n'a pas pu être rattaché (PDF indisponible).", 422);
+            }
+
+            return $this->success('Aucun nouveau document à déposer (le dossier de convocation est déjà rattaché).', []);
+        }
+
+        return $this->success('Pièces justificatives déposées avec succès.', $piecesCreees, 201);
+    }
+
+    /**
+     * Rattache le "dossier_convocation" (PDF de la convocation, deja
+     * genere/telechargeable via ConvocationPdfController) au dossier du
+     * membre — jamais televerse manuellement, contrairement aux 4 autres
+     * types. Idempotent : ne cree rien si ce membre a deja ce document pour
+     * cette convocation (evite d'empiler la meme reference a chaque
+     * soumission de la modale).
+     */
+    private function attacherDossierConvocation(int $convocationId, int $enseignantId, ?int $centreId, ?int $depositaireId): ?piece_justificatives
+    {
+        $existe = piece_justificatives::where('convocation_id', $convocationId)
+            ->where('enseignant_id', $enseignantId)
+            ->where('type', 'dossier_convocation')
+            ->exists();
+
+        if ($existe) {
+            return null;
+        }
+
+        $chemin = "convocations/{$convocationId}/convocation-{$convocationId}.pdf";
+
+        if (! Storage::disk('public')->exists($chemin)) {
+            $resultat = app(ConvocationPdfController::class)->generer((string) $convocationId);
+
+            if ($resultat->getData()->success !== true) {
+                return null;
+            }
+        }
+
+        return piece_justificatives::create([
+            'type' => 'dossier_convocation',
+            'convocation_id' => $convocationId,
+            'enseignant_id' => $enseignantId,
+            'centre_id' => $centreId,
+            'depositaire_id' => $depositaireId,
+            'statut' => 'depose',
+            'date_depot' => now()->toDateString(),
+            'chemin' => $chemin,
+            'nom_original' => "convocation-{$convocationId}.pdf",
+            'mime_type' => 'application/pdf',
+            'taille' => Storage::disk('public')->size($chemin),
+        ]);
+    }
+
     public function classifier(ClassifierPieceJustificativeRequest $request, string $id)
     {
         $piece = piece_justificatives::find($id);
@@ -157,6 +268,12 @@ class PieceJustificativesController extends Controller
         return $this->success('Pièce justificative rejetée.', $piece);
     }
 
+    /**
+     * Affiche le document dans le navigateur (Content-Disposition: inline)
+     * plutot que de forcer un telechargement immediat — l'utilisateur peut
+     * ensuite le telecharger lui-meme depuis la visionneuse du navigateur
+     * s'il le souhaite (voir demande utilisateur).
+     */
     public function download(string $id)
     {
         $piece = piece_justificatives::find($id);
@@ -169,7 +286,7 @@ class PieceJustificativesController extends Controller
             return $this->error('Fichier introuvable sur le serveur.', 404);
         }
 
-        return Storage::disk('public')->download($piece->chemin, $piece->nom_original);
+        return Storage::disk('public')->response($piece->chemin, $piece->nom_original);
     }
 
     /**
