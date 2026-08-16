@@ -8,6 +8,7 @@ use Illuminate\Notifications\Notifiable;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Laravel\Sanctum\HasApiTokens;
 use App\Models\admin\Role;
+use App\Models\Log\Notification;
 use App\Models\Parametrage\LieuService;
 use App\Models\Parametrage\Ief;
 use App\Models\Parametrage\Ia;
@@ -63,9 +64,9 @@ class User extends Authenticatable
         'password' => 'hashed',
     ];
     }
-    
+
     // === RELATIONS ===
-   
+
 
     public function enseignant()
     {
@@ -172,4 +173,12 @@ public function isGestionnaire()
 {
     return $this->hasRole('gestionnaire_paie') || $this->hasRole('gestionnaire_budget');
 }
+
+public function notifications()
+{
+    return $this->belongsToMany(Notification::class, 'notification_user')
+                ->withPivot('est_lu', 'lu_at')
+                ->withTimestamps();
+}
+
 }
