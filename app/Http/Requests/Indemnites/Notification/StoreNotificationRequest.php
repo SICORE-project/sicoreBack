@@ -19,6 +19,10 @@ class StoreNotificationRequest extends FormRequest
             'message' => ['required', 'string'],
             'type'    => ['nullable', 'in:info,warning,error,success'],
             'url'     => ['nullable', 'string', 'max:255'],
+
+            // Destinataires ciblés (optionnel)
+            'user_ids'   => ['sometimes', 'array', 'min:1'],
+            'user_ids.*' => ['integer', 'exists:users,id'],
         ];
     }
 }

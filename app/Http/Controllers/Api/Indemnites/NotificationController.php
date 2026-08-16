@@ -51,33 +51,41 @@ class NotificationController extends Controller
      */
     public function store(StoreNotificationRequest $request)
     {
-       
-        // $notification = $this->notificationService->createAndDispatch(
-        //     [...$request->validated(), 'created_by' => $request->user()->id],
-        //     User::query()->pluck('id')
-        // );
+        $userIds = $request->validated('user_ids')
+        ?? User::query()->pluck('id'); // fallback : tous les utilisateurs
 
-        // return response()->json(['data' => $notification], 201);
-        try {
         $notification = $this->notificationService->createAndDispatch(
-            [
-                ...$request->validated(),
-                'created_by' => $request->user()->id,
-            ],
-            User::query()->pluck('id')
+        [...$request->only(['titre', 'message', 'type', 'url']), 'created_by'
+            => $request->user()->id], $userIds
         );
 
-        return response()->json([
-            'data' => $notification,
-        ], 201);
+        /* $notification = $this->notificationService->createAndDispatch(
+            [...$request->validated(), 'created_by' => $request->user()->id],
+            User::query()->pluck('id')
+        ); */
 
-    } catch (\Throwable $e) {
-        return response()->json([
-            'exception' => get_class($e),
-            'message' => $e->getMessage(),
-            'file' => $e->getFile(),
-            'line' => $e->getLine(),
-        ], 500);
-    }
+        return response()->json(['data' => $notification], 201);
+
+    //     try {
+    //     $notification = $this->notificationService->createAndDispatch(
+    //         [
+    //             ...$request->validated(),
+    //             'created_by' => $request->user()->id,
+    //         ],
+    //         User::query()->pluck('id')
+    //     );
+
+    //     return response()->json([
+    //         'data' => $notification,
+    //     ], 201);
+
+    // } catch (\Throwable $e) {
+    //     return response()->json([
+    //         'exception' => get_class($e),
+    //         'message' => $e->getMessage(),
+    //         'file' => $e->getFile(),
+    //         'line' => $e->getLine(),
+    //     ], 500);
+    // }
     }
 }

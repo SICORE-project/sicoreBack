@@ -58,6 +58,15 @@ class NotificationService
 
     public function createAndDispatch(array $data, iterable $userIds): Notification
     {
+        /* $notification = Notification::create($data);
+
+        $notification->users()->attach(
+            collect($userIds)->mapWithKeys(fn ($id) => [$id => ['est_lu' => false]])->all()
+        );
+
+        return $notification; */
+
+        return DB::transaction(function () use ($data, $userIds) {
         $notification = Notification::create($data);
 
         $notification->users()->attach(
@@ -65,5 +74,7 @@ class NotificationService
         );
 
         return $notification;
+    });
+
     }
 }
