@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\Admin\RoleController;
 use App\Http\Controllers\Api\Admin\PermissionController;
 use App\Http\Controllers\Api\Admin\RolePermissionController;
 use App\Http\Controllers\Api\Admin\TypeRoleController;
+use App\Http\Controllers\Api\Admin\Personnel\EnseignantController;
 
 
 /*
@@ -369,5 +370,15 @@ Route::prefix('admin')->group(function () {
         Route::get('/ief/{iefId}/gestionnaires', [UserController::class, 'getGestionnairesByIef'])
             ->whereNumber('iefId')
             ->middleware('permission:administration.users.read');
+
+        Route::prefix('personnel/enseignants')->group(function () {
+            Route::get('/', [EnseignantController::class, 'index'])
+                ->middleware('permission:enseignants.read');
+            Route::post('/', [EnseignantController::class, 'store'])
+                ->middleware('permission:enseignants.create');
+            Route::get('/{id}', [EnseignantController::class, 'show'])
+                ->whereNumber('id')
+                ->middleware('permission:enseignants.read');
+        });
 
 });
