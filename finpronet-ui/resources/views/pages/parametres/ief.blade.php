@@ -1,0 +1,129 @@
+﻿@extends('layouts.app')
+
+@section('title', 'SICORE - IEF')
+@section('body_attributes', 'class="app-body"')
+
+@push('styles')
+  <link rel="stylesheet" href="{{ asset('assets/css/style.css') }}">
+  <link rel="stylesheet" href="{{ asset('assets/css/app.css') }}">
+  <link rel="stylesheet" href="{{ asset('assets/css/responsive.css') }}">
+@endpush
+
+@section('content')
+<main class="main-content">
+    <header class="topbar">
+      <div class="page-title-wrap">
+        <button class="mobile-menu-btn" type="button" data-sidebar-toggle aria-label="Ouvrir le menu">&#9776;</button>
+        <span class="title-icon" aria-hidden="true"><i class="fa-solid fa-sitemap"></i></span>
+        <div>
+          <h1>IEF (Inspection de l&#39;Education)</h1>
+          <p>Administration &gt; IEF &gt; Liste des IEF</p>
+        </div>
+      </div>
+      <div class="search-wrap">
+        <label class="sr-only" for="iefSearch">Rechercher une IEF</label>
+        <input class="search-input" id="iefSearch" type="search" placeholder="Rechercher une IEF..." data-table-filter="#iefTable">
+      </div>
+    </header>
+
+    <section class="content-area">
+      <div class="stats-grid four">
+        <article class="stat-card">
+          <div><p class="stat-label">Total IEF</p><p class="stat-value">48</p><p class="stat-note neutral">12 par region</p></div>
+          <span class="stat-icon green">IEF</span>
+        </article>
+        <article class="stat-card">
+          <div><p class="stat-label">IA rattachees</p><p class="stat-value">24</p><p class="stat-note neutral">2 IEF par IA</p></div>
+          <span class="stat-icon blue">IA</span>
+        </article>
+        <article class="stat-card">
+          <div><p class="stat-label">Enseignants</p><p class="stat-value">4 832</p><p class="stat-note neutral">100 par IEF</p></div>
+          <span class="stat-icon purple">EN</span>
+        </article>
+        <article class="stat-card">
+          <div><p class="stat-label">IEF actives</p><p class="stat-value">44</p><p class="stat-note">4 en creation</p></div>
+          <span class="stat-icon yellow">OK</span>
+        </article>
+      </div>
+
+      <div class="actions-row">
+        <p class="breadcrumb">Administration &gt; IEF &gt; Liste des IEF</p>
+        <div class="actions-group">
+          <button class="btn-primary" type="button">+ Nouvelle IEF</button>
+          <button class="btn-secondary" type="button">Importer</button>
+          <button class="btn-secondary" type="button">Exporter</button>
+          <button class="btn-secondary" type="button">Filtrer</button>
+        </div>
+      </div>
+
+      <section class="table-card">
+        <div class="table-responsive">
+          <table class="table" id="iefTable">
+            <thead>
+              <tr>
+                <th>Code</th>
+                <th>Nom</th>
+                <th>IA rattachee</th>
+                <th>Responsable</th>
+                <th>Contact</th>
+                <th>Statut</th>
+                <th class="actions-cell">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>IEF001</td>
+                <td>IEF de Dakar Nord</td>
+                <td>IA Dakar</td>
+                <td>Mamadou DIOP</td>
+                <td>33 123 45 67</td>
+                <td><span class="badge badge-active">Actif</span></td>
+                <td class="actions-cell"><button class="icon-action" title="Voir">&#128065;</button><button class="icon-action" title="Modifier">&#9998;</button><button class="icon-action" title="Supprimer">&#128465;</button></td>
+              </tr>
+              <tr>
+                <td>IEF002</td>
+                <td>IEF de Dakar Sud</td>
+                <td>IA Dakar</td>
+                <td>Aissatou FALL</td>
+                <td>33 234 56 78</td>
+                <td><span class="badge badge-active">Actif</span></td>
+                <td class="actions-cell"><button class="icon-action" title="Voir">&#128065;</button><button class="icon-action" title="Modifier">&#9998;</button><button class="icon-action" title="Supprimer">&#128465;</button></td>
+              </tr>
+              <tr>
+                <td>IEF003</td>
+                <td>IEF de Thies</td>
+                <td>IA Thies</td>
+                <td>Ibrahima SOW</td>
+                <td>33 345 67 89</td>
+                <td><span class="badge badge-active">Actif</span></td>
+                <td class="actions-cell"><button class="icon-action" title="Voir">&#128065;</button><button class="icon-action" title="Modifier">&#9998;</button><button class="icon-action" title="Supprimer">&#128465;</button></td>
+              </tr>
+              <tr>
+                <td>IEF004</td>
+                <td>IEF de Saint-Louis</td>
+                <td>IA Saint-Louis</td>
+                <td>Mariama GUEYE</td>
+                <td>33 456 78 90</td>
+                <td><span class="badge badge-suspended">Suspendue</span></td>
+                <td class="actions-cell"><button class="icon-action" title="Voir">&#128065;</button><button class="icon-action" title="Modifier">&#9998;</button><button class="icon-action" title="Supprimer">&#128465;</button></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="empty-message">Aucune IEF trouvee.</p>
+        <div class="pagination">
+          <button class="page-btn" type="button">&#8592;</button>
+          <button class="page-btn active" type="button" data-page-number>1</button>
+          <button class="page-btn" type="button" data-page-number>2</button>
+          <button class="page-btn" type="button">&#8594;</button>
+        </div>
+      </section>
+    </section>
+  </main>
+@endsection
+
+@push('scripts')
+  <script src="{{ asset('assets/js/app.js') }}" defer></script>
+  <script src="{{ asset('assets/js/notifications.js') }}" defer></script>
+@endpush
+
