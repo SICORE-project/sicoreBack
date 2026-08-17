@@ -2,7 +2,7 @@
 
 namespace App\Services\Auth;
 
-use App\Models\admin\User;
+use App\Models\Admin\User;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
 use Illuminate\Support\Str;

@@ -2,7 +2,7 @@
 
 namespace App\Services\Administration;
 
-use App\Models\admin\User;
+use App\Models\Admin\User;
 use Illuminate\Support\Facades\Hash;
 use App\Models\Parametrage\Ia;
 use App\Models\Parametrage\Ief;
