@@ -15,7 +15,7 @@ class ConvocationBeneficiaireController extends Controller
 
     public function index(string $id)
     {
-        $convocation = ConvocationModel::find($id);
+        $convocation = ConvocationModel::trouverParSlugOuId($id);
 
         if (! $convocation) {
             return $this->error('Convocation introuvable.', 404);
@@ -29,7 +29,7 @@ class ConvocationBeneficiaireController extends Controller
 
     public function store(AttachBeneficiairesConvocationRequest $request, string $id)
     {
-        $convocation = ConvocationModel::find($id);
+        $convocation = ConvocationModel::trouverParSlugOuId($id);
 
         if (! $convocation) {
             return $this->error('Convocation introuvable.', 404);
@@ -119,15 +119,10 @@ class ConvocationBeneficiaireController extends Controller
         );
     }
 
-    /**
-     * Modifie UN beneficiaire deja rattache a la convocation (fiche
-     * "Modifier"). Identifie par enseignant_id (unique par convocation,
-     * cf. contrainte sur convocation_enseignant) plutot que par un id de
-     * pivot, pour rester coherent avec store()/AttachBeneficiairesConvocationRequest.
-     */
+   
     public function update(UpdateConvocationBeneficiaireRequest $request, string $id, string $enseignantId)
     {
-        $convocation = ConvocationModel::find($id);
+        $convocation = ConvocationModel::trouverParSlugOuId($id);
 
         if (! $convocation) {
             return $this->error('Convocation introuvable.', 404);
@@ -182,7 +177,7 @@ class ConvocationBeneficiaireController extends Controller
      */
     public function destroy(string $id, string $enseignantId)
     {
-        $convocation = ConvocationModel::find($id);
+        $convocation = ConvocationModel::trouverParSlugOuId($id);
 
         if (! $convocation) {
             return $this->error('Convocation introuvable.', 404);

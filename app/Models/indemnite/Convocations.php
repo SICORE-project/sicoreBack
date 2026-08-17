@@ -2,6 +2,7 @@
 
 namespace App\Models\Indemnite;
 
+use App\Helpers\Indemnites\HasOpaqueSlug;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -10,6 +11,8 @@ use Illuminate\Support\Facades\DB;
 
 class Convocations extends Model
 {
+    use HasOpaqueSlug;
+
     protected $table = 'convocations';
 
     protected $fillable = [
@@ -64,11 +67,7 @@ class Convocations extends Model
         )->withPivot('fonction', 'centre_id', 'centre_metier_id', 'provenance', 'categorie_personnel')->withTimestamps();
     }
 
-    /**
-     * Centres d'examen rattaches a cette convocation (cf. modele papier :
-     * une convocation peut couvrir plusieurs centres, chacun avec son
-     * propre jury/metier/chef de centre).
-     */
+    
     public function centres(): HasMany
     {
         return $this->hasMany(ConvocationCentre::class, 'convocation_id');

@@ -6,8 +6,11 @@ use App\Http\Controllers\Controller;
 use App\Http\Controllers\Api\Indemnites\Concerns\ApiResponseTrait;
 use App\Http\Requests\Indemnites\StoreConvocationRequest;
 use App\Http\Requests\Indemnites\UpdateConvocationRequest;
+use App\Models\Indemnite\ConvocationCentre;
+use App\Models\Indemnite\ConvocationCentreMetier;
 use App\Models\Indemnite\Convocations as ConvocationModel;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 
 class ConvocationsController extends Controller
 {
@@ -43,11 +46,25 @@ class ConvocationsController extends Controller
             $query->whereDate('date_emission', $request->query('date'));
         }
 
-        
+        // Metier et Centre vivent sur convocation_centres (hasMany), pas
+        // directement sur convocations : whereHas() pour ne garder que les
+        // convocations ayant AU MOINS un centre correspondant au filtre.
+        //
+        // NB: le metier peut se trouver a DEUX endroits — l'ancienne colonne
+        // convocation_centres.metier (gardee pour compatibilite, plus
+        // jamais ecrite depuis le wizard riche) OU la table dediee
+        // convocation_centre_metiers (ConvocationSyncController::sync(),
+        // un centre peut couvrir plusieurs metiers). Ne filtrer que sur la
+        // premiere ratait donc silencieusement toutes les convocations
+        // creees/modifiees via le wizard "Nouvelle convocation" / "Modifier".
         if ($request->filled('metier')) {
             $metier = $request->query('metier');
-            $query->whereHas('centres', function ($q) use ($metier) {
-                $q->where('metier', 'like', '%'.$metier.'%');
+            $query->where(function ($outer) use ($metier) {
+                $outer->whereHas('centres', function ($q) use ($metier) {
+                    $q->where('metier', 'like', '%'.$metier.'%');
+                })->orWhereHas('centres.metiers', function ($q) use ($metier) {
+                    $q->where('metier', 'like', '%'.$metier.'%');
+                });
             });
         }
 
@@ -68,35 +85,70 @@ class ConvocationsController extends Controller
     }
 
     /**
-     * Valeurs distinctes deja utilisees pour l'objet/la session/le centre
-     * d'examen — pour peupler des menus deroulants de filtre (plutot que de
-     * la saisie libre) avec uniquement des valeurs qui appartiennent
-     * reellement a au moins une convocation existante.
+     * Valeurs distinctes reellement presentes en base, pour remplir les
+     * menus deroulants des filtres de la liste front (index.blade.php) —
+     * plutot que des champs texte libre. Independant de tout filtre en
+     * cours : renvoie toujours l'univers complet des valeurs possibles,
+     * pas seulement celles de la page courante/filtree.
      */
-    public function filtres()
+    public function optionsFiltres()
     {
-        $objets = ConvocationModel::whereNotNull('objet')
+        $objets = ConvocationModel::query()
+            ->whereNotNull('objet')
             ->where('objet', '!=', '')
             ->distinct()
             ->orderBy('objet')
-            ->pluck('objet');
+            ->pluck('objet')
+            ->values();
 
-        $sessions = ConvocationModel::whereNotNull('session')
-            ->where('session', '!=', '')
-            ->distinct()
-            ->orderBy('session')
-            ->pluck('session');
-
-        $centres = \App\Models\Indemnite\ConvocationCentre::whereNotNull('centre')
+        $centres = ConvocationCentre::query()
+            ->whereNotNull('centre')
             ->where('centre', '!=', '')
             ->distinct()
             ->orderBy('centre')
-            ->pluck('centre');
+            ->pluck('centre')
+            ->values();
 
-        return $this->success('Filtres disponibles.', [
+        
+        $metiersLegacy = ConvocationCentre::query()
+            ->whereNotNull('metier')
+            ->where('metier', '!=', '')
+            ->distinct()
+            ->pluck('metier');
+
+        $metiersDedies = ConvocationCentreMetier::query()
+            ->whereNotNull('metier')
+            ->where('metier', '!=', '')
+            ->distinct()
+            ->pluck('metier');
+
+        $metiers = $metiersLegacy->merge($metiersDedies)->unique()->sort()->values();
+
+        $dates = ConvocationModel::query()
+            ->whereNotNull('date_emission')
+            ->distinct()
+            ->orderByDesc('date_emission')
+            ->pluck('date_emission')
+            ->map(fn ($date) => Carbon::parse($date)->format('Y-m-d'))
+            ->unique()
+            ->values();
+
+        // Enum fixe (cf. migration convocations.statut) plutot qu'une
+        // requete : toujours les 4 valeurs possibles, meme si aucune
+        // convocation n'a encore tel statut.
+        $statuts = [
+            ['value' => 'brouillon', 'label' => 'Brouillon'],
+            ['value' => 'emise', 'label' => 'Émise'],
+            ['value' => 'envoyee', 'label' => 'Envoyée'],
+            ['value' => 'cloturee', 'label' => 'Clôturée'],
+        ];
+
+        return $this->success('Options de filtres.', [
             'objets' => $objets,
-            'sessions' => $sessions,
             'centres' => $centres,
+            'metiers' => $metiers,
+            'dates' => $dates,
+            'statuts' => $statuts,
         ]);
     }
 
@@ -120,6 +172,9 @@ class ConvocationsController extends Controller
 
     public function show(string $id)
     {
+        // slugOuId() : $id est le slug opaque construit par le front dans
+        // ses URLs (voir HasOpaqueSlug), mais reste aussi accepte sous
+        // forme d'id numerique pour ne rien casser en interne.
         $convocation = ConvocationModel::with([
             'envois',
             'centres.chefCentre',
@@ -128,7 +183,7 @@ class ConvocationsController extends Controller
             'centres.enseignants.lieuService',
             'enseignants.lieuService',
             'typeConvocation',
-        ])->find($id);
+        ])->slugOuId($id)->first();
 
         if (! $convocation) {
             return $this->error('Convocation introuvable.', 404);
@@ -139,7 +194,7 @@ class ConvocationsController extends Controller
 
     public function update(UpdateConvocationRequest $request, string $id)
     {
-        $convocation = ConvocationModel::find($id);
+        $convocation = ConvocationModel::trouverParSlugOuId($id);
 
         if (! $convocation) {
             return $this->error('Convocation introuvable.', 404);
@@ -152,7 +207,7 @@ class ConvocationsController extends Controller
 
     public function destroy(string $id)
     {
-        $convocation = ConvocationModel::find($id);
+        $convocation = ConvocationModel::trouverParSlugOuId($id);
 
         if (! $convocation) {
             return $this->error('Convocation introuvable.', 404);

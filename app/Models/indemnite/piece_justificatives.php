@@ -5,7 +5,7 @@ namespace App\Models\Indemnite;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-class piece_justificatives extends Model
+class Piece_justificatives extends Model
 {
     /**
      * Types de documents attendus pour le dossier d'un membre (bouton

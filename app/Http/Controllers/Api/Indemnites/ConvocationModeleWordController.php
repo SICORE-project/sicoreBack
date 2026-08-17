@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\Storage;
 /**
  * Modèle Word téléchargeable pour la création d'une convocation (mêmes
  * champs que le formulaire de saisie manuelle), à remplir puis renvoyer
- * via POST convocations/import (cf. ConvocationImportController).
+ * via POST convocations/import 
  */
 class ConvocationModeleWordController extends Controller
 {

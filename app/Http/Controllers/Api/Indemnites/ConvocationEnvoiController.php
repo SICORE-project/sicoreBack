@@ -9,149 +9,200 @@ use App\Http\Requests\Indemnites\RelancerConvocationRequest;
 use App\Mail\Indemnites\ConvocationMail;
 use App\Models\Indemnite\Convocations as ConvocationModel;
 use App\Models\Indemnite\ConvocationEnvoi;
-use Illuminate\Support\Facades\Mail;
+use App\Models\Parametrage\Enseignant;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
+
 
 class ConvocationEnvoiController extends Controller
 {
     use ApiResponseTrait;
 
-    /**
-     * Envoie la convocation aux bénéficiaires (tous, ou une sélection).
-     */
+  
     public function envoyer(EnvoyerConvocationRequest $request, string $id)
     {
-        $convocation = ConvocationModel::find($id);
+        $convocation = ConvocationModel::with('typeConvocation')->slugOuId($id)->first();
 
         if (! $convocation) {
             return $this->error('Convocation introuvable.', 404);
         }
 
-        $enseignants = $this->resoudreBeneficiaires($convocation, $request->validated('enseignant_ids'));
+        $enseignants = $this->resoudreDestinataires($convocation, $request->validated('enseignant_ids'));
 
         if ($enseignants->isEmpty()) {
-            return $this->error('Aucun bénéficiaire à notifier pour cette convocation.', 422);
+            return $this->error('Aucun bénéficiaire à convoquer sur cette convocation.', 422);
         }
 
-        $canal = $request->validated('canal') ?? 'email';
-        $message = $request->validated('message');
+        $resultat = $this->envoyerA($convocation, $enseignants, $request->validated('message'));
 
-        $envois = $enseignants->map(function ($enseignant) use ($convocation, $canal, $message) {
-            $statut = $this->tenterEnvoi($enseignant, $convocation, $canal, $message);
-
-            return ConvocationEnvoi::create([
-                'convocation_id' => $convocation->id,
-                'enseignant_id' => $enseignant->id,
-                'canal' => $canal,
-                'statut' => $statut,
-                'message' => $message,
-                'date_envoi' => now(),
-            ]);
-        });
-
-        $convocation->update(['statut' => 'envoyee']);
-
-        return $this->success('Convocation envoyée.', $envois, 201);
+        return $this->success(
+            "{$resultat['envoyes']} envoi(s) réussi(s), {$resultat['echecs']} échec(s).",
+            $resultat
+        );
     }
 
     /**
-     * Relance les bénéficiaires (tous, ou une sélection) pour une convocation déjà émise.
+     * Renvoie la convocation aux bénéficiaires dont la DERNIÈRE tentative
+     * d'envoi est en échec (ou seulement enseignant_ids si fournis —
+     * relance ciblée, même si la personne n'est pas en échec).
      */
     public function relancer(RelancerConvocationRequest $request, string $id)
     {
-        $convocation = ConvocationModel::find($id);
+        $convocation = ConvocationModel::with('typeConvocation')->slugOuId($id)->first();
 
         if (! $convocation) {
             return $this->error('Convocation introuvable.', 404);
         }
 
-        $enseignants = $this->resoudreBeneficiaires($convocation, $request->validated('enseignant_ids'));
+        $enseignantIdsDemandes = $request->validated('enseignant_ids');
 
-        if ($enseignants->isEmpty()) {
-            return $this->error('Aucun bénéficiaire à relancer pour cette convocation.', 422);
+        if ($enseignantIdsDemandes) {
+            $enseignants = $convocation->enseignants()->whereIn('id', $enseignantIdsDemandes)->get();
+        } else {
+            $idsEnEchec = $this->beneficiairesEnEchec($convocation);
+            $enseignants = $idsEnEchec
+                ? $convocation->enseignants()->whereIn('id', $idsEnEchec)->get()
+                : new Collection();
         }
 
-        $message = $request->validated('message') ?? 'Relance : merci de confirmer votre participation.';
+        if ($enseignants->isEmpty()) {
+            return $this->error('Aucun envoi en échec à relancer pour cette convocation.', 422);
+        }
 
-        $envois = $enseignants->map(function ($enseignant) use ($convocation, $message) {
-            $statut = $this->tenterEnvoi($enseignant, $convocation, 'email', $message);
+        $resultat = $this->envoyerA($convocation, $enseignants, $request->validated('message'));
 
-            return ConvocationEnvoi::create([
-                'convocation_id' => $convocation->id,
-                'enseignant_id' => $enseignant->id,
-                'canal' => 'email',
-                'statut' => $statut,
-                'message' => $message,
-                'date_envoi' => now(),
-            ]);
-        });
-
-        return $this->success('Relance effectuée.', $envois, 201);
+        return $this->success(
+            "{$resultat['envoyes']} relance(s) réussie(s), {$resultat['echecs']} échec(s).",
+            $resultat
+        );
     }
 
     /**
-     * Historique des envois/relances pour une convocation.
+     * Historique des envois + stats rapides, pour la page "Suivi des
+     * envois" (suivi.blade.php côté front).
      */
     public function suivi(string $id)
     {
-        $convocation = ConvocationModel::find($id);
+        $convocation = ConvocationModel::slugOuId($id)->first();
 
         if (! $convocation) {
             return $this->error('Convocation introuvable.', 404);
         }
 
-        $envois = ConvocationEnvoi::where('convocation_id', $id)
-            ->with('enseignant')
-            ->latest('date_envoi')
-            ->paginate(15);
+        $envois = ConvocationEnvoi::with('enseignant')
+            ->where('convocation_id', $convocation->id)
+            ->orderByDesc('date_envoi')
+            ->orderByDesc('id')
+            ->get();
 
-        return $this->success('Suivi des envois de la convocation.', $envois);
+        return $this->success('Suivi des envois.', [
+            'stats' => [
+                'total' => $envois->count(),
+                'envoye' => $envois->where('statut', 'envoye')->count(),
+                'echec' => $envois->where('statut', 'echec')->count(),
+            ],
+            'envois' => $envois,
+        ]);
     }
 
-    private function resoudreBeneficiaires(ConvocationModel $convocation, ?array $enseignantIds)
+    /**
+     * Destinataires d'un envoi : enseignant_ids demandés explicitement, ou
+     * TOUS les bénéficiaires actuels de la convocation par défaut.
+     */
+    private function resoudreDestinataires(ConvocationModel $convocation, ?array $enseignantIds): Collection
     {
-        if (! empty($enseignantIds)) {
-            return $convocation->enseignants()->whereIn('enseignants.id', $enseignantIds)->get();
+        if ($enseignantIds) {
+            return $convocation->enseignants()->whereIn('id', $enseignantIds)->get();
         }
 
         return $convocation->enseignants()->get();
     }
 
     /**
-     * Tente l'envoi réel de la convocation.
-     *
-     * Seul le canal "email" est implémenté (via le Mailable ConvocationMail).
-     * Les canaux "sms" et "courrier" sont acceptés par la validation mais
-     * ne disposent pas d'intégration technique à ce jour : on le trace
-     * honnêtement en "echec" plutôt que de mentir sur un envoi réussi.
+     * Id des bénéficiaires dont la DERNIÈRE tentative d'envoi (date_envoi
+     * la plus récente) est en échec — un succès plus récent qu'un échec
+     * ne doit pas redéclencher de relance automatique.
      */
-    private function tenterEnvoi($enseignant, ConvocationModel $convocation, string $canal, ?string $message): string
+    private function beneficiairesEnEchec(ConvocationModel $convocation): array
     {
-        if ($canal !== 'email') {
-            Log::info('Envoi de convocation demandé sur un canal non implémenté', [
-                'canal' => $canal,
-                'enseignant_id' => $enseignant->id,
-            ]);
+        $dernierParEnseignant = ConvocationEnvoi::where('convocation_id', $convocation->id)
+            ->orderByDesc('date_envoi')
+            ->orderByDesc('id')
+            ->get()
+            ->unique('enseignant_id');
 
-            return 'echec';
+        return $dernierParEnseignant->where('statut', 'echec')->pluck('enseignant_id')->all();
+    }
+
+    /**
+     * Envoie effectivement l'e-mail à chaque enseignant et enregistre un
+     * ConvocationEnvoi par tentative (succès ou échec) — jamais
+     * d'exception qui remonte au client : un bénéficiaire sans e-mail ou
+     * un envoi qui échoue ne doit pas empêcher les autres.
+     */
+    private function envoyerA(ConvocationModel $convocation, Collection $enseignants, ?string $messagePersonnalise): array
+    {
+        $envoyes = 0;
+        $echecs = 0;
+
+        foreach ($enseignants as $enseignant) {
+            /** @var Enseignant $enseignant */
+            if (empty($enseignant->email)) {
+                ConvocationEnvoi::create([
+                    'convocation_id' => $convocation->id,
+                    'enseignant_id' => $enseignant->id,
+                    'canal' => 'email',
+                    'statut' => 'echec',
+                    'message' => 'Aucune adresse e-mail renseignée pour ce bénéficiaire.',
+                    'date_envoi' => now(),
+                ]);
+
+                $echecs++;
+
+                continue;
+            }
+
+            try {
+                Mail::to($enseignant->email)->send(new ConvocationMail($convocation, $enseignant, $messagePersonnalise));
+
+                ConvocationEnvoi::create([
+                    'convocation_id' => $convocation->id,
+                    'enseignant_id' => $enseignant->id,
+                    'canal' => 'email',
+                    'statut' => 'envoye',
+                    'message' => $messagePersonnalise,
+                    'date_envoi' => now(),
+                ]);
+
+                $envoyes++;
+            } catch (\Throwable $e) {
+                Log::error('Échec envoi convocation par e-mail', [
+                    'convocation_id' => $convocation->id,
+                    'enseignant_id' => $enseignant->id,
+                    'erreur' => $e->getMessage(),
+                ]);
+
+                ConvocationEnvoi::create([
+                    'convocation_id' => $convocation->id,
+                    'enseignant_id' => $enseignant->id,
+                    'canal' => 'email',
+                    'statut' => 'echec',
+                    'message' => "Échec de l'envoi : ".$e->getMessage(),
+                    'date_envoi' => now(),
+                ]);
+
+                $echecs++;
+            }
         }
 
-        if (empty($enseignant->email)) {
-            Log::warning('Échec envoi convocation : bénéficiaire sans adresse email', [
-                'enseignant_id' => $enseignant->id,
-            ]);
-
-            return 'echec';
+        // "informer officiellement" : une fois au moins un envoi reussi,
+        // la convocation n'est plus un brouillon — sauf si deja cloturee
+        // (on ne rouvre pas un dossier ferme).
+        if ($envoyes > 0 && $convocation->statut !== 'cloturee') {
+            $convocation->update(['statut' => 'envoyee']);
         }
 
-        try {
-            Mail::to($enseignant->email)->send(new ConvocationMail($convocation, $enseignant, $message));
-
-            return 'envoye';
-        } catch (\Throwable $e) {
-            Log::warning('Échec envoi convocation par email', ['enseignant_id' => $enseignant->id, 'error' => $e->getMessage()]);
-
-            return 'echec';
-        }
+        return ['envoyes' => $envoyes, 'echecs' => $echecs];
     }
 }

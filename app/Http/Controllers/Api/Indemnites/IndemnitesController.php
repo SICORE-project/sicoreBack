@@ -99,13 +99,7 @@ class IndemnitesController extends Controller
         return $this->success('Indemnité supprimée avec succès.');
     }
 
-    /**
-     * Calcule le montant d'une indemnité à partir de son type/barème et la persiste.
-     *
-     * MODIFIÉ : si `type_indemnite_id` n'est pas fourni, il est résolu
-     * automatiquement à partir de `convocation_id`/`enseignant_id`
-     * (cf. resoudreTypeIndemnite()).
-     */
+   
     public function calculer(CalculerIndemniteRequest $request)
     {
         $data = $request->validated();
@@ -180,14 +174,7 @@ class IndemnitesController extends Controller
         return $this->success('Calcul validé avec succès.', $indemnite);
     }
 
-    /**
-     * Ajoute un frais complémentaire à une indemnité et recalcule le montant total.
-     *
-     * NOTE (limite connue): il n'existe pas encore de table dédiée à l'historique
-     * détaillé des frais par indemnité ; ce endpoint agrège donc le montant dans
-     * la colonne `frais_deplacement` de l'indemnité. Si un historique ligne par
-     * ligne est nécessaire, prévoir une table `frais_indemnites` dédiée.
-     */
+   
     public function ajouterFrais(AjouterFraisIndemniteRequest $request, string $id)
     {
         $indemnite = indemnites::find($id);
@@ -225,24 +212,7 @@ class IndemnitesController extends Controller
         ]);
     }
 
-    /**
-     * Résout le type_indemnite (barème) applicable.
-     *
-     * - Si `type_indemnite_id` est fourni explicitement, il est utilisé tel
-     *   quel (comportement historique inchangé, rétro-compatible).
-     * - Sinon, résolution automatique à partir de :
-     *     - `convocation_id` → `convocations.type_convocation_id`
-     *     - `enseignant_id`  → `enseignants.categorie_personnel`
-     *   Le barème le plus SPÉCIFIQUE l'emporte (celui qui matche le plus de
-     *   critères explicitement, un barème avec un champ NULL agissant comme
-     *   joker "s'applique à tous"). En cas d'égalité entre plusieurs
-     *   barèmes de même spécificité, ou si aucun ne correspond, on échoue
-     *   en 422 plutôt que de deviner — il s'agit d'argent, une ambiguïté ou
-     *   un trou de paramétrage doit être corrigé à la source, pas contourné
-     *   silencieusement par le code.
-     *
-     * @return array{0: ?type_indemnites, 1: ?string, 2: ?int} [$type, $messageErreur, $codeHttp]
-     */
+   
     private function resoudreTypeIndemnite(array $data): array
     {
         if (! empty($data['type_indemnite_id'])) {

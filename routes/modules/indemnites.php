@@ -82,10 +82,7 @@ Route::get('convocations/filtres', [ConvocationsController::class, 'filtres']);
 Route::apiResource('convocations', ConvocationsController::class);
 Route::post('convocations/{id}/fichier', [ConvocationFichierController::class, 'store']);
 
-// Fiche "Modifier" alignee sur l'assistant de creation (meme wizard,
-// pre-rempli) : remplace en UNE requete toute la structure de la
-// convocation (infos + centres + metiers + membres), cf.
-// ConvocationSyncController.
+
 Route::put('convocations/{id}/structure', [ConvocationSyncController::class, 'sync']);
 
 

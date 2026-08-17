@@ -2,8 +2,8 @@
 
 namespace App\Mail\Indemnites;
 
-use App\Models\Convocations as ConvocationModel;
-use App\Models\Personnel\Enseignant;
+use App\Models\Indemnite\Convocations as ConvocationModel;
+use App\Models\Parametrage\Enseignant;
 use Illuminate\Bus\Queueable;
 use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Content;

@@ -33,7 +33,7 @@ class ConvocationPdfController extends Controller
      */
     public function generer(string $id)
     {
-        $convocation = ConvocationModel::with(self::RELATIONS_POUR_PDF)->find($id);
+        $convocation = ConvocationModel::with(self::RELATIONS_POUR_PDF)->slugOuId($id)->first();
 
         if (! $convocation) {
             return $this->error('Convocation introuvable.', 404);
@@ -67,7 +67,7 @@ class ConvocationPdfController extends Controller
      */
     public function download(string $id)
     {
-        $convocation = ConvocationModel::find($id);
+        $convocation = ConvocationModel::trouverParSlugOuId($id);
 
         if (! $convocation) {
             return $this->error('Convocation introuvable.', 404);

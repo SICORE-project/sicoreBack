@@ -23,7 +23,7 @@ class ConvocationSyncController extends Controller
 
     public function sync(SyncConvocationStructureRequest $request, string $id)
     {
-        $convocation = ConvocationModel::find($id);
+        $convocation = ConvocationModel::trouverParSlugOuId($id);
 
         if (! $convocation) {
             return $this->error('Convocation introuvable.', 404);

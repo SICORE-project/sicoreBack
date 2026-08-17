@@ -9,13 +9,7 @@ use App\Http\Requests\Indemnites\UpdateConvocationCentreMetierRequest;
 use App\Models\Indemnite\ConvocationCentre;
 use App\Models\Indemnite\Convocations as ConvocationModel;
 
-/**
- * Metiers d'UN centre d'examen (cf. modele papier "convocation jury BT" :
- * un centre peut couvrir plusieurs metiers, chacun avec ses propres
- * membres du jury). Imbrique sous
- * /convocations/{id}/centres/{centreId}/metiers pour garantir que le
- * metier appartient bien a CE centre de CETTE convocation.
- */
+
 class ConvocationCentreMetierController extends Controller
 {
     use ApiResponseTrait;
@@ -41,7 +35,7 @@ class ConvocationCentreMetierController extends Controller
             return $this->error('Centre introuvable pour cette convocation.', 404);
         }
 
-        $metier = $centre->metiers()->find($metierId);
+        $metier = $centre->metiers()->slugOuId($metierId)->first();
 
         if (! $metier) {
             return $this->error('Métier introuvable pour ce centre.', 404);
@@ -52,12 +46,7 @@ class ConvocationCentreMetierController extends Controller
         return $this->success('Métier mis à jour avec succès.', $metier);
     }
 
-    /**
-     * Supprime UN metier. Les beneficiaires qui y etaient rattaches
-     * (convocation_enseignant.centre_metier_id) restent, seul leur
-     * rattachement a ce metier est retire (colonne nullOnDelete, voir
-     * migration add_centre_metier_id_to_convocation_enseignant_table).
-     */
+    
     public function destroy(string $id, string $centreId, string $metierId)
     {
         $centre = $this->trouverCentre($id, $centreId);
@@ -66,7 +55,7 @@ class ConvocationCentreMetierController extends Controller
             return $this->error('Centre introuvable pour cette convocation.', 404);
         }
 
-        $metier = $centre->metiers()->find($metierId);
+        $metier = $centre->metiers()->slugOuId($metierId)->first();
 
         if (! $metier) {
             return $this->error('Métier introuvable pour ce centre.', 404);
@@ -79,12 +68,12 @@ class ConvocationCentreMetierController extends Controller
 
     private function trouverCentre(string $id, string $centreId): ?ConvocationCentre
     {
-        $convocation = ConvocationModel::find($id);
+        $convocation = ConvocationModel::trouverParSlugOuId($id);
 
         if (! $convocation) {
             return null;
         }
 
-        return $convocation->centres()->find($centreId);
+        return $convocation->centres()->slugOuId($centreId)->first();
     }
 }

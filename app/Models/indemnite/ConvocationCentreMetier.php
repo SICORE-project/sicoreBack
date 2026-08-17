@@ -2,6 +2,7 @@
 
 namespace App\Models\Indemnite;
 
+use App\Helpers\Indemnites\HasOpaqueSlug;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -14,6 +15,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
  */
 class ConvocationCentreMetier extends Model
 {
+    use HasOpaqueSlug;
+
     protected $table = 'convocation_centre_metiers';
 
     protected $fillable = [
@@ -26,10 +29,7 @@ class ConvocationCentreMetier extends Model
         return $this->belongsTo(ConvocationCentre::class, 'convocation_centre_id');
     }
 
-    /**
-     * Membres du jury affectes a CE metier precis (cf.
-     * convocation_enseignant.centre_metier_id).
-     */
+  
     public function enseignants(): BelongsToMany
     {
         return $this->belongsToMany(
