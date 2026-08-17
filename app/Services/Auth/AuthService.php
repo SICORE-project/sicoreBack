@@ -26,7 +26,8 @@ class AuthService
 
 
 
-        $user = User::with('role')
+        // ⚠️ Changement : on charge aussi les permissions du rôle
+        $user = User::with('role.permissions')
             ->where('email',$identifier)
             ->first();
 
@@ -86,6 +87,8 @@ class AuthService
                 'nom'=>$user->nom,
                 'prenom'=>$user->prenom,
                 'email'=>$user->email,
+                // 'role' inclut maintenant automatiquement 'permissions'
+                // grâce au eager load with('role.permissions') ci-dessus
                 'role'=>$user->role
             ]
 
@@ -121,28 +124,6 @@ class AuthService
     /**
      * Préparation Forgot Password
      */
-    // public function forgotPassword(array $data)
-    // {
-
-    //     $user = User::where(
-    //         'email',
-    //         $data['email']
-    //     )->first();
-
-
-    //     if(!$user)
-    //     {
-    //         return response()->json([
-    //             'message'=>'Utilisateur introuvable'
-    //         ],404);
-    //     }
-
-
-    //     return response()->json([
-    //         'message'=>'Demande de réinitialisation prise en compte'
-    //     ]);
-
-    // }
     public function forgotPassword(array $data)
     {
 
@@ -182,7 +163,7 @@ class AuthService
                 /*
                 Pour le MVP on stocke temporairement
                 le token en clair.
-                
+
                 En production on utilisera Hash::make()
                 */
 
