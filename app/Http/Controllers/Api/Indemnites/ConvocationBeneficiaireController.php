@@ -21,7 +21,6 @@ class ConvocationBeneficiaireController extends Controller
             return $this->error('Convocation introuvable.', 404);
         }
 
-       
         return $this->success(
             'Bénéficiaires de la convocation.',
             $convocation->enseignants()->get()
@@ -89,6 +88,7 @@ class ConvocationBeneficiaireController extends Controller
                         'centre_id' => $centreId,
                         'centre_metier_id' => $centreMetierId,
                         'provenance' => $b['provenance'] ?? null,
+                        'categorie_personnel' => $b['categorie_personnel'] ?? null,
                     ],
                 ];
             })->all();

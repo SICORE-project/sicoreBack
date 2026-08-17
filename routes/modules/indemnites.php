@@ -74,10 +74,10 @@ Route::get('types-convocation', [TypeConvocationController::class, 'index']);
 Route::get('convocations/modele-word', [ConvocationModeleWordController::class, 'telecharger']);
 Route::post('convocations/import', [ConvocationImportController::class, 'store']);
 
-// Valeurs distinctes existantes (objet/centre/metier/date/statut) pour
-// alimenter les menus deroulants des filtres de la liste front — memes
-// contraintes de placement que ci-dessus (avant apiResource).
-Route::get('convocations/filtres-options', [ConvocationsController::class, 'optionsFiltres']);
+// Valeurs distinctes deja utilisees (objet/session/centre), pour peupler
+// des menus deroulants de filtre (ex: page Pieces justificatives) plutot
+// que de la saisie libre.
+Route::get('convocations/filtres', [ConvocationsController::class, 'filtres']);
 
 Route::apiResource('convocations', ConvocationsController::class);
 Route::post('convocations/{id}/fichier', [ConvocationFichierController::class, 'store']);
@@ -95,12 +95,6 @@ Route::get('convocations/{id}/centres', [ConvocationCentreController::class, 'in
 Route::post('convocations/{id}/centres', [ConvocationCentreController::class, 'store']);
 Route::put('convocations/{id}/centres/{centreId}', [ConvocationCentreController::class, 'update']);
 Route::delete('convocations/{id}/centres/{centreId}', [ConvocationCentreController::class, 'destroy']);
-
-// Metiers d'UN centre (un centre peut en couvrir plusieurs, chacun avec
-// ses propres membres du jury) — voir ConvocationCentreMetierController.
-Route::post('convocations/{id}/centres/{centreId}/metiers', [ConvocationCentreMetierController::class, 'store']);
-Route::put('convocations/{id}/centres/{centreId}/metiers/{metierId}', [ConvocationCentreMetierController::class, 'update']);
-Route::delete('convocations/{id}/centres/{centreId}/metiers/{metierId}', [ConvocationCentreMetierController::class, 'destroy']);
 
 Route::post('convocations/{id}/centres/{centreId}/metiers', [ConvocationMetierController::class, 'store']);
 Route::put('convocations/{id}/centres/{centreId}/metiers/{metierId}', [ConvocationMetierController::class, 'update']);
@@ -146,6 +140,7 @@ Route::post('services-faits/{id}/verifier-conformite', [ServicesFaitsController:
 Route::apiResource('pieces-justificatives', PieceJustificativesController::class);
 
 Route::post('pieces-justificatives/deposer', [PieceJustificativesController::class, 'deposer']);
+Route::post('pieces-justificatives/deposer-lot', [PieceJustificativesController::class, 'deposerLot']);
 
 Route::put('pieces-justificatives/{id}/classifier', [PieceJustificativesController::class, 'classifier']);
 

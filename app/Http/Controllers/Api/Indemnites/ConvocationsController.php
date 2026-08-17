@@ -21,9 +21,14 @@ class ConvocationsController extends Controller
         // Eager loading nécessaire à la liste DAGE (point 3 du cahier des
         // charges "Transmission des convocations") : Agent / Type / Session /
         // Centre / Rôle / Lieu de service proviennent tous des relations,
-        // pas seulement des colonnes de `convocations`.
+        // pas seulement des colonnes de `convocations`. "centres.presidentJury"
+        // et "centres.chefCentre" chargent aussi les centres eux-mêmes (pas
+        // besoin de lister "centres" à part) — nécessaire à la page Pièces
+        // justificatives, où le chef de centre ET le président du jury de
+        // chaque centre doivent CHACUN apparaître comme un membre à part
+        // entière (ils déposent eux aussi leurs pièces justificatives).
         $query = ConvocationModel::withCount('enseignants')
-            ->with(['typeConvocation', 'centres', 'enseignants.lieuService']);
+            ->with(['typeConvocation', 'centres.presidentJury', 'centres.chefCentre', 'enseignants.lieuService']);
 
         if ($request->filled('statut')) {
             $query->where('statut', $request->query('statut'));
@@ -68,6 +73,10 @@ class ConvocationsController extends Controller
             $query->whereHas('centres', function ($q) use ($centre) {
                 $q->where('centre', 'like', '%'.$centre.'%');
             });
+        }
+
+        if ($request->filled('session')) {
+            $query->where('session', $request->query('session'));
         }
 
         $convocations = $query->latest()->paginate($request->integer('per_page', 15));

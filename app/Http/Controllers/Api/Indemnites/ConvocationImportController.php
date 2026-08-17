@@ -192,45 +192,29 @@ class ConvocationImportController extends Controller
                 $cellules[] = $this->extraireTexteCellule($cellule);
             }
 
-            $lignesBrutes[] = $cellules;
-        }
+            $nomNormalise = $this->normaliserNom($donnees['centre']);
 
-        if (empty($lignesBrutes)) {
-            return [null, []];
-        }
+            // Plusieurs lignes du tableau Word peuvent partager le même nom
+            // de centre (un centre qui couvre plusieurs métiers, saisi sur
+            // une ligne par métier) : une seule ConvocationCentre est créée
+            // par nom, les lignes suivantes du même nom n'ajoutent qu'un
+            // métier supplémentaire dessus. Sans ça, chaque ligne créait sa
+            // propre ConvocationCentre, indexée par nom dans $centresCrees
+            // ci-dessous — la ligne suivante du même nom écrasait l'entrée
+            // précédente, si bien que tous les membres rattachés à ce nom de
+            // centre finissaient attachés à la DERNIÈRE ConvocationCentre
+            // créée, et les précédentes restaient visibles mais vides
+            // (aucun membre) : symptôme "je ne vois que le centre conservé".
+            $centre = $centresCrees[$nomNormalise] ?? $convocation->centres()->create($donnees);
+            $centresCrees[$nomNormalise] = $centre;
 
-        $ligneEntete = array_shift($lignesBrutes);
-
-        return [$ligneEntete, $lignesBrutes];
-    }
-
-    /**
-     * Concatene le texte d'une cellule de tableau Word (les elements
-     * "Text" simples et les "TextRun" imbriques suffisent pour un
-     * tableau de convocation classique — pas de gestion des liens,
-     * notes de bas de page ou objets plus complexes).
-     */
-    private function extraireTexteCellule(\PhpOffice\PhpWord\Element\Cell $cellule): string
-    {
-        $morceaux = [];
-
-        foreach ($cellule->getElements() as $element) {
-            if (method_exists($element, 'getText')) {
-                $texte = $element->getText();
-
-                if (is_string($texte)) {
-                    $morceaux[] = $texte;
-                }
-            } elseif (method_exists($element, 'getElements')) {
-                foreach ($element->getElements() as $sousElement) {
-                    if (method_exists($sousElement, 'getText')) {
-                        $texte = $sousElement->getText();
-
-                        if (is_string($texte)) {
-                            $morceaux[] = $texte;
-                        }
-                    }
-                }
+            // Un seul métier par ligne importée (colonne "Métier /
+            // spécialité" du tableau Centres) : sans ce sous-enregistrement,
+            // les membres rattachés à ce centre ne peuvent pas être reliés à
+            // un métier (centre_metier_id), et n'apparaissent pas groupés
+            // sur la fiche de la convocation — voir attacherBeneficiaires().
+            if (! empty($donnees['metier'])) {
+                $metiersCrees[$nomNormalise] = $centre->metiers()->create(['metier' => $donnees['metier']]);
             }
         }
 
@@ -363,6 +347,10 @@ class ConvocationImportController extends Controller
             $convocation->enseignants()->attach($enseignant->id, [
                 'fonction' => $role,
                 'centre_id' => $centreId,
+                'centre_metier_id' => $centreMetierId,
+                'provenance' => $membre['provenance'],
+                'categorie_personnel' => $membre['categorie_personnel'],
+            ];
                 'provenance' => $provenance,
             ]);
         }
@@ -425,20 +413,18 @@ class ConvocationImportController extends Controller
             }
         }
 
-        try {
-            return Carbon::parse($valeur);
-        } catch (\Throwable) {
-            return null;
-        }
-    }
-
-    /**
-     * Associe chaque alias reconnu (cf. self::ALIAS) à l'index de colonne
-     * correspondant dans l'entête du fichier.
-     */
-    private function indexerColonnes(array $ligneEntete): array
-    {
-        $normalisees = array_map([$this, 'normaliserEntete'], $ligneEntete);
+        // Même construction du pivot que ConvocationBeneficiaireController::store
+        // (centre_id déjà garanti appartenir à cette convocation, puisqu'il
+        // provient de creerCentres() ci-dessus).
+        $sync = collect($beneficiaires)->mapWithKeys(fn (array $b) => [
+            $b['enseignant_id'] => [
+                'fonction' => $b['fonction'],
+                'centre_id' => $b['centre_id'],
+                'centre_metier_id' => $b['centre_metier_id'],
+                'provenance' => $b['provenance'],
+                'categorie_personnel' => $b['categorie_personnel'],
+            ],
+        ])->all();
 
         $colonnes = [];
 

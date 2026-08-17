@@ -375,13 +375,42 @@ class ConvocationWordTemplateService
             return null;
         }
 
+        $categoriePersonnel = null;
+
+        if (! empty($ligne['categorie_personnel'])) {
+            $categoriePersonnel = $this->normaliserCategoriePersonnel($ligne['categorie_personnel']);
+
+            if (! $categoriePersonnel) {
+                $avertissements[] = "catégorie de personnel « {$ligne['categorie_personnel']} » (membre « {$nomComplet} ») non reconnue — valeurs attendues : Fonctionnaire, Contractuelle, Vacataire.";
+            }
+        }
+
         return [
             'enseignant_id' => $enseignant->id,
             'centre_nom' => $ligne['centre_nom'] ?: null,
             'fonction' => $ligne['fonction'] ?: null,
-            'categorie_personnel' => $ligne['categorie_personnel'] ?: null,
+            'categorie_personnel' => $categoriePersonnel,
             'provenance' => $ligne['provenance'] ?: null,
         ];
+    }
+
+    /**
+     * Fait correspondre le texte libre de la colonne "Catégorie de
+     * personnel" (Fonctionnaire / Contractuelle / Vacataire, cf.
+     * CHAMPS_MEMBRE) à l'une des valeurs de l'enum
+     * convocation_enseignant.categorie_personnel (fonctionnaire /
+     * contractuel / vacataire — sans le "le" final de "contractuelle").
+     */
+    private function normaliserCategoriePersonnel(string $valeur): ?string
+    {
+        $normalise = $this->normaliser($valeur);
+
+        return match (true) {
+            str_starts_with($normalise, 'fonctionnaire') => 'fonctionnaire',
+            str_starts_with($normalise, 'contractuel') => 'contractuel',
+            str_starts_with($normalise, 'vacataire') => 'vacataire',
+            default => null,
+        };
     }
 
     private function texteCellule(Cell $cell): string
