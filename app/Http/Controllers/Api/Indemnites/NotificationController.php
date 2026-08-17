@@ -8,6 +8,7 @@ use App\Http\Requests\Indemnites\Notification\StoreNotificationRequest;
 use App\Models\Admin\User;
 use App\Services\Indemnites\NotificationService;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 
 class NotificationController extends Controller
 {
@@ -62,6 +63,12 @@ class NotificationController extends Controller
         $userIds = $request->validated('user_ids')
             ?? $this->notificationService->resolveTargetUserIds($request
                 ->validated('filters', []));
+
+        if (collect($userIds)->isEmpty()) {
+        throw ValidationException::withMessages([
+            'user_ids' => 'Aucun utilisateur ne correspond aux critères fournis.',
+        ]);
+    }
 
         $notification = $this->notificationService->createAndDispatch(
             [
