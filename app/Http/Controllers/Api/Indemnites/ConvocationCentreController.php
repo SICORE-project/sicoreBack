@@ -114,7 +114,13 @@ class ConvocationCentreController extends Controller
      */
     public function destroy(string $id, string $centreId)
     {
-        $centre = ConvocationCentre::where('convocation_id', $id)->find($centreId);
+        $convocation = ConvocationModel::trouverParSlugOuId($id);
+
+        if (! $convocation) {
+            return $this->error('Convocation introuvable.', 404);
+        }
+
+        $centre = $convocation->centres()->slugOuId($centreId)->first();
 
         if (! $centre) {
             return $this->error('Centre introuvable pour cette convocation.', 404);

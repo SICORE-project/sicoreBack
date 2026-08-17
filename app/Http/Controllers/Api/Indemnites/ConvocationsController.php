@@ -101,6 +101,14 @@ class ConvocationsController extends Controller
             ->pluck('objet')
             ->values();
 
+        $sessions = ConvocationModel::query()
+            ->whereNotNull('session')
+            ->where('session', '!=', '')
+            ->distinct()
+            ->orderBy('session')
+            ->pluck('session')
+            ->values();
+
         $centres = ConvocationCentre::query()
             ->whereNotNull('centre')
             ->where('centre', '!=', '')
@@ -145,6 +153,7 @@ class ConvocationsController extends Controller
 
         return $this->success('Options de filtres.', [
             'objets' => $objets,
+            'sessions' => $sessions,
             'centres' => $centres,
             'metiers' => $metiers,
             'dates' => $dates,
