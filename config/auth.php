@@ -1,6 +1,6 @@
 <?php
 
-use App\Models\Admin\User;
+use App\Models\User;
 
 return [
 
@@ -65,7 +65,7 @@ return [
     'providers' => [
         'users' => [
             'driver' => 'eloquent',
-            'model' => App\Models\Admin\User::class,
+            'model' => User::class,
         ],
     ],
 
