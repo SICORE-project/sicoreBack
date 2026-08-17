@@ -77,7 +77,7 @@ Route::post('convocations/import', [ConvocationImportController::class, 'store']
 // Valeurs distinctes deja utilisees (objet/session/centre), pour peupler
 // des menus deroulants de filtre (ex: page Pieces justificatives) plutot
 // que de la saisie libre.
-Route::get('convocations/filtres', [ConvocationsController::class, 'filtres']);
+Route::get('convocations/filtres-options', [ConvocationsController::class, 'optionsFiltres']);
 
 Route::apiResource('convocations', ConvocationsController::class);
 Route::post('convocations/{id}/fichier', [ConvocationFichierController::class, 'store']);
