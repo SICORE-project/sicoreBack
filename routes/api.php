@@ -40,8 +40,10 @@ Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:lo
     );
     Route::post('delegation-credits/{id}/paiements', [DelegationCreditController::class, 'ajouterPaiement']
 );
-Route::get('delegation-credits/{id}/etat', [DelegationCreditController::class, 'etatCredits']
-);
+Route::get('delegation-credits/{id}/etat', [DelegationCreditController::class, 'etatCredits']);
+    Route::get('delegation-credits/{id}/bulletins-disponibles', [DelegationCreditController::class, 'bulletinsDisponibles']);
+    Route::post('delegation-credits/{id}/associer-bulletin', [DelegationCreditController::class, 'associerBulletin']);
+    Route::get('delegation-credits/{id}/associations', [DelegationCreditController::class, 'historiqueAssociations']);
     Route::apiResource('users', UserController::class);
     Route::apiResource('indemnites', IndemnitesController::class);
     Route::apiResource('type-indemnites', TypeIndemnitesController::class);

@@ -37,4 +37,9 @@ class bultins extends Model
     {
         return $this->hasMany(detail_bultins::class, 'bultin_id');
     }
+
+    public function paiementSalaire()
+    {
+        return $this->hasOne(PaiementSalaire::class, 'bultin_id');
+    }
 }

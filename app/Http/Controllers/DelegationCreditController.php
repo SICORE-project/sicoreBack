@@ -5,8 +5,10 @@ namespace App\Http\Controllers;
 use App\Http\Requests\StoreDelegationCreditRequest;
 use App\Http\Requests\UpdateDelegationCreditRequest;
 use App\Http\Resources\DelegationCreditResource;
+use App\Models\bultins;
 use App\Models\DelegationCredit;
 use App\Models\PaiementSalaire;
+use Illuminate\Support\Facades\DB;
 
 class DelegationCreditController extends Controller
 {
@@ -526,6 +528,177 @@ class DelegationCreditController extends Controller
             ],
             'alertes' => $alertes,
             'nombre_alertes' => $alertes->count(),
+        ]);
+    }
+
+    public function bulletinsDisponibles($id)
+    {
+        $delegation = DelegationCredit::findOrFail($id);
+
+        $query = bultins::with(['enseignant.user', 'enseignant.corpsEnseignant'])
+            ->where('statut', 'valide')
+            ->whereDoesntHave('paiementSalaire');
+
+        if (request('search')) {
+            $search = request('search');
+            $query->where(function ($q) use ($search) {
+                $q->where('reference', 'like', "%{$search}%")
+                  ->orWhere('matricule', 'like', "%{$search}%")
+                  ->orWhereHas('enseignant.user', function ($q2) use ($search) {
+                      $q2->where('nom', 'like', "%{$search}%")
+                         ->orWhere('prenom', 'like', "%{$search}%");
+                  });
+            });
+        }
+
+        $bulletins = $query->orderByDesc('mois_validite')->limit(50)->get();
+
+        $soldeRestant = $delegation->montant_disponible - $delegation->montant_consomme;
+
+        return response()->json([
+            'delegation' => [
+                'id' => $delegation->id,
+                'reference' => $delegation->reference,
+                'solde_restant' => round($soldeRestant, 2),
+            ],
+            'bulletins' => $bulletins->map(function ($b) use ($soldeRestant) {
+                $user = $b->enseignant?->user;
+                return [
+                    'id' => $b->id,
+                    'reference' => $b->reference,
+                    'matricule' => $b->matricule,
+                    'nom_complet' => $user ? $user->nom . ' ' . $user->prenom : '-',
+                    'corps' => $b->enseignant?->corpsEnseignant?->libelle ?? '-',
+                    'mois_validite' => $b->mois_validite?->format('Y-m'),
+                    'net_a_payer' => round($b->net_a_payer, 2),
+                    'depassement' => $b->net_a_payer > $soldeRestant,
+                ];
+            }),
+        ]);
+    }
+
+    public function associerBulletin($id)
+    {
+        $request = request();
+        $request->validate([
+            'bultin_id' => 'required|exists:bultins,id',
+        ]);
+
+        $delegation = DelegationCredit::findOrFail($id);
+
+        if ($delegation->statut !== 'Validée' && $delegation->statut !== 'Validee') {
+            return response()->json([
+                'message' => 'La délégation doit être validée pour recevoir un paiement.',
+            ], 422);
+        }
+
+        $now = now()->startOfDay();
+        if ($delegation->date_delegation && $now->lt($delegation->date_delegation)) {
+            return response()->json([
+                'message' => 'La délégation n\'est pas encore dans sa période de validité (début : ' . $delegation->date_delegation->format('d/m/Y') . ').',
+            ], 422);
+        }
+        if ($delegation->date_fin && $now->gt($delegation->date_fin)) {
+            return response()->json([
+                'message' => 'La délégation a expiré le ' . $delegation->date_fin->format('d/m/Y') . '.',
+            ], 422);
+        }
+
+        $bulletin = bultins::with('enseignant.user')->findOrFail($request->bultin_id);
+
+        if ($bulletin->statut !== 'valide') {
+            return response()->json([
+                'message' => 'Le bulletin doit avoir le statut "validé" pour être associé.',
+            ], 422);
+        }
+
+        $dejaAssocie = PaiementSalaire::where('bultin_id', $bulletin->id)->exists();
+        if ($dejaAssocie) {
+            return response()->json([
+                'message' => 'Ce bulletin est déjà associé à une délégation de crédit.',
+            ], 422);
+        }
+
+        $montant = $bulletin->net_a_payer;
+        $soldeRestant = $delegation->montant_disponible - $delegation->montant_consomme;
+
+        if ($montant > $soldeRestant) {
+            return response()->json([
+                'message' => 'Solde insuffisant. Le net à payer (' . number_format($montant, 0, ',', ' ') . ' FCFA) dépasse le solde restant (' . number_format($soldeRestant, 0, ',', ' ') . ' FCFA).',
+            ], 422);
+        }
+
+        $user = $bulletin->enseignant?->user;
+        $nomAgent = $user ? $user->nom . ' ' . $user->prenom : $bulletin->matricule;
+
+        DB::transaction(function () use ($delegation, $bulletin, $montant, $nomAgent) {
+            PaiementSalaire::create([
+                'delegation_credit_id' => $delegation->id,
+                'bultin_id' => $bulletin->id,
+                'nom_agent' => $nomAgent,
+                'mois' => $bulletin->mois_validite?->format('Y-m') ?? '-',
+                'montant' => $montant,
+                'date_paiement' => now()->toDateString(),
+            ]);
+
+            $bulletin->update(['statut' => 'paye']);
+
+            $delegation->montant_consomme = $delegation->paiementSalaires()->sum('montant');
+            $delegation->solde = $delegation->montant_disponible - $delegation->montant_consomme;
+            $delegation->save();
+        });
+
+        return response()->json([
+            'message' => 'Bulletin ' . $bulletin->reference . ' associé avec succès à la délégation ' . $delegation->reference . '.',
+            'delegation' => [
+                'montant_consomme' => round($delegation->montant_consomme, 2),
+                'solde' => round($delegation->solde, 2),
+            ],
+        ]);
+    }
+
+    public function historiqueAssociations($id)
+    {
+        $delegation = DelegationCredit::findOrFail($id);
+
+        $query = PaiementSalaire::where('delegation_credit_id', $id)
+            ->whereNotNull('bultin_id')
+            ->with('bultin.enseignant.user');
+
+        if (request('date_debut')) {
+            $query->where('date_paiement', '>=', request('date_debut'));
+        }
+        if (request('date_fin_filtre')) {
+            $query->where('date_paiement', '<=', request('date_fin_filtre'));
+        }
+        if (request('nom_agent')) {
+            $query->where('nom_agent', 'like', '%' . request('nom_agent') . '%');
+        }
+
+        $paiements = $query->orderByDesc('date_paiement')->get();
+
+        $total = $paiements->sum('montant');
+
+        return response()->json([
+            'delegation' => [
+                'reference' => $delegation->reference,
+                'montant_disponible' => round($delegation->montant_disponible, 2),
+                'montant_consomme' => round($delegation->montant_consomme, 2),
+                'solde' => round($delegation->solde, 2),
+            ],
+            'associations' => $paiements->map(function ($p) {
+                return [
+                    'id' => $p->id,
+                    'bulletin_reference' => $p->bultin?->reference ?? '-',
+                    'nom_agent' => $p->nom_agent,
+                    'mois' => $p->mois,
+                    'montant' => round($p->montant, 2),
+                    'date_paiement' => $p->date_paiement?->format('Y-m-d'),
+                    'statut_bulletin' => $p->bultin?->statut ?? '-',
+                ];
+            }),
+            'nombre' => $paiements->count(),
+            'total' => round($total, 2),
         ]);
     }
 }
