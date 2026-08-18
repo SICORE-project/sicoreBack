@@ -56,6 +56,15 @@ class Convocations extends Model
 
     /**
      * Bénéficiaires affectés à la convocation.
+     *
+     * NE PAS ajouter 'categorie_personnel' à withPivot() : c'est un
+     * attribut de l'ENSEIGNANT (colonne sur `enseignants`), pas de cette
+     * convocation — voir ConvocationBeneficiaireController::store() et la
+     * migration 2026_08_13_090000_..._convocation_enseignant_table (annulée
+     * volontairement). La colonne n'existe pas sur le pivot
+     * `convocation_enseignant` ; l'ajouter ici casse toute lecture des
+     * bénéficiaires (SQLSTATE 42S22) — ce qui a bloqué la création de
+     * convocations le temps que ce soit corrigé.
      */
     public function enseignants(): BelongsToMany
     {
@@ -64,7 +73,7 @@ class Convocations extends Model
             'convocation_enseignant',
             'convocation_id',
             'enseignant_id'
-        )->withPivot('fonction', 'centre_id', 'centre_metier_id', 'provenance', 'categorie_personnel')->withTimestamps();
+        )->withPivot('fonction', 'centre_id', 'centre_metier_id', 'provenance')->withTimestamps();
     }
 
     

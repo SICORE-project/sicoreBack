@@ -180,6 +180,12 @@ Route::get('accuses-reception/{id}/consulter', [AccuseReceptionController::class
 |--------------------------------------------------------------------------
 */
 
+// Route à segment fixe déclarée AVANT apiResource() pour ne pas être
+// interceptée par la route "show" (GET frais-deplacement/{id}) — liste des
+// bénéficiaires d'une convocation dont le dossier de pièces justificatives
+// est complet (seuls ceux-là peuvent recevoir une fiche de déplacement).
+Route::get('frais-deplacement/beneficiaires-eligibles', [FraisDeplacementController::class, 'beneficiairesEligibles']);
+
 Route::apiResource('frais-deplacement', FraisDeplacementController::class);
 
 Route::post('frais-deplacement/{id}/calculer', [FraisDeplacementController::class, 'calculer']);
