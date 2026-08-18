@@ -34,6 +34,11 @@ class Ia extends Model
         return $this->belongsTo(Region::class);
     }
 
+    public function departement()
+    {
+        return $this->belongsTo(Departement::class);
+    }
+
     public function iefs()
     {
         return $this->hasMany(Ief::class);
@@ -68,6 +73,11 @@ class Ia extends Model
     public function scopeByRegion($query, $region)
     {
         return $query->where('region_id', $region);
+    }
+
+    public function scopeByDepartement($query, $departement)
+    {
+        return $query->where('departement_id', $departement);
     }
 
     // === ACCESSORS ===

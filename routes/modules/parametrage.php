@@ -11,11 +11,22 @@ use App\Http\Controllers\Api\Parametrage\SyndicatController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('parametrage/ia')->group(function () {
-    Route::get('/', [IaController::class, 'index']);
-    Route::post('/', [IaController::class, 'store']);
-    Route::get('/{id}', [IaController::class, 'show'])->whereNumber('id');
-    Route::put('/{id}', [IaController::class, 'update'])->whereNumber('id');
-    Route::delete('/{id}', [IaController::class, 'destroy'])->whereNumber('id');
+    Route::get('/', [IaController::class, 'index'])
+        ->middleware('permission:parametrage.ia.read');
+    Route::post('/', [IaController::class, 'store'])
+        ->middleware('permission:parametrage.ia.manage');
+    Route::patch('/{id}/statut', [IaController::class, 'changeStatus'])
+        ->whereNumber('id')
+        ->middleware('permission:parametrage.ia.manage');
+    Route::get('/{id}', [IaController::class, 'show'])
+        ->whereNumber('id')
+        ->middleware('permission:parametrage.ia.read');
+    Route::put('/{id}', [IaController::class, 'update'])
+        ->whereNumber('id')
+        ->middleware('permission:parametrage.ia.manage');
+    Route::delete('/{id}', [IaController::class, 'destroy'])
+        ->whereNumber('id')
+        ->middleware('permission:parametrage.ia.manage');
 });
 
 /*
