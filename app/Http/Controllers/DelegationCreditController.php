@@ -78,10 +78,27 @@ class DelegationCreditController extends Controller
     {
         $request->validate([
             'structure_id' => 'required|exists:structures,id',
-            'service_id'   => 'required|exists:services,id',
+            'service_id'   => 'nullable|exists:services,id',
         ]);
 
         $delegation = DelegationCredit::findOrFail($id);
+
+        if ($request->service_id) {
+            $service = \App\Models\Service::findOrFail($request->service_id);
+            if ($service->structure_id != $request->structure_id) {
+                return response()->json([
+                    'message' => 'Le service sélectionné n\'appartient pas à cette structure.',
+                    'errors' => ['service_id' => ['Le service ne correspond pas à la structure choisie.']]
+                ], 422);
+            }
+        }
+
+        if ($delegation->structure_id == $request->structure_id
+            && $delegation->service_id == $request->service_id) {
+            return response()->json([
+                'message' => 'Cette délégation est déjà affectée à cette structure/service.',
+            ], 409);
+        }
 
         $delegation->structure_id = $request->structure_id;
         $delegation->service_id = $request->service_id;
