@@ -35,6 +35,7 @@ Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:lo
     Route::get('consommations', [DelegationCreditController::class, 'tousConsommations']);
     Route::put('delegation-credits/{id}/consommer', [DelegationCreditController::class, 'consommer']
     );
+    Route::get('delegation-credits/dashboard-soldes', [DelegationCreditController::class, 'dashboardSoldes']);
     Route::get('delegation-credits/{id}/solde', [DelegationCreditController::class, 'solde']
     );
     Route::post('delegation-credits/{id}/paiements', [DelegationCreditController::class, 'ajouterPaiement']

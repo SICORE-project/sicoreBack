@@ -281,20 +281,42 @@ class DelegationCreditController extends Controller
 
     public function solde($id)
     {
-        $delegation = DelegationCredit::findOrFail($id);
+        $delegation = DelegationCredit::with(['structure', 'service'])->findOrFail($id);
 
-        $taux = $delegation->montant_disponible > 0
+        $tauxConsommation = $delegation->montant_disponible > 0
             ? round(($delegation->montant_consomme / $delegation->montant_disponible) * 100, 1)
             : 0;
 
+        $tauxEngagement = $delegation->montant_disponible > 0
+            ? round(($delegation->montant_engage / $delegation->montant_disponible) * 100, 1)
+            : 0;
+
+        $seuilAlerte = 20;
+        $pctSolde = $delegation->montant_disponible > 0
+            ? round(($delegation->solde / $delegation->montant_disponible) * 100, 1)
+            : 0;
+
+        $alerte = null;
+        if ($delegation->solde <= 0) {
+            $alerte = ['niveau' => 'critique', 'message' => 'Crédit épuisé. Aucune opération possible.'];
+        } elseif ($pctSolde <= $seuilAlerte) {
+            $alerte = ['niveau' => 'warning', 'message' => 'Solde faible : il reste ' . $pctSolde . '% du crédit disponible.'];
+        }
+
         return response()->json([
             'reference' => $delegation->reference,
-            'montant_initial' => $delegation->montant_initial,
-            'montant_disponible' => $delegation->montant_disponible,
-            'montant_engage' => $delegation->montant_engage,
-            'montant_consomme' => $delegation->montant_consomme,
-            'solde' => $delegation->solde,
-            'taux_consommation' => $taux,
+            'objet' => $delegation->objet,
+            'structure' => $delegation->structure?->nom,
+            'service' => $delegation->service?->nom,
+            'montant_initial' => round($delegation->montant_initial, 2),
+            'montant_disponible' => round($delegation->montant_disponible, 2),
+            'montant_engage' => round($delegation->montant_engage, 2),
+            'montant_consomme' => round($delegation->montant_consomme, 2),
+            'solde' => round($delegation->solde, 2),
+            'taux_consommation' => $tauxConsommation,
+            'taux_engagement' => $tauxEngagement,
+            'pct_solde' => $pctSolde,
+            'alerte' => $alerte,
         ]);
     }
 
@@ -444,6 +466,66 @@ class DelegationCreditController extends Controller
             'date_fin' => $delegation->date_fin,
             'statut' => $delegation->statut,
             'paiements' => $delegation->paiementSalaires
+        ]);
+    }
+
+    public function dashboardSoldes()
+    {
+        $query = DelegationCredit::with(['structure', 'service']);
+
+        if (request('structure_id')) {
+            $query->where('structure_id', request('structure_id'));
+        }
+        if (request('service_id')) {
+            $query->where('service_id', request('service_id'));
+        }
+        if (request('statut')) {
+            $query->where('statut', request('statut'));
+        }
+
+        $delegations = $query->get();
+
+        $totalDisponible = $delegations->sum('montant_disponible');
+        $totalEngage = $delegations->sum('montant_engage');
+        $totalConsomme = $delegations->sum('montant_consomme');
+        $totalSolde = $delegations->sum('solde');
+
+        $seuilAlerte = 20;
+        $alertes = $delegations->filter(function ($d) use ($seuilAlerte) {
+            if ($d->montant_disponible <= 0) return false;
+            $pct = ($d->solde / $d->montant_disponible) * 100;
+            return $pct <= $seuilAlerte;
+        })->map(function ($d) use ($seuilAlerte) {
+            $pct = $d->montant_disponible > 0
+                ? round(($d->solde / $d->montant_disponible) * 100, 1)
+                : 0;
+            return [
+                'id' => $d->id,
+                'reference' => $d->reference,
+                'objet' => $d->objet,
+                'structure' => $d->structure?->nom,
+                'solde' => round($d->solde, 2),
+                'pct_solde' => $pct,
+                'niveau' => $d->solde <= 0 ? 'critique' : 'warning',
+            ];
+        })->values();
+
+        return response()->json([
+            'resume' => [
+                'total_delegations' => $delegations->count(),
+                'total_disponible' => round($totalDisponible, 2),
+                'total_engage' => round($totalEngage, 2),
+                'total_consomme' => round($totalConsomme, 2),
+                'total_solde' => round($totalSolde, 2),
+                'taux_consommation_global' => $totalDisponible > 0
+                    ? round(($totalConsomme / $totalDisponible) * 100, 1)
+                    : 0,
+                'taux_engagement_global' => $totalDisponible > 0
+                    ? round(($totalEngage / $totalDisponible) * 100, 1)
+                    : 0,
+            ],
+            'alertes' => $alertes,
+            'nombre_alertes' => $alertes->count(),
         ]);
     }
 }
