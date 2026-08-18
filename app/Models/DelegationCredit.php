@@ -14,13 +14,28 @@ class DelegationCredit extends Model
         'objet',
         'structure_id',
         'service_id',
+        'montant_initial',
         'montant_disponible',
         'montant_engage',
         'montant_consomme',
         'solde',
         'date_delegation',
-        'statut'
+        'date_fin',
+        'statut',
     ];
+
+    protected function casts(): array
+    {
+        return [
+            'date_delegation' => 'date',
+            'date_fin' => 'date',
+            'montant_initial' => 'decimal:2',
+            'montant_disponible' => 'decimal:2',
+            'montant_engage' => 'decimal:2',
+            'montant_consomme' => 'decimal:2',
+            'solde' => 'decimal:2',
+        ];
+    }
 
     // Une délégation appartient à une structure
     public function structure()

@@ -132,20 +132,20 @@ class DatabaseSeeder extends Seeder
         // --- Délégations de crédit ---
         $dc1 = DB::table('delegation_credits')->insertGetId([
             'annee_academique' => '2025-2026', 'reference' => 'DC-2026-001', 'objet' => 'Indemnités d\'examen BFEM',
-            'date_delegation' => '2026-01-15', 'structure_id' => $structDAF, 'service_id' => $servBudget,
-            'montant_disponible' => 50000000.00, 'montant_engage' => 15000000.00, 'montant_consomme' => 8000000.00,
+            'date_delegation' => '2026-01-15', 'date_fin' => '2026-06-30', 'structure_id' => $structDAF, 'service_id' => $servBudget,
+            'montant_initial' => 50000000.00, 'montant_disponible' => 50000000.00, 'montant_engage' => 15000000.00, 'montant_consomme' => 8000000.00,
             'solde' => 42000000.00, 'statut' => 'Validee', 'created_at' => now(), 'updated_at' => now(),
         ]);
         $dc2 = DB::table('delegation_credits')->insertGetId([
             'annee_academique' => '2025-2026', 'reference' => 'DC-2026-002', 'objet' => 'Indemnités d\'examen BAC',
-            'date_delegation' => '2026-02-01', 'structure_id' => $structDAF, 'service_id' => $servBudget,
-            'montant_disponible' => 80000000.00, 'montant_engage' => 30000000.00, 'montant_consomme' => 12000000.00,
+            'date_delegation' => '2026-02-01', 'date_fin' => '2026-08-31', 'structure_id' => $structDAF, 'service_id' => $servBudget,
+            'montant_initial' => 80000000.00, 'montant_disponible' => 80000000.00, 'montant_engage' => 30000000.00, 'montant_consomme' => 12000000.00,
             'solde' => 68000000.00, 'statut' => 'Validee', 'created_at' => now(), 'updated_at' => now(),
         ]);
         $dc3 = DB::table('delegation_credits')->insertGetId([
             'annee_academique' => '2025-2026', 'reference' => 'DC-2026-003', 'objet' => 'Salaires vacataires T1',
-            'date_delegation' => '2026-03-10', 'structure_id' => $structDRH, 'service_id' => $servPaie,
-            'montant_disponible' => 25000000.00, 'montant_engage' => 0, 'montant_consomme' => 0,
+            'date_delegation' => '2026-03-10', 'date_fin' => '2026-12-31', 'structure_id' => $structDRH, 'service_id' => $servPaie,
+            'montant_initial' => 25000000.00, 'montant_disponible' => 25000000.00, 'montant_engage' => 0, 'montant_consomme' => 0,
             'solde' => 25000000.00, 'statut' => 'En attente', 'created_at' => now(), 'updated_at' => now(),
         ]);
 
