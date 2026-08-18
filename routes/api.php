@@ -27,6 +27,7 @@ Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:lo
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::put('delegation-credits/{id}/affectation', [DelegationCreditController::class, 'affecter']
     );
+    Route::put('delegation-credits/{id}/montant-disponible', [DelegationCreditController::class, 'definirMontantDisponible']);
     Route::put('delegation-credits/{id}/engager', [DelegationCreditController::class, 'engager']
     );
     Route::put('delegation-credits/{id}/consommer', [DelegationCreditController::class, 'consommer']

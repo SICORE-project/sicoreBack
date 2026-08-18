@@ -196,6 +196,49 @@ class DelegationCreditController extends Controller
         ], 201);
     }
 
+    public function definirMontantDisponible(\Illuminate\Http\Request $request, $id)
+    {
+        $delegation = DelegationCredit::findOrFail($id);
+
+        $request->validate([
+            'montant_disponible' => 'required|numeric',
+        ]);
+
+        $montant = (float) $request->montant_disponible;
+
+        if ($montant <= 0) {
+            return response()->json([
+                'message' => 'Le montant disponible doit être supérieur à zéro.',
+                'errors' => ['montant_disponible' => ['Le montant doit être strictement positif.']],
+            ], 422);
+        }
+
+        if ($delegation->montant_initial && $montant > $delegation->montant_initial) {
+            return response()->json([
+                'message' => 'Le montant disponible ne peut pas dépasser le montant initial (' .
+                    number_format($delegation->montant_initial, 0, ',', ' ') . ' FCFA).',
+                'errors' => ['montant_disponible' => ['Dépasse le montant initial.']],
+            ], 422);
+        }
+
+        if ($montant < $delegation->montant_consomme) {
+            return response()->json([
+                'message' => 'Le montant disponible ne peut pas être inférieur au montant déjà consommé (' .
+                    number_format($delegation->montant_consomme, 0, ',', ' ') . ' FCFA).',
+                'errors' => ['montant_disponible' => ['Inférieur au montant consommé.']],
+            ], 422);
+        }
+
+        $delegation->montant_disponible = $montant;
+        $delegation->solde = $montant - $delegation->montant_consomme;
+        $delegation->save();
+
+        return response()->json([
+            'message' => 'Montant disponible mis à jour avec succès.',
+            'data' => new DelegationCreditResource($delegation->load(['structure', 'service'])),
+        ]);
+    }
+
     public function etatCredits($id)
     {
         $delegation = DelegationCredit::with('paiementSalaires')->findOrFail($id);
