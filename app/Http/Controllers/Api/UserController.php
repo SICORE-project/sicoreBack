@@ -7,10 +7,10 @@ use App\Http\Requests\Administration\StoreUserRequest;
 use App\Http\Requests\Administration\UpdateUserRequest;
 use App\Http\Resources\UserResource;
 use App\Models\Admin\User;
-use App\Models\Parametrage\Ia;
-use App\Models\Parametrage\Ief;
+use App\Rules\CompatibleRoleStructure;
 use App\Services\Administration\UserService;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 class UserController extends Controller
 {
@@ -23,10 +23,30 @@ class UserController extends Controller
      */
     public function index(Request $request)
     {
-        $perPage = min(100, max(1, $request->integer('per_page', 10)));
-        $users = $this->userService->paginate($perPage);
+        $validated = $request->validate([
+            'type_structure' => ['nullable', 'string', 'max:50'],
+            'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],
+        ]);
+
+        $users = $this->userService->paginate(
+            $validated['per_page'] ?? 10,
+            $validated['type_structure'] ?? null,
+        );
 
         return UserResource::collection($users)->additional([
+            'success' => true,
+            'message' => 'Liste des utilisateurs',
+        ]);
+    }
+
+    /**
+     * Liste non paginée utilisée par les sélecteurs et l'écran historique.
+     */
+    public function all(Request $request)
+    {
+        $validated = $request->validate(['type_structure' => ['nullable', 'string', 'max:50']]);
+
+        return UserResource::collection($this->userService->all($validated['type_structure'] ?? null))->additional([
             'success' => true,
             'message' => 'Liste des utilisateurs',
         ]);
@@ -76,13 +96,16 @@ class UserController extends Controller
             'data' => new UserResource($user),
         ], 200);
     }
-
     public function assignRole(Request $request, string $id)
     {
         $user = $this->userService->find($id);
 
         $request->validate([
-            'role_id' => 'required|exists:roles,id',
+            'role_id' => [
+                'required',
+                Rule::exists('roles', 'id'),
+                CompatibleRoleStructure::roleForStructure($user->lieu_service_id),
+            ],
         ]);
 
         $user->update(['role_id' => $request->role_id]);
@@ -91,6 +114,28 @@ class UserController extends Controller
             'success' => true,
             'message' => 'Rôle assigné avec succès.',
             'data' => new UserResource($user->load('role')),
+        ], 200);
+    }
+
+    public function assignStructure(Request $request, string $id)
+    {
+        $user = $this->userService->find($id);
+
+        $validated = $request->validate([
+            'lieu_service_id' => [
+                'required',
+                'integer',
+                Rule::exists('lieu_de_services', 'id')->where('est_actif', true),
+                CompatibleRoleStructure::structureForRole($user->role_id),
+            ],
+        ]);
+
+        $user = $this->userService->update($user, $validated);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Utilisateur rattaché au lieu de service avec succès.',
+            'data' => new UserResource($user),
         ], 200);
     }
 
@@ -123,92 +168,73 @@ class UserController extends Controller
         ], 200);
     }
 
-    /**
-     * Rattacher un utilisateur à une IA
-     * POST /api/admin/users/{userId}/assign-ia/{iaId}
-     */
-    public function assignUserToIa($userId, $iaId)
+    public function toggleStatus(string $id)
     {
-        try {
-            // ✅ Appel au service
-            $user = $this->userService->assignUserToIa($userId, $iaId);
+        $user = $this->userService->find($id);
+        $user = $this->userService->update($user, [
+            'statut' => $user->statut === 'actif' ? 'inactif' : 'actif',
+        ]);
 
-            return response()->json([
-                'success' => true,
-                'message' => 'Gestionnaire rattaché à l\'IA avec succès',
-                'data' => new UserResource($user),
-            ], 200);
-
-        } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => $e->getMessage(),
-            ], 400);
-        }
+        return response()->json([
+            'success' => true,
+            'message' => 'Statut de l’utilisateur mis à jour avec succès.',
+            'data' => new UserResource($user),
+        ]);
     }
 
-    /**
-     * Rattacher un utilisateur à une IEF
-     * POST /api/admin/users/{userId}/assign-ief/{iefId}
-     */
-    public function assignUserToIef(int $userId, int $iefId): User
+    public function assignUserToIa(string $userId, string $iaId)
     {
-        $user = User::findOrFail($userId);
-        $ief = Ief::findOrFail($iefId);
+        $user = $this->userService->assignUserToIa((int) $userId, (int) $iaId);
 
-        if (! $user->hasRole('gestionnaire_ief')) {
-            throw new \Exception("Cet utilisateur n'a pas le rôle Gestionnaire IEF.");
-        }
-
-        if ($user->ief_id) {
-            throw new \Exception('Cet utilisateur est déjà rattaché à une IEF.');
-        }
-
-        $user->ief_id = $iefId;
-        $user->save();
-
-        return $user->load(['ief', 'role']);
+        return response()->json([
+            'success' => true,
+            'message' => 'Gestionnaire rattaché à l\'IA avec succès.',
+            'data' => new UserResource($user),
+        ]);
     }
 
-    public function revokeUserFromIef(int $userId): User
+    public function revokeUserFromIa(string $userId)
     {
-        $user = User::findOrFail($userId);
+        $user = $this->userService->revokeUserFromIa((int) $userId);
 
-        if (! $user->ief_id) {
-            throw new \Exception("Cet utilisateur n'est rattaché à aucune IEF.");
-        }
-
-        $user->ief_id = null;
-        $user->save();
-
-        return $user->load('role');
+        return response()->json([
+            'success' => true,
+            'message' => 'Rattachement à l\'IA révoqué avec succès.',
+            'data' => new UserResource($user),
+        ]);
     }
 
-    public function getUserIef(int $userId)
+    public function assignUserToIef(string $userId, string $iefId)
     {
-        $user = User::with('ief')->findOrFail($userId);
+        return new UserResource(
+            $this->userService->assignUserToIef((int) $userId, (int) $iefId)
+        );
+    }
 
-        return $user->ief;
+    public function revokeUserFromIef(string $userId)
+    {
+        return new UserResource(
+            $this->userService->revokeUserFromIef((int) $userId)
+        );
+    }
+
+    public function getUserIef(string $userId)
+    {
+        return response()->json(['data' => $this->userService->getUserIef((int) $userId)]);
     }
 
     public function getGestionnairesIef()
     {
-        return User::whereHas('role', function ($query) {
-            $query->where('slug', 'gestionnaire_ief');
-        })->with(['ief', 'role'])->get();
+        return UserResource::collection($this->userService->getGestionnairesIef());
     }
 
     public function getAvailableGestionnairesIef()
     {
-        return User::whereHas('role', function ($query) {
-            $query->where('slug', 'gestionnaire_ief');
-        })->whereNull('ief_id')->with('role')->get();
+        return UserResource::collection($this->userService->getAvailableGestionnairesIef());
     }
 
-    public function getGestionnairesByIef(int $iefId)
+    public function getGestionnairesByIef(string $iefId)
     {
-        return User::whereHas('role', function ($query) {
-            $query->where('slug', 'gestionnaire_ief');
-        })->where('ief_id', $iefId)->with(['ief', 'role'])->get();
+        return UserResource::collection($this->userService->getGestionnairesByIef((int) $iefId));
     }
 }
