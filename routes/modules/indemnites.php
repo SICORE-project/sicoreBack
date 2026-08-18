@@ -21,6 +21,7 @@ use App\Http\Controllers\Api\Indemnites\ServicesFaitsController;
 use App\Http\Controllers\Api\Indemnites\PieceJustificativesController;
 use App\Http\Controllers\Api\Indemnites\AccuseReceptionController;
 use App\Http\Controllers\Api\Indemnites\FraisDeplacementController;
+use App\Http\Controllers\Api\Indemnites\FraisDeplacementPdfController;
 use App\Http\Controllers\Api\Indemnites\EtatPaieIndemnitesController;
 use App\Http\Controllers\Api\Indemnites\BoursesController;
 use App\Http\Controllers\Api\Indemnites\AidesEtudiantesController;
@@ -192,6 +193,7 @@ Route::post('frais-deplacement/{id}/calculer', [FraisDeplacementController::clas
 
 Route::get('frais-deplacement/{id}/justificatifs', [FraisDeplacementController::class, 'justificatifs']);
 Route::post('frais-deplacement/{id}/justificatifs', [FraisDeplacementController::class, 'deposerJustificatif']);
+Route::get('frais-deplacement/{id}/justificatifs/{justificatifId}/download', [FraisDeplacementController::class, 'downloadJustificatif']);
 Route::delete('frais-deplacement/{id}/justificatifs/{justificatifId}', [FraisDeplacementController::class, 'supprimerJustificatif']);
 
 Route::post('frais-deplacement/{id}/valider', [FraisDeplacementController::class, 'valider']);
@@ -200,6 +202,11 @@ Route::post('frais-deplacement/{id}/rejeter', [FraisDeplacementController::class
 Route::post('frais-deplacement/{id}/rembourser', [FraisDeplacementController::class, 'rembourser']);
 Route::post('frais-deplacement/{id}/relancer', [FraisDeplacementController::class, 'relancer']);
 Route::post('frais-deplacement/{id}/cloturer', [FraisDeplacementController::class, 'cloturer']);
+
+// Téléchargement de la fiche en PDF (demande utilisatrice : "je veux
+// pouvoir télécharger la fiche si possible").
+Route::get('frais-deplacement/{id}/pdf', [FraisDeplacementPdfController::class, 'generer']);
+Route::get('frais-deplacement/{id}/download', [FraisDeplacementPdfController::class, 'download']);
 
 
 /*

@@ -208,6 +208,16 @@ class FraisDeplacementController extends Controller
             $lignesAvance
         ));
 
+        // VERSO — mêmes principes que le RECTO : total recalculé côté
+        // serveur pour les 2 mini-tableaux "Avance ou compte perçus en
+        // route" et "Règlement définitif".
+        $visaAvanceTotal = $this->calculerTotalIndemnites($request, 'visa_avance_indemnite');
+        $reglementTotal = $this->calculerTotalIndemnites($request, 'reglement_indemnite');
+        $reglementMontantAvances = $request->validated('reglement_montant_avances');
+        $reglementResteAPayer = $reglementMontantAvances !== null
+            ? max(0, $reglementTotal - $reglementMontantAvances)
+            : null;
+
         $mission = MissionDeplacement::create([
             'reference' => $this->genererReference(),
             'convocation_id' => $convocation->id,
@@ -239,10 +249,36 @@ class FraisDeplacementController extends Controller
             'avance_indemnite_reduite_taux' => $request->validated('avance_indemnite_reduite_taux'),
             'avance_indemnite_partielle_nombre' => $request->validated('avance_indemnite_partielle_nombre'),
             'avance_indemnite_partielle_taux' => $request->validated('avance_indemnite_partielle_taux'),
+            'indication_requisitions' => $request->validated('indication_requisitions'),
+            'poids_bagages_mobilier' => $request->validated('poids_bagages_mobilier'),
             'avance_total' => $avanceTotal > 0 ? $avanceTotal : null,
             'arrete_somme' => $request->validated('arrete_somme'),
             'avance_versee' => $request->validated('avance_versee'),
             'date_fait_avance' => $request->validated('date_fait_avance'),
+            'visas_route' => $this->construireVisasRoute($request),
+            'visa_avance_indemnite_normale_nombre' => $request->validated('visa_avance_indemnite_normale_nombre'),
+            'visa_avance_indemnite_normale_taux' => $request->validated('visa_avance_indemnite_normale_taux'),
+            'visa_avance_indemnite_reduite_nombre' => $request->validated('visa_avance_indemnite_reduite_nombre'),
+            'visa_avance_indemnite_reduite_taux' => $request->validated('visa_avance_indemnite_reduite_taux'),
+            'visa_avance_indemnite_partielle_nombre' => $request->validated('visa_avance_indemnite_partielle_nombre'),
+            'visa_avance_indemnite_partielle_taux' => $request->validated('visa_avance_indemnite_partielle_taux'),
+            'visa_avance_total' => $visaAvanceTotal > 0 ? $visaAvanceTotal : null,
+            'visa_avance_payer_somme' => $request->validated('visa_avance_payer_somme'),
+            'visa_avance_lieu' => $request->validated('visa_avance_lieu'),
+            'visa_avance_date' => $request->validated('visa_avance_date'),
+            'reglement_indemnite_normale_nombre' => $request->validated('reglement_indemnite_normale_nombre'),
+            'reglement_indemnite_normale_taux' => $request->validated('reglement_indemnite_normale_taux'),
+            'reglement_indemnite_reduite_nombre' => $request->validated('reglement_indemnite_reduite_nombre'),
+            'reglement_indemnite_reduite_taux' => $request->validated('reglement_indemnite_reduite_taux'),
+            'reglement_indemnite_partielle_nombre' => $request->validated('reglement_indemnite_partielle_nombre'),
+            'reglement_indemnite_partielle_taux' => $request->validated('reglement_indemnite_partielle_taux'),
+            'reglement_total' => $reglementTotal > 0 ? $reglementTotal : null,
+            'reglement_montant_avances' => $reglementMontantAvances,
+            'reglement_reste_a_payer' => $reglementResteAPayer,
+            'reglement_arrete_somme' => $request->validated('reglement_arrete_somme'),
+            'reglement_lieu' => $request->validated('reglement_lieu'),
+            'reglement_date' => $request->validated('reglement_date'),
+            'observations' => $request->validated('observations'),
             'statut_agent' => $statutAgent,
             'indice_agent' => $indiceAgent,
             'salaire_global_annuel' => $request->validated('salaire_global_annuel'),
@@ -254,8 +290,16 @@ class FraisDeplacementController extends Controller
             'montant_calcule' => $montantCalcule,
         ]);
 
-        if ($request->hasFile('fichier')) {
-            $this->enregistrerJustificatif($mission, $request->file('fichier'), $request->user()?->id);
+        // Feuille de déplacement papier = RECTO-VERSO (2 pages) — chaque
+        // face est enregistrée comme une pièce jointe distincte, taguée par
+        // son "commentaire", plutôt qu'un seul fichier générique comme
+        // avant (demande utilisatrice : "prendre en compte ça à l'upload").
+        if ($request->hasFile('fichier_recto')) {
+            $this->enregistrerJustificatif($mission, $request->file('fichier_recto'), $request->user()?->id, null, 'Recto');
+        }
+
+        if ($request->hasFile('fichier_verso')) {
+            $this->enregistrerJustificatif($mission, $request->file('fichier_verso'), $request->user()?->id, null, 'Verso');
         }
 
         return $this->success('Fiche de déplacement créée avec succès.', $mission->load('justificatifs'), 201);
@@ -272,6 +316,15 @@ class FraisDeplacementController extends Controller
         return $this->success('Fiche de déplacement trouvée.', $mission);
     }
 
+    /**
+     * Demande utilisatrice : "edit doit être complet, base-toi sur l'edit
+     * de convocation" — le formulaire front reprend désormais TOUS les
+     * champs de "Nouvelle fiche" (préremplis), donc ce endpoint recalcule
+     * le total des avances et le montant, exactement comme store(). La
+     * catégorie (statut_agent) reste figée : seul le champ correspondant
+     * (indice pour fonctionnaire, montant pour contractuel) est mis à
+     * jour ; vacataire garde son montant fixe.
+     */
     public function update(UpdateFraisDeplacementRequest $request, string $id)
     {
         $mission = MissionDeplacement::find($id);
@@ -280,7 +333,105 @@ class FraisDeplacementController extends Controller
             return $this->error('Fiche de déplacement introuvable.', 404);
         }
 
-        $mission->update($request->validated());
+        $lignesAvance = [
+            [$request->validated('avance_frais_transport_nombre'), $request->validated('avance_frais_transport_taux')],
+            [$request->validated('avance_indemnite_normale_nombre'), $request->validated('avance_indemnite_normale_taux')],
+            [$request->validated('avance_indemnite_reduite_nombre'), $request->validated('avance_indemnite_reduite_taux')],
+            [$request->validated('avance_indemnite_partielle_nombre'), $request->validated('avance_indemnite_partielle_taux')],
+        ];
+        $avanceTotal = array_sum(array_map(
+            fn ($ligne) => ($ligne[0] ?? 0) * ($ligne[1] ?? 0),
+            $lignesAvance
+        ));
+
+        $visaAvanceTotal = $this->calculerTotalIndemnites($request, 'visa_avance_indemnite');
+        $reglementTotal = $this->calculerTotalIndemnites($request, 'reglement_indemnite');
+        $reglementMontantAvances = $request->validated('reglement_montant_avances');
+        $reglementResteAPayer = $reglementMontantAvances !== null
+            ? max(0, $reglementTotal - $reglementMontantAvances)
+            : null;
+
+        $indiceAgent = $mission->indice_agent;
+        $montantCalcule = $mission->montant_calcule;
+
+        if ($mission->statut_agent === 'fonctionnaire') {
+            $indiceAgent = $request->validated('indice_agent') ?? $indiceAgent;
+        } elseif ($mission->statut_agent === 'contractuel') {
+            $montantCalcule = $request->validated('montant_saisi') ?? $montantCalcule;
+        }
+
+        $mission->update([
+            'grade_emploi' => $request->validated('grade_emploi'),
+            'lieu_depart' => $request->validated('lieu_depart'),
+            'heure_depart' => $request->validated('heure_depart'),
+            'lieu_destination' => $request->validated('lieu_destination'),
+            'motif' => $request->validated('motif'),
+            'date_depart' => $request->validated('date_depart'),
+            'date_retour' => $request->validated('date_retour'),
+            'distance_km' => $request->validated('distance_km'),
+            'moyen_transport' => $request->validated('moyen_transport'),
+            'ordre_service_numero' => $request->validated('ordre_service_numero'),
+            'ordre_service_date' => $request->validated('ordre_service_date'),
+            'ordre_service_emetteur' => $request->validated('ordre_service_emetteur'),
+            'accompagne_de' => $request->validated('accompagne_de'),
+            'groupe' => $request->validated('groupe'),
+            'itineraire' => $request->validated('itineraire'),
+            'poids_bagages_kg' => $request->validated('poids_bagages_kg'),
+            'delivre_par' => $request->validated('delivre_par'),
+            'date_emission_fiche' => $request->validated('date_emission_fiche'),
+            'avance_frais_transport_nombre' => $request->validated('avance_frais_transport_nombre'),
+            'avance_frais_transport_taux' => $request->validated('avance_frais_transport_taux'),
+            'avance_indemnite_normale_nombre' => $request->validated('avance_indemnite_normale_nombre'),
+            'avance_indemnite_normale_taux' => $request->validated('avance_indemnite_normale_taux'),
+            'avance_indemnite_reduite_nombre' => $request->validated('avance_indemnite_reduite_nombre'),
+            'avance_indemnite_reduite_taux' => $request->validated('avance_indemnite_reduite_taux'),
+            'avance_indemnite_partielle_nombre' => $request->validated('avance_indemnite_partielle_nombre'),
+            'avance_indemnite_partielle_taux' => $request->validated('avance_indemnite_partielle_taux'),
+            'indication_requisitions' => $request->validated('indication_requisitions'),
+            'poids_bagages_mobilier' => $request->validated('poids_bagages_mobilier'),
+            'avance_total' => $avanceTotal > 0 ? $avanceTotal : null,
+            'arrete_somme' => $request->validated('arrete_somme'),
+            'avance_versee' => $request->validated('avance_versee'),
+            'date_fait_avance' => $request->validated('date_fait_avance'),
+            'visas_route' => $this->construireVisasRoute($request),
+            'visa_avance_indemnite_normale_nombre' => $request->validated('visa_avance_indemnite_normale_nombre'),
+            'visa_avance_indemnite_normale_taux' => $request->validated('visa_avance_indemnite_normale_taux'),
+            'visa_avance_indemnite_reduite_nombre' => $request->validated('visa_avance_indemnite_reduite_nombre'),
+            'visa_avance_indemnite_reduite_taux' => $request->validated('visa_avance_indemnite_reduite_taux'),
+            'visa_avance_indemnite_partielle_nombre' => $request->validated('visa_avance_indemnite_partielle_nombre'),
+            'visa_avance_indemnite_partielle_taux' => $request->validated('visa_avance_indemnite_partielle_taux'),
+            'visa_avance_total' => $visaAvanceTotal > 0 ? $visaAvanceTotal : null,
+            'visa_avance_payer_somme' => $request->validated('visa_avance_payer_somme'),
+            'visa_avance_lieu' => $request->validated('visa_avance_lieu'),
+            'visa_avance_date' => $request->validated('visa_avance_date'),
+            'reglement_indemnite_normale_nombre' => $request->validated('reglement_indemnite_normale_nombre'),
+            'reglement_indemnite_normale_taux' => $request->validated('reglement_indemnite_normale_taux'),
+            'reglement_indemnite_reduite_nombre' => $request->validated('reglement_indemnite_reduite_nombre'),
+            'reglement_indemnite_reduite_taux' => $request->validated('reglement_indemnite_reduite_taux'),
+            'reglement_indemnite_partielle_nombre' => $request->validated('reglement_indemnite_partielle_nombre'),
+            'reglement_indemnite_partielle_taux' => $request->validated('reglement_indemnite_partielle_taux'),
+            'reglement_total' => $reglementTotal > 0 ? $reglementTotal : null,
+            'reglement_montant_avances' => $reglementMontantAvances,
+            'reglement_reste_a_payer' => $reglementResteAPayer,
+            'reglement_arrete_somme' => $request->validated('reglement_arrete_somme'),
+            'reglement_lieu' => $request->validated('reglement_lieu'),
+            'reglement_date' => $request->validated('reglement_date'),
+            'observations' => $request->validated('observations'),
+            'indice_agent' => $indiceAgent,
+            'montant_calcule' => $montantCalcule,
+            'salaire_global_annuel' => $request->validated('salaire_global_annuel'),
+            'lieu_service' => $request->validated('lieu_service'),
+        ]);
+
+        // Mémorise l'indice sur la fiche de l'agent s'il ne l'était pas
+        // encore — même principe que store().
+        if ($mission->statut_agent === 'fonctionnaire' && $indiceAgent !== null) {
+            $enseignant = \App\Models\Parametrage\Enseignant::find($mission->beneficiaire_id);
+
+            if ($enseignant && $enseignant->indice === null) {
+                $enseignant->update(['indice' => $indiceAgent]);
+            }
+        }
 
         return $this->success('Fiche de déplacement mise à jour avec succès.', $mission);
     }
@@ -379,6 +530,27 @@ class FraisDeplacementController extends Controller
         );
 
         return $this->success('Pièce jointe déposée avec succès.', $justificatif, 201);
+    }
+
+    /**
+     * Téléchargement d'UNE pièce jointe (recto ou verso) — même principe
+     * que PieceJustificativesController::download(), scopé en plus sur la
+     * mission pour éviter de servir la pièce d'une autre fiche via un id
+     * deviné.
+     */
+    public function downloadJustificatif(string $id, string $justificatifId)
+    {
+        $justificatif = JustificatifFraisDeplacement::where('mission_id', $id)->where('id', $justificatifId)->first();
+
+        if (! $justificatif) {
+            return $this->error('Pièce jointe introuvable.', 404);
+        }
+
+        if (! $justificatif->chemin || ! Storage::disk('public')->exists($justificatif->chemin)) {
+            return $this->error('Fichier introuvable sur le serveur.', 404);
+        }
+
+        return Storage::disk('public')->response($justificatif->chemin, $justificatif->nom_original);
     }
 
     public function supprimerJustificatif(string $id, string $justificatifId)
@@ -496,6 +668,61 @@ class FraisDeplacementController extends Controller
             ->unique();
 
         return count(array_intersect(array_keys(piece_justificatives::TYPES), $typesPresents->all())) === count(piece_justificatives::TYPES);
+    }
+
+    /**
+     * Total d'un mini-tableau "Nombre x Taux" à 3 lignes (indemnité
+     * normale/réduite/partielle) — même principe que le total du tableau
+     * "Décompte des avances au départ" (RECTO), réutilisé ici pour les 2
+     * mini-tableaux du VERSO ("Avance ou compte perçus en route" et
+     * "Règlement définitif") via leur préfixe de champs respectif
+     * (visa_avance_indemnite / reglement_indemnite).
+     */
+    private function calculerTotalIndemnites($request, string $prefix): float
+    {
+        $lignes = [
+            [$request->validated("{$prefix}_normale_nombre"), $request->validated("{$prefix}_normale_taux")],
+            [$request->validated("{$prefix}_reduite_nombre"), $request->validated("{$prefix}_reduite_taux")],
+            [$request->validated("{$prefix}_partielle_nombre"), $request->validated("{$prefix}_partielle_taux")],
+        ];
+
+        return array_sum(array_map(fn ($ligne) => ($ligne[0] ?? 0) * ($ligne[1] ?? 0), $lignes));
+    }
+
+    /**
+     * Reconstitue les 4 lignes fixes du tableau "DETAIL DES VISAS ET
+     * PAIEMENT SUCCESSIFS EN COURS DE ROUTE" (VERSO) à partir des 9 champs
+     * tableaux soumis par le front (un index par ligne) — voir la
+     * migration 2026_08_18_210000_add_verso_champs_... pour le choix du
+     * stockage en JSON plutôt qu'en colonnes séparées.
+     */
+    private function construireVisasRoute($request): array
+    {
+        $champs = [
+            'arrivee_lieu' => $request->validated('visa_arrivee_lieu') ?? [],
+            'arrivee_date' => $request->validated('visa_arrivee_date') ?? [],
+            'arrivee_heure' => $request->validated('visa_arrivee_heure') ?? [],
+            'depart_lieu' => $request->validated('visa_depart_lieu') ?? [],
+            'depart_date' => $request->validated('visa_depart_date') ?? [],
+            'depart_heure' => $request->validated('visa_depart_heure') ?? [],
+            'requisitions' => $request->validated('visa_requisitions') ?? [],
+            'poids_bagages' => $request->validated('visa_poids_bagages') ?? [],
+            'logement_nourriture' => $request->validated('visa_logement_nourriture') ?? [],
+        ];
+
+        $visas = [];
+
+        for ($i = 0; $i < 4; $i++) {
+            $ligne = [];
+
+            foreach ($champs as $cle => $valeurs) {
+                $ligne[$cle] = $valeurs[$i] ?? null;
+            }
+
+            $visas[] = $ligne;
+        }
+
+        return $visas;
     }
 
     private function genererReference(): string

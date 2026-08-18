@@ -4,29 +4,7 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
-/**
- * Ajoute les champs du RECTO de la "Feuille de déplacement" papier
- * (Ministère des Finances et du Budget, Direction du Matériel et du
- * Transit Administratif) qui n'avaient pas encore de colonne : demande
- * utilisatrice ("le formulaire de création doit suivre exactement le
- * formulaire papier"). Le VERSO (visas/paiements successifs en cours de
- * route + règlement définitif) est volontairement laissé pour plus tard
- * (étape séparée sur la fiche déjà créée, remplie au fil de la mission).
- *
- * Champs papier -> colonnes :
- *  - "(2) Grade et emploi"                         -> grade_emploi
- *  - "Partant de [lieu] le [date] à [heure]"        -> heure_depart (lieu/date existaient déjà)
- *  - "Suivant ordre de service N° ... en date du"   -> ordre_service_numero / ordre_service_date
- *  - "Accompagné de"                                -> accompagne_de
- *  - "groupe (3)"                                   -> groupe (indice existait déjà : indice_agent)
- *  - "Itinéraire à suivre, avance à faire..."       -> itineraire
- *  - "Poids de bagages dont le transport est autorisé" -> poids_bagages_kg
- *  - "Délivré par nous (4)"                         -> delivre_par
- *  - "Dakar le" (date de délivrance de la fiche)    -> date_emission_fiche
- *  - Tableau "Décompte des avances au départ"       -> avance_* (Nombre/Taux par ligne,
- *    Décompte recalculé à l'affichage plutôt que stocké par ligne) + avance_total
- *  - "Payé à titre d'avance"                        -> avance_versee
- */
+
 return new class extends Migration
 {
     public function up(): void

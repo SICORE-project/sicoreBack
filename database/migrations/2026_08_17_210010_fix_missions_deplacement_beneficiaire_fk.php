@@ -5,16 +5,7 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\DB;
 
-/**
- * Filet de sécurité pour les bases où
- * 2026_08_09_100700_create_missions_deplacement_table avait déjà tourné
- * AVANT le correctif qui y a été apporté (beneficiaire_id: users ->
- * enseignants, ajout de convocation_id) — cette migration ne recrée rien,
- * elle corrige une table déjà en place. Idempotente et silencieuse si
- * missions_deplacement n'existe pas encore (le fichier corrigé la créera
- * alors directement avec le bon schéma) ou si le correctif est déjà en
- * place (ex: table jamais migrée avant le correctif).
- */
+
 return new class extends Migration
 {
     public function up(): void
