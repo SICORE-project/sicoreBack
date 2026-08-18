@@ -12,6 +12,7 @@ use App\Http\Controllers\TypeIndemnitesController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\DelegationCreditController;
 use App\Http\Controllers\EditionEngagementController;
+use App\Http\Controllers\EtatCreditsController;
 use App\Http\Controllers\BulletinSalaireController;
 use App\Http\Controllers\StructureController;
 use App\Http\Controllers\ServiceController;
@@ -67,6 +68,11 @@ Route::get('delegation-credits/{id}/etat', [DelegationCreditController::class, '
     Route::get('bulletins-salaire/{id}', [BulletinSalaireController::class, 'show']);
     Route::put('bulletins-salaire/{id}/valider', [BulletinSalaireController::class, 'valider']);
     Route::put('bulletins-salaire/{id}/annuler', [BulletinSalaireController::class, 'annuler']);
+
+    // --- État des crédits utilisés pour la paie ---
+    Route::get('etat-credits', [EtatCreditsController::class, 'index']);
+    Route::get('etat-credits/filtres', [EtatCreditsController::class, 'filtres']);
+    Route::get('etat-credits/{id}/detail', [EtatCreditsController::class, 'detail']);
 
     // --- Édition état des engagements ---
     Route::get('edition-engagements', [EditionEngagementController::class, 'index']);
