@@ -23,6 +23,7 @@ class LieuService extends Model
         'email',
         'responsable',
         'type',
+        'perimetre',
         'ia_id',
         'ief_id',
         'est_actif',

@@ -2,8 +2,11 @@
 
 namespace App\Http\Requests\Administration;
 
+use App\Models\Admin\Role;
+use App\Rules\CompatibleRoleStructure;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class StoreUserRequest extends FormRequest
 {
@@ -58,6 +61,22 @@ class StoreUserRequest extends FormRequest
                 'in:actif,inactif'
             ],
 
+            'structure_organisationnelle_id' => [
+                Rule::requiredIf(fn () => $this->roleMetier()),
+                'nullable',
+                'integer',
+                Rule::exists('lieu_de_services', 'id')->where('est_actif', true),
+                CompatibleRoleStructure::structureForRole($this->input('role_id')),
+            ],
+
         ];
+    }
+
+    private function roleMetier(): bool
+    {
+        $roleId = $this->input('role_id');
+
+        return $roleId !== null
+            && Role::whereKey($roleId)->where('niveau', '!=', 'systeme')->exists();
     }
 }

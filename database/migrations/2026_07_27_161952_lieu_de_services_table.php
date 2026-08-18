@@ -16,10 +16,13 @@ return new class extends Migration
             $table->id();
             $table->string('code', 20)->unique();
             $table->string('libelle', 100);
-            // These reference tables are managed outside this migration set.
-            $table->foreignId('ia_id')->nullable();
-            $table->foreignId('ief_id')->nullable();
+            $table->enum('perimetre', ['national', 'regional'])->index();
+            $table->enum('type', ['DRH', 'DAGE', 'DECPC', 'IA', 'IEF'])->index();
+            $table->foreignId('ia_id')->nullable()->constrained('ias')->nullOnDelete();
+            $table->foreignId('ief_id')->nullable()->constrained('iefs')->nullOnDelete();
+            $table->boolean('est_actif')->default(true)->index();
             $table->timestamps();
+            $table->softDeletes();
 
         });
     }

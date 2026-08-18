@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\Api\Admin\RoleController;
 use App\Http\Controllers\Api\Admin\PermissionController;
 use App\Http\Controllers\Api\Admin\RolePermissionController;
+use App\Http\Controllers\Api\StructureOrganisationnelleController;
 
 
 /*
@@ -14,6 +15,11 @@ use App\Http\Controllers\Api\Admin\RolePermissionController;
 */
 
 Route::prefix('admin')->group(function () {
+
+    Route::get('/structures-organisationnelles', [
+        StructureOrganisationnelleController::class,
+        'index'
+    ])->middleware('permission:administration.users.read');
 
 
     /*

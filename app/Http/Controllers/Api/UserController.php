@@ -8,7 +8,9 @@ use App\Http\Requests\Administration\UpdateUserRequest;
 use App\Http\Resources\UserResource;
 use App\Services\Administration\UserService;
 use App\Models\Admin\User;
+use App\Rules\CompatibleRoleStructure;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 class UserController extends Controller
 {
@@ -64,7 +66,11 @@ class UserController extends Controller
     $user = $this->userService->find($id);
 
     $request->validate([
-        'role_id' => 'required|exists:roles,id',
+        'role_id' => [
+            'required',
+            Rule::exists('roles', 'id'),
+            CompatibleRoleStructure::roleForStructure($user->lieu_service_id),
+        ],
     ]);
 
     $user->update(['role_id' => $request->role_id]);
