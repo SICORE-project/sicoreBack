@@ -60,4 +60,13 @@ class StoreUserRequest extends FormRequest
 
         ];
     }
+
+    public function messages(): array
+    {
+        return [
+            'email.required' => 'L’adresse e-mail est obligatoire.',
+            'email.email' => 'L’adresse e-mail doit être valide.',
+            'email.unique' => 'Cette adresse e-mail est déjà utilisée.',
+        ];
+    }
 }

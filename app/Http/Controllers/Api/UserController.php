@@ -21,15 +21,15 @@ class UserController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index()
+    public function index(Request $request)
     {
-        $users = $this->userService->all();
+        $perPage = min(100, max(1, $request->integer('per_page', 10)));
+        $users = $this->userService->paginate($perPage);
 
-        return response()->json([
+        return UserResource::collection($users)->additional([
             'success' => true,
             'message' => 'Liste des utilisateurs',
-            'data' => UserResource::collection($users)
-        ], 200);
+        ]);
     }
 
     /**
@@ -44,6 +44,23 @@ class UserController extends Controller
             'message' => 'Utilisateur créé avec succès.',
             'data' => new UserResource($user)
         ], 201);
+    }
+
+    /**
+     * Vérifier la disponibilité d'une adresse avant la soumission du formulaire.
+     */
+    public function checkEmail(Request $request)
+    {
+        $data = $request->validate([
+            'email' => ['required', 'email'],
+        ]);
+
+        $available = ! User::where('email', $data['email'])->exists();
+
+        return response()->json([
+            'available' => $available,
+            'message' => $available ? null : 'Cette adresse e-mail est déjà utilisée.',
+        ]);
     }
 
     /**
