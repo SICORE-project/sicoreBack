@@ -11,6 +11,7 @@ use App\Http\Controllers\RubriqueBultinsController;
 use App\Http\Controllers\TypeIndemnitesController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\DelegationCreditController;
+use App\Http\Controllers\EditionEngagementController;
 use App\Http\Controllers\StructureController;
 use App\Http\Controllers\ServiceController;
 use Illuminate\Support\Facades\Route;
@@ -47,4 +48,11 @@ Route::get('delegation-credits/{id}/etat', [DelegationCreditController::class, '
     Route::apiResource('delegation-credits', DelegationCreditController::class);
     Route::apiResource('structures', StructureController::class);
     Route::apiResource('services', ServiceController::class);
+
+    // --- Édition état des engagements ---
+    Route::get('edition-engagements', [EditionEngagementController::class, 'index']);
+    Route::get('edition-engagements/filtres', [EditionEngagementController::class, 'filtres']);
+    Route::get('edition-engagements/details', [EditionEngagementController::class, 'details']);
+    Route::get('edition-engagements/iefs/{iaId}', [EditionEngagementController::class, 'iefsByIa']);
+    Route::get('edition-engagements/etablissements/{iefId}', [EditionEngagementController::class, 'etablissementsByIef']);
 //});
