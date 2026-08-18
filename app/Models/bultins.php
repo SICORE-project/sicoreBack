@@ -8,7 +8,8 @@ class bultins extends Model
 {
     protected $fillable = [
         'matricule', 'mois_validite', 'date_enregistrement',
-        'numero_ordre', 'net_a_payer', 'enseignant_id', 'ia_id',
+        'numero_ordre', 'reference', 'statut', 'salaire_brut',
+        'total_retenues', 'net_a_payer', 'enseignant_id', 'ia_id',
     ];
 
     protected function casts(): array
@@ -17,6 +18,8 @@ class bultins extends Model
             'mois_validite' => 'date',
             'date_enregistrement' => 'date',
             'net_a_payer' => 'decimal:2',
+            'salaire_brut' => 'decimal:2',
+            'total_retenues' => 'decimal:2',
         ];
     }
 

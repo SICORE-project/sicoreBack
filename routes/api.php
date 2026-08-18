@@ -12,6 +12,7 @@ use App\Http\Controllers\TypeIndemnitesController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\DelegationCreditController;
 use App\Http\Controllers\EditionEngagementController;
+use App\Http\Controllers\BulletinSalaireController;
 use App\Http\Controllers\StructureController;
 use App\Http\Controllers\ServiceController;
 use Illuminate\Support\Facades\Route;
@@ -48,6 +49,17 @@ Route::get('delegation-credits/{id}/etat', [DelegationCreditController::class, '
     Route::apiResource('delegation-credits', DelegationCreditController::class);
     Route::apiResource('structures', StructureController::class);
     Route::apiResource('services', ServiceController::class);
+
+    // --- Bulletin de salaire ---
+    Route::get('bulletins-salaire', [BulletinSalaireController::class, 'index']);
+    Route::get('bulletins-salaire/statistiques', [BulletinSalaireController::class, 'statistiques']);
+    Route::get('bulletins-salaire/agents', [BulletinSalaireController::class, 'rechercherAgents']);
+    Route::post('bulletins-salaire/apercu', [BulletinSalaireController::class, 'apercu']);
+    Route::post('bulletins-salaire/generer', [BulletinSalaireController::class, 'generer']);
+    Route::post('bulletins-salaire/generer-masse', [BulletinSalaireController::class, 'genererEnMasse']);
+    Route::get('bulletins-salaire/{id}', [BulletinSalaireController::class, 'show']);
+    Route::put('bulletins-salaire/{id}/valider', [BulletinSalaireController::class, 'valider']);
+    Route::put('bulletins-salaire/{id}/annuler', [BulletinSalaireController::class, 'annuler']);
 
     // --- Édition état des engagements ---
     Route::get('edition-engagements', [EditionEngagementController::class, 'index']);
