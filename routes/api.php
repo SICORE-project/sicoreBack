@@ -28,8 +28,9 @@ Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:lo
     Route::put('delegation-credits/{id}/affectation', [DelegationCreditController::class, 'affecter']
     );
     Route::put('delegation-credits/{id}/montant-disponible', [DelegationCreditController::class, 'definirMontantDisponible']);
-    Route::put('delegation-credits/{id}/engager', [DelegationCreditController::class, 'engager']
-    );
+    Route::put('delegation-credits/{id}/engager', [DelegationCreditController::class, 'engager']);
+    Route::get('delegation-credits/{id}/engagements', [DelegationCreditController::class, 'historiqueEngagements']);
+    Route::get('engagements', [DelegationCreditController::class, 'tousEngagements']);
     Route::put('delegation-credits/{id}/consommer', [DelegationCreditController::class, 'consommer']
     );
     Route::get('delegation-credits/{id}/solde', [DelegationCreditController::class, 'solde']

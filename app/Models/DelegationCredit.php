@@ -49,9 +49,13 @@ class DelegationCredit extends Model
         return $this->belongsTo(Service::class);
     }
 
-    // Une délégation possède plusieurs paiements
     public function paiementSalaires()
     {
         return $this->hasMany(PaiementSalaire::class);
+    }
+
+    public function engagements()
+    {
+        return $this->hasMany(Engagement::class);
     }
 }

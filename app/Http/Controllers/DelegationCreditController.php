@@ -113,18 +113,121 @@ class DelegationCreditController extends Controller
     public function engager(\Illuminate\Http\Request $request, $id)
     {
         $request->validate([
-            'montant' => 'required|numeric|min:0'
+            'montant' => 'required|numeric',
+            'motif' => 'required|string|max:255',
+            'date_engagement' => 'nullable|date',
+            'reference_operation' => 'nullable|string|max:100',
         ]);
+
+        $montant = (float) $request->montant;
+
+        if ($montant <= 0) {
+            return response()->json([
+                'message' => 'Le montant doit être supérieur à zéro.',
+            ], 422);
+        }
 
         $delegation = DelegationCredit::findOrFail($id);
 
-        $delegation->montant_engage += $request->montant;
+        $creditDisponible = $delegation->montant_disponible - $delegation->montant_engage;
+
+        if ($montant > $creditDisponible) {
+            return response()->json([
+                'message' => 'L\'engagement dépasse le crédit disponible. Reste : ' .
+                    number_format($creditDisponible, 0, ',', ' ') . ' FCFA.',
+                'credit_disponible' => round($creditDisponible, 2),
+            ], 422);
+        }
+
+        $engagement = \App\Models\Engagement::create([
+            'delegation_credit_id' => $delegation->id,
+            'motif' => $request->motif,
+            'montant' => $montant,
+            'date_engagement' => $request->date_engagement ?? now()->toDateString(),
+            'reference_operation' => $request->reference_operation,
+        ]);
+
+        $delegation->montant_engage = $delegation->engagements()->sum('montant');
         $delegation->solde = $delegation->montant_disponible - $delegation->montant_engage;
         $delegation->save();
 
         return response()->json([
-            'message' => 'Montant engagé mis à jour.',
-            'data' => new DelegationCreditResource($delegation)
+            'message' => 'Engagement enregistré avec succès.',
+            'engagement' => $engagement,
+            'data' => new DelegationCreditResource($delegation),
+        ]);
+    }
+
+    public function historiqueEngagements(\Illuminate\Http\Request $request, $id)
+    {
+        $delegation = DelegationCredit::with(['structure', 'service'])->findOrFail($id);
+
+        $query = $delegation->engagements()->orderByDesc('date_engagement');
+
+        if ($request->date_debut) {
+            $query->where('date_engagement', '>=', $request->date_debut);
+        }
+        if ($request->date_fin_filtre) {
+            $query->where('date_engagement', '<=', $request->date_fin_filtre);
+        }
+
+        $engagements = $query->get();
+
+        return response()->json([
+            'delegation' => [
+                'id' => $delegation->id,
+                'reference' => $delegation->reference,
+                'objet' => $delegation->objet,
+                'structure' => $delegation->structure?->nom,
+                'service' => $delegation->service?->nom,
+                'montant_initial' => round($delegation->montant_initial, 2),
+                'montant_disponible' => round($delegation->montant_disponible, 2),
+                'montant_engage' => round($delegation->montant_engage, 2),
+                'solde' => round($delegation->solde, 2),
+                'taux_engagement' => $delegation->montant_disponible > 0
+                    ? round(($delegation->montant_engage / $delegation->montant_disponible) * 100, 1)
+                    : 0,
+            ],
+            'engagements' => $engagements,
+            'total' => round($engagements->sum('montant'), 2),
+            'nombre' => $engagements->count(),
+        ]);
+    }
+
+    public function tousEngagements(\Illuminate\Http\Request $request)
+    {
+        $query = \App\Models\Engagement::with(['delegationCredit.structure', 'delegationCredit.service'])
+            ->orderByDesc('date_engagement');
+
+        if ($request->structure_id) {
+            $query->whereHas('delegationCredit', fn ($q) => $q->where('structure_id', $request->structure_id));
+        }
+        if ($request->service_id) {
+            $query->whereHas('delegationCredit', fn ($q) => $q->where('service_id', $request->service_id));
+        }
+        if ($request->date_debut) {
+            $query->where('date_engagement', '>=', $request->date_debut);
+        }
+        if ($request->date_fin_filtre) {
+            $query->where('date_engagement', '<=', $request->date_fin_filtre);
+        }
+
+        $engagements = $query->get()->map(fn ($e) => [
+            'id' => $e->id,
+            'motif' => $e->motif,
+            'montant' => round($e->montant, 2),
+            'date_engagement' => $e->date_engagement->format('Y-m-d'),
+            'reference_operation' => $e->reference_operation,
+            'delegation_reference' => $e->delegationCredit->reference,
+            'delegation_id' => $e->delegation_credit_id,
+            'structure' => $e->delegationCredit->structure?->nom ?? '-',
+            'service' => $e->delegationCredit->service?->nom ?? '-',
+        ]);
+
+        return response()->json([
+            'engagements' => $engagements,
+            'total' => round($engagements->sum('montant'), 2),
+            'nombre' => $engagements->count(),
         ]);
     }
 
