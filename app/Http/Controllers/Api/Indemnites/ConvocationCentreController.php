@@ -93,25 +93,7 @@ class ConvocationCentreController extends Controller
         return $this->success('Centre mis à jour avec succès.', $centre);
     }
 
-    /**
-     * Supprime UN centre d'une convocation, sans toucher aux AUTRES centres
-     * (voir demande utilisateur : "je ne veux pas que la suppression d'une
-     * convocation entraine la suppression de tous les centres differents").
-     * Les membres du jury rattaches a ce centre ne sont pas supprimes de la
-     * convocation, seul leur rattachement au centre/metier est retire.
-     *
-     * Si c'etait le DERNIER centre de la convocation, la convocation
-     * elle-meme est supprimee avec : la laisser exister sans aucun centre
-     * ne sert a rien et ne fait que trainer dans la liste avec un tiret
-     * dans la colonne Centre — voir retour utilisateur (capture d'ecran
-     * d'une convocation "fantome" apres suppression de son unique centre).
-     *
-     * Nettoyage fait explicitement ici (pas de cascade au niveau base) car
-     * convocation_centres/convocation_centre_metiers/convocation_enseignant
-     * sont en MyISAM, moteur qui n'applique pas les contraintes de cle
-     * etrangere declarees dans les migrations (cascadeOnDelete/nullOnDelete
-     * y sont silencieusement ignorees).
-     */
+   
     public function destroy(string $id, string $centreId)
     {
         $convocation = ConvocationModel::trouverParSlugOuId($id);
