@@ -44,10 +44,10 @@ class ConvocationWordTemplateService
         "Centre de rattachement (nom exact d'un centre ci-dessus)" => 'centre_nom',
         'Prénom' => 'prenom',
         'Nom' => 'nom',
-        'Fonction' => 'fonction',
+        'Fonction (Correction ou Surveillant)' => 'fonction',
         'Catégorie de personnel (Fonctionnaire, Contractuelle, Vacataire)' => 'categorie_personnel',
         'Provenance' => 'provenance',
-        
+
         'Téléphone' => 'telephone',
     ];
 
@@ -75,6 +75,9 @@ class ConvocationWordTemplateService
         $section->addTitle('Modèle de convocation', 1);
         $section->addText(
             "Remplissez une ligne du tableau « Informations générales » (une seule convocation par document). Ajoutez une ligne par centre d'examen dans le deuxième tableau et une ligne par membre du jury dans le troisième — vous pouvez insérer des lignes supplémentaires si besoin. La colonne « Centre de rattachement » du tableau des membres doit reprendre exactement le nom saisi dans la colonne « Centre d'examen » du tableau des centres."
+        );
+        $section->addText(
+            "Il n'y a plus de type de convocation unique à choisir à l'import : chaque personne a désormais son propre type, déduit automatiquement de son rôle. Dans le tableau « Centres d'examen », le chef de centre et le président du jury donnent respectivement les types « Chef de centre » et « Président de jury ». Dans le tableau « Membres du jury », la colonne « Fonction » (Correction ou Surveillant) donne le type de chaque membre."
         );
 
         $section->addTextBreak();
@@ -309,7 +312,37 @@ class ConvocationWordTemplateService
             );
         }
 
+        // Le tableau "Informations générales" indique la casse exacte
+        // attendue ("brouillon, emise, envoyee, cloturee") mais un
+        // utilisateur qui remplit le document tape naturellement "Émise" /
+        // "Envoyée" / "Clôturée" — sans normalisation, StoreConvocationRequest
+        // (règle "in:brouillon,emise,envoyee,cloturee", sensible à la casse
+        // et aux accents) rejetait toute la convocation, statut compris.
+        if (isset($donnees['statut'])) {
+            $statut = $this->normaliserStatut($donnees['statut']);
+
+            if ($statut) {
+                $donnees['statut'] = $statut;
+            } else {
+                $avertissements[] = "« statut » : valeur « {$donnees['statut']} » non reconnue (attendu : brouillon, émise, envoyée ou clôturée) — laissé au défaut « brouillon ».";
+                unset($donnees['statut']);
+            }
+        }
+
         return $donnees;
+    }
+
+    private function normaliserStatut(string $valeur): ?string
+    {
+        $normalise = $this->normaliser($valeur);
+
+        return match (true) {
+            str_starts_with($normalise, 'brouillon') => 'brouillon',
+            str_starts_with($normalise, 'emise') => 'emise',
+            str_starts_with($normalise, 'envoyee') => 'envoyee',
+            str_starts_with($normalise, 'cloturee') => 'cloturee',
+            default => null,
+        };
     }
 
     /**

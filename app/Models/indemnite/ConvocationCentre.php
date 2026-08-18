@@ -48,15 +48,15 @@ class ConvocationCentre extends Model
      * Membres du jury affectes a CE centre precis, au sein de la
      * convocation (voir la colonne centre_id sur convocation_enseignant).
      *
-     * NE PAS ajouter 'categorie_personnel' à withPivot() : c'est un
-     * attribut de l'ENSEIGNANT (colonne sur `enseignants`), pas de cette
-     * ligne pivot — même bug déjà corrigé sur Convocations::enseignants()
-     * et ConvocationCentreMetier::enseignants(). La colonne n'existe pas
-     * sur le pivot `convocation_enseignant` ; l'ajouter ici casse tout
-     * eager-load "centres.enseignants" — utilisé entre autres par
-     * ConvocationPdfController::generer() — ce qui empêchait la génération
-     * du PDF de convocation et donc l'auto-rattachement du "dossier de
-     * convocation" (6e pièce justificative).
+     * 'categorie_personnel' est une colonne du pivot
+     * `convocation_enseignant` depuis la migration
+     * 2026_08_15_100000_add_categorie_personnel_to_convocation_enseignant_table
+     * (avant elle, l'ajouter ici cassait tout eager-load "centres.enseignants"
+     * avec SQLSTATE 42S22, colonne inexistante — d'où l'avertissement
+     * précédent). Sans elle dans withPivot(), la colonne "Statut" de la
+     * fiche convocation restait vide même quand la valeur était bien
+     * enregistrée en base — même bug corrigé sur Convocations::enseignants()
+     * et ConvocationCentreMetier::enseignants().
      */
     public function enseignants(): BelongsToMany
     {
@@ -65,7 +65,7 @@ class ConvocationCentre extends Model
             'convocation_enseignant',
             'centre_id',
             'enseignant_id'
-        )->withPivot('fonction', 'centre_metier_id', 'provenance')->withTimestamps();
+        )->withPivot('fonction', 'centre_metier_id', 'provenance', 'categorie_personnel')->withTimestamps();
     }
 
     /**

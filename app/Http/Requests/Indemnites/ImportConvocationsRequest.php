@@ -17,8 +17,6 @@ class ImportConvocationsRequest extends FormRequest
            
             'fichier' => ['required', 'file', 'mimes:docx', 'max:5120'],
 
-            'type_convocation_id' => ['required', 'integer', 'exists:types_convocation,id'],
-
             'utilisateur_id' => ['required', 'integer', 'exists:users,id'],
         ];
     }
