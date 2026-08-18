@@ -1,0 +1,47 @@
+name: Attribution automatique du Tech Lead
+
+on:
+  pull_request:
+    types: [opened, reopened, ready_for_review]
+
+permissions:
+  pull-requests: write
+  contents: read
+
+jobs:
+  assign-tech-lead:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Déterminer le Tech Lead
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+          BASE_BRANCH: ${{ github.event.pull_request.base.ref }}
+          REPO: ${{ github.repository }}
+        run: |
+          echo "Auteur : $PR_AUTHOR"
+          echo "Branche cible : $BASE_BRANCH"
+
+          if [ "$BASE_BRANCH" = "module-administration" ]; then
+            TECH_LEAD="mmesall"
+
+          elif [ "$BASE_BRANCH" = "module-parametrage" ]; then
+            TECH_LEAD="mmesall"
+
+          elif [ "$BASE_BRANCH" = "module-indemnite" ]; then
+            TECH_LEAD="Fatoush-prog"
+
+          elif [ "$BASE_BRANCH" = "module-paie" ]; then
+            TECH_LEAD="BayeSaliou1995"
+
+          else
+            echo "Aucun Tech Lead configuré pour $BASE_BRANCH"
+            exit 0
+          fi
+
+          echo "Tech Lead : $TECH_LEAD"
+
+          gh pr edit "${{ github.event.pull_request.number }}" \
+            --repo "$REPO" \
+            --add-reviewer "$TECH_LEAD"
