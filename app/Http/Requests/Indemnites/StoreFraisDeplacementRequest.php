@@ -39,6 +39,7 @@ class StoreFraisDeplacementRequest extends FormRequest
             'moyen_transport' => ['nullable', 'string', 'max:100'],
             'ordre_service_numero' => ['nullable', 'string', 'max:100'],
             'ordre_service_date' => ['nullable', 'date'],
+            'ordre_service_emetteur' => ['nullable', 'string', 'max:255'],
             'accompagne_de' => ['nullable', 'string', 'max:255'],
             'groupe' => ['nullable', 'string', 'max:50'],
             'itineraire' => ['nullable', 'string'],
@@ -54,6 +55,8 @@ class StoreFraisDeplacementRequest extends FormRequest
             'avance_indemnite_partielle_nombre' => ['nullable', 'numeric', 'min:0'],
             'avance_indemnite_partielle_taux' => ['nullable', 'numeric', 'min:0'],
             'avance_versee' => ['nullable', 'numeric', 'min:0'],
+            'arrete_somme' => ['nullable', 'string', 'max:255'],
+            'date_fait_avance' => ['nullable', 'date'],
             // statut_agent / indice_agent : envoyés par le front pour
             // affichage/confirmation, mais TOUJOURS re-dérivés côté
             // contrôleur depuis l'enseignant (source de vérité) — voir
