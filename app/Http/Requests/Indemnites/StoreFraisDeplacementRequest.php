@@ -5,7 +5,14 @@ namespace App\Http\Requests\Indemnites;
 use Illuminate\Foundation\Http\FormRequest;
 
 /**
- * Création d'une mission de déplacement (App\Models\MissionDeplacement).
+ * Création d'une mission de déplacement (App\Models\Indemnite\MissionDeplacement).
+ *
+ * CORRIGÉ (2026-08-17) : beneficiaire_id validait contre `users`, alors que
+ * le bénéficiaire d'une fiche de déplacement est un membre convoqué
+ * (`enseignants`), pas forcément un compte SICORE — voir le correctif
+ * apporté à la migration missions_deplacement. convocation_id ajouté :
+ * obligatoire pour rattacher la fiche à son dossier d'origine et vérifier
+ * côté contrôleur que le dossier de pièces justificatives est complet.
  */
 class StoreFraisDeplacementRequest extends FormRequest
 {
@@ -17,18 +24,51 @@ class StoreFraisDeplacementRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'beneficiaire_id' => ['required', 'integer', 'exists:users,id'],
+            'convocation_id' => ['required', 'integer', 'exists:convocations,id'],
+            'beneficiaire_id' => ['required', 'integer', 'exists:enseignants,id'],
+            // Champs du RECTO de la feuille de déplacement papier — voir
+            // migration 2026_08_18_004500_add_feuille_deplacement_champs_...
+            'grade_emploi' => ['nullable', 'string', 'max:255'],
             'lieu_depart' => ['required', 'string', 'max:255'],
+            'heure_depart' => ['nullable', 'string', 'max:10'],
             'lieu_destination' => ['required', 'string', 'max:255'],
             'motif' => ['nullable', 'string', 'max:255'],
             'date_depart' => ['required', 'date'],
             'date_retour' => ['required', 'date', 'after_or_equal:date_depart'],
             'distance_km' => ['nullable', 'numeric', 'min:0'],
             'moyen_transport' => ['nullable', 'string', 'max:100'],
-            'statut_agent' => ['nullable', 'string', 'max:100'],
+            'ordre_service_numero' => ['nullable', 'string', 'max:100'],
+            'ordre_service_date' => ['nullable', 'date'],
+            'accompagne_de' => ['nullable', 'string', 'max:255'],
+            'groupe' => ['nullable', 'string', 'max:50'],
+            'itineraire' => ['nullable', 'string'],
+            'poids_bagages_kg' => ['nullable', 'numeric', 'min:0'],
+            'delivre_par' => ['nullable', 'string', 'max:255'],
+            'date_emission_fiche' => ['nullable', 'date'],
+            'avance_frais_transport_nombre' => ['nullable', 'numeric', 'min:0'],
+            'avance_frais_transport_taux' => ['nullable', 'numeric', 'min:0'],
+            'avance_indemnite_normale_nombre' => ['nullable', 'numeric', 'min:0'],
+            'avance_indemnite_normale_taux' => ['nullable', 'numeric', 'min:0'],
+            'avance_indemnite_reduite_nombre' => ['nullable', 'numeric', 'min:0'],
+            'avance_indemnite_reduite_taux' => ['nullable', 'numeric', 'min:0'],
+            'avance_indemnite_partielle_nombre' => ['nullable', 'numeric', 'min:0'],
+            'avance_indemnite_partielle_taux' => ['nullable', 'numeric', 'min:0'],
+            'avance_versee' => ['nullable', 'numeric', 'min:0'],
+            // statut_agent / indice_agent : envoyés par le front pour
+            // affichage/confirmation, mais TOUJOURS re-dérivés côté
+            // contrôleur depuis l'enseignant (source de vérité) — voir
+            // FraisDeplacementController::store().
+            'statut_agent' => ['nullable', 'in:fonctionnaire,contractuel,vacataire'],
             'indice_agent' => ['nullable', 'numeric', 'min:0'],
+            // Montant saisi librement pour un contractuel (pas de barème
+            // fixe ni d'indice) — ignoré pour les autres catégories.
+            'montant_saisi' => ['nullable', 'numeric', 'min:0'],
             'salaire_global_annuel' => ['nullable', 'numeric', 'min:0'],
             'lieu_service' => ['nullable', 'string', 'max:255'],
+            // Feuille de déplacement scannée/remplie (photo ou PDF) — optionnelle
+            // à la création, peut aussi être déposée après coup via
+            // FraisDeplacementController::deposerJustificatif().
+            'fichier' => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:5120'],
         ];
     }
 }

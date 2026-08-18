@@ -13,6 +13,7 @@ use App\Http\Requests\Indemnites\VerifierPieceJustificativeRequest;
 use App\Http\Requests\Indemnites\RejeterPieceJustificativeRequest;
 use App\Models\Indemnite\piece_justificatives;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 
 class PieceJustificativesController extends Controller
@@ -29,6 +30,21 @@ class PieceJustificativesController extends Controller
 
         if ($request->filled('convocation_id')) {
             $query->where('convocation_id', $request->query('convocation_id'));
+        }
+
+        // Necessaire a la page front "Pieces justificatives" : le dossier
+        // se consulte TOUJOURS pour un membre precis d'une convocation
+        // (PiecesJustificativesController::recupererDossier() cote front,
+        // un appel par membre affiche). Sans ce filtre, index() renvoyait
+        // les pieces de TOUS les membres de la convocation (15 premieres,
+        // triees par date) melangees ensemble — un type ('service_fait',
+        // etc.) pouvait alors etre attribue au mauvais membre.
+        if ($request->filled('enseignant_id')) {
+            $query->where('enseignant_id', $request->query('enseignant_id'));
+        }
+
+        if ($request->filled('centre_id')) {
+            $query->where('centre_id', $request->query('centre_id'));
         }
 
         $pieces = $query->latest()->paginate($request->integer('per_page', 15));
@@ -119,19 +135,51 @@ class PieceJustificativesController extends Controller
 
             $fichier = $request->file($type);
 
-            $piecesCreees[] = piece_justificatives::create([
-                'type' => $type,
-                'convocation_id' => $convocationId,
-                'enseignant_id' => $enseignantId,
-                'centre_id' => $centreId,
-                'depositaire_id' => $depositaireId,
-                'statut' => 'depose',
-                'date_depot' => now()->toDateString(),
-                'chemin' => $fichier->store('pieces-justificatives', 'public'),
-                'nom_original' => $fichier->getClientOriginalName(),
-                'mime_type' => $fichier->getClientMimeType(),
-                'taille' => $fichier->getSize(),
-            ]);
+            // updateOrCreate plutot que create() : un nouveau depot pour un
+            // type deja present (redepot apres correction, ou nouvel essai
+            // suite a une precedente erreur serveur — cf. le bug PDF
+            // corrige ci-dessous, qui a pu laisser des membres avec 5
+            // pieces deja enregistrees) REMPLACE la piece existante au lieu
+            // d'en creer un doublon. Sans ca, chaque nouvel essai
+            // s'accumulait en lignes dupliquees (sans casser le calcul de
+            // completude, qui deduplique par type, mais en polluant la
+            // base et le stockage de fichiers).
+            $piece = piece_justificatives::where('convocation_id', $convocationId)
+                ->where('enseignant_id', $enseignantId)
+                ->where('type', $type)
+                ->first();
+
+            $piecesCreees[] = piece_justificatives::updateOrCreate(
+                [
+                    'convocation_id' => $convocationId,
+                    'enseignant_id' => $enseignantId,
+                    'type' => $type,
+                ],
+                [
+                    'centre_id' => $centreId,
+                    'depositaire_id' => $depositaireId,
+                    'statut' => 'depose',
+                    'date_depot' => now()->toDateString(),
+                    'chemin' => $fichier->store('pieces-justificatives', 'public'),
+                    'nom_original' => $fichier->getClientOriginalName(),
+                    'mime_type' => $fichier->getClientMimeType(),
+                    'taille' => $fichier->getSize(),
+                    'conforme' => null,
+                    'commentaire_verification' => null,
+                    'verifie_par' => null,
+                    'verifie_at' => null,
+                    'valide_par' => null,
+                    'valide_at' => null,
+                    'commentaire_rejet' => null,
+                ]
+            );
+
+            // Nettoyage : supprime l'ancien fichier physique remplace,
+            // apres coup, pour ne pas perdre le nouveau si la suppression
+            // echouait avant l'ecriture.
+            if ($piece && $piece->chemin && $piece->chemin !== $piecesCreees[array_key_last($piecesCreees)]->chemin) {
+                Storage::disk('public')->delete($piece->chemin);
+            }
         }
 
         $dossierConvocation = $this->attacherDossierConvocation($convocationId, $enseignantId, $centreId, $depositaireId);
@@ -182,9 +230,31 @@ class PieceJustificativesController extends Controller
         $chemin = "convocations/{$convocationId}/convocation-{$convocationId}.pdf";
 
         if (! Storage::disk('public')->exists($chemin)) {
-            $resultat = app(ConvocationPdfController::class)->generer((string) $convocationId);
+            // try/catch necessaire : generer() peut lever une exception
+            // (pas seulement renvoyer success=false) si l'eager-load de la
+            // vue PDF echoue en base — c'est arrive avec le bug
+            // withPivot('categorie_personnel') sur ConvocationCentre /
+            // ConvocationCentreMetier (corrige, mais a titre de garde-fou
+            // pour toute panne future similaire). Sans ce try/catch,
+            // l'exception remontait jusqu'a deposerLot() et faisait
+            // echouer TOUTE la requete en 500 — alors que les 5 pieces
+            // manuelles, elles, etaient deja enregistrees avec succes
+            // juste avant : le dossier restait alors bloque "incomplet" a
+            // vie (le 6e document n'etant jamais rattache), sans que rien
+            // ne l'indique clairement a l'utilisatrice.
+            try {
+                $resultat = app(ConvocationPdfController::class)->generer((string) $convocationId);
 
-            if ($resultat->getData()->success !== true) {
+                if ($resultat->getData()->success !== true) {
+                    return null;
+                }
+            } catch (\Throwable $exception) {
+                Log::warning('Échec de la génération automatique du PDF de convocation pour le dossier de pièces justificatives.', [
+                    'convocation_id' => $convocationId,
+                    'enseignant_id' => $enseignantId,
+                    'exception' => $exception->getMessage(),
+                ]);
+
                 return null;
             }
         }
@@ -247,6 +317,10 @@ class PieceJustificativesController extends Controller
             'statut' => 'valide',
             'valide_par' => $request->user()?->id,
             'valide_at' => now(),
+            // Nettoyage : une piece rejetee puis validee (apres redepot ou
+            // re-classification) ne doit pas garder un commentaire de rejet
+            // affichable a cote d'un statut "validee".
+            'commentaire_rejet' => null,
         ]);
 
         return $this->success('Pièce justificative validée avec succès.', $piece);
@@ -263,6 +337,11 @@ class PieceJustificativesController extends Controller
         $piece->update([
             'statut' => 'rejete',
             'commentaire_rejet' => $request->validated('commentaire_rejet'),
+            // Nettoyage symetrique : une piece validee puis rejetee (erreur
+            // de manip, ou re-controle) ne doit pas garder une validation
+            // affichable a cote d'un statut "rejetee".
+            'valide_par' => null,
+            'valide_at' => null,
         ]);
 
         return $this->success('Pièce justificative rejetée.', $piece);

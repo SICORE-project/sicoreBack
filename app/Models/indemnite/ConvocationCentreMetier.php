@@ -29,7 +29,19 @@ class ConvocationCentreMetier extends Model
         return $this->belongsTo(ConvocationCentre::class, 'convocation_centre_id');
     }
 
-  
+    /**
+     * NE PAS ajouter 'categorie_personnel' à withPivot() : c'est un
+     * attribut de l'ENSEIGNANT (colonne sur `enseignants`), pas de cette
+     * ligne pivot — même bug déjà corrigé sur Convocations::enseignants()
+     * (voir son commentaire). La colonne n'existe pas sur le pivot
+     * `convocation_enseignant` ; l'ajouter ici casse tout eager-load
+     * "centres.metiers.enseignants" — utilisé entre autres par
+     * ConvocationPdfController::generer() — ce qui a empêché la génération
+     * du PDF de convocation et donc l'auto-rattachement du "dossier de
+     * convocation" (6e pièce justificative) : un dossier de bénéficiaire
+     * restait bloqué "incomplet" à vie même une fois les 5 pièces
+     * manuelles déposées, empêchant la création de sa fiche de déplacement.
+     */
     public function enseignants(): BelongsToMany
     {
         return $this->belongsToMany(
@@ -37,6 +49,6 @@ class ConvocationCentreMetier extends Model
             'convocation_enseignant',
             'centre_metier_id',
             'enseignant_id'
-        )->withPivot('fonction', 'centre_id', 'provenance', 'categorie_personnel')->withTimestamps();
+        )->withPivot('fonction', 'centre_id', 'provenance')->withTimestamps();
     }
 }
