@@ -4,22 +4,7 @@
     <meta charset="UTF-8">
     <title>Fiche de déplacement {{ $mission->reference ?? '#'.$mission->id }}</title>
     <style>
-        {{--
-            Demande utilisatrice : "il faut que ce fichier soit exactement
-            comme l'exemple" (photos RECTO/VERSO de la feuille de
-            déplacement papier — Ministère des Finances et du Budget,
-            Direction du Matériel et du Transit Administratif). Ce fichier
-            reproduit désormais l'entête officielle, l'ordre exact des
-            champs, les libellés du papier (Délivré à M.(1) / groupe (3)
-            indice / Poids de bagages... / Délivré par nous (4) / etc.), le
-            tableau RECTO "DECOMPTE DES AVANCES AU DEPART" avec ses 2
-            colonnes de remarques en rowspan, et le tableau VERSO
-            "DETAIL DES VISAS ET PAIEMENT SUCCESSIFS EN COURS DE ROUTE" en
-            UN SEUL tableau (comme sur le papier) avec la colonne
-            "Avance ou compte perçus en route" / "Règlement définitif" et
-            la colonne "Observations" fusionnées sur les 4 lignes (rowspan),
-            plutôt qu'en tableaux séparés empilés comme avant.
-        --}}
+      
         body {
             font-family: DejaVu Sans, sans-serif;
             font-size: 11px;
