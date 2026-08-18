@@ -6,6 +6,7 @@ use App\Http\Requests\StoreDelegationCreditRequest;
 use App\Http\Requests\UpdateDelegationCreditRequest;
 use App\Http\Resources\DelegationCreditResource;
 use App\Models\DelegationCredit;
+use App\Models\PaiementSalaire;
 
 class DelegationCreditController extends Controller
 {
@@ -234,24 +235,57 @@ class DelegationCreditController extends Controller
     public function consommer(\Illuminate\Http\Request $request, $id)
     {
         $request->validate([
-            'montant' => 'required|numeric|min:0'
+            'montant' => 'required|numeric',
+            'nom_agent' => 'required|string|max:255',
+            'mois' => 'required|string|max:20',
+            'date_paiement' => 'nullable|date',
         ]);
+
+        $montant = (float) $request->montant;
+
+        if ($montant <= 0) {
+            return response()->json([
+                'message' => 'Le montant doit être supérieur à zéro.',
+            ], 422);
+        }
 
         $delegation = DelegationCredit::findOrFail($id);
 
-        $delegation->montant_consomme += $request->montant;
+        $resteDisponible = $delegation->montant_disponible - $delegation->montant_consomme;
+
+        if ($montant > $resteDisponible) {
+            return response()->json([
+                'message' => 'Le paiement dépasse le solde disponible. Reste : ' .
+                    number_format($resteDisponible, 0, ',', ' ') . ' FCFA.',
+                'solde_disponible' => round($resteDisponible, 2),
+            ], 422);
+        }
+
+        $paiement = $delegation->paiementSalaires()->create([
+            'nom_agent' => $request->nom_agent,
+            'mois' => $request->mois,
+            'montant' => $montant,
+            'date_paiement' => $request->date_paiement ?? now()->toDateString(),
+        ]);
+
+        $delegation->montant_consomme = $delegation->paiementSalaires()->sum('montant');
         $delegation->solde = $delegation->montant_disponible - $delegation->montant_consomme;
         $delegation->save();
 
         return response()->json([
-            'message' => 'Montant consommé mis à jour.',
-            'data' => new DelegationCreditResource($delegation)
+            'message' => 'Paiement enregistré. Consommation mise à jour.',
+            'paiement' => $paiement,
+            'data' => new DelegationCreditResource($delegation),
         ]);
     }
 
     public function solde($id)
     {
         $delegation = DelegationCredit::findOrFail($id);
+
+        $taux = $delegation->montant_disponible > 0
+            ? round(($delegation->montant_consomme / $delegation->montant_disponible) * 100, 1)
+            : 0;
 
         return response()->json([
             'reference' => $delegation->reference,
@@ -260,43 +294,94 @@ class DelegationCreditController extends Controller
             'montant_engage' => $delegation->montant_engage,
             'montant_consomme' => $delegation->montant_consomme,
             'solde' => $delegation->solde,
+            'taux_consommation' => $taux,
         ]);
     }
 
     public function ajouterPaiement(\Illuminate\Http\Request $request, $id)
     {
-        $request->validate([
-            'nom_agent' => 'required|string|max:255',
-            'mois' => 'required|string|max:20',
-            'montant' => 'required|numeric|min:0',
-            'date_paiement' => 'required|date',
-        ]);
+        return $this->consommer($request, $id);
+    }
 
-        $delegation = DelegationCredit::findOrFail($id);
+    public function historiqueConsommations(\Illuminate\Http\Request $request, $id)
+    {
+        $delegation = DelegationCredit::with(['structure', 'service'])->findOrFail($id);
 
-        if ($request->montant > $delegation->solde) {
-            return response()->json([
-                'message' => 'Le montant dépasse le solde disponible.'
-            ], 400);
+        $query = $delegation->paiementSalaires()->orderByDesc('date_paiement');
+
+        if ($request->date_debut) {
+            $query->where('date_paiement', '>=', $request->date_debut);
+        }
+        if ($request->date_fin_filtre) {
+            $query->where('date_paiement', '<=', $request->date_fin_filtre);
+        }
+        if ($request->nom_agent) {
+            $query->where('nom_agent', 'like', '%' . $request->nom_agent . '%');
+        }
+        if ($request->mois_filtre) {
+            $query->where('mois', 'like', '%' . $request->mois_filtre . '%');
         }
 
-        $paiement = $delegation->paiementSalaires()->create([
-            'nom_agent' => $request->nom_agent,
-            'mois' => $request->mois,
-            'montant' => $request->montant,
-            'date_paiement' => $request->date_paiement,
-        ]);
-
-        $delegation->montant_engage += $paiement->montant;
-        $delegation->montant_consomme += $paiement->montant;
-        $delegation->solde = $delegation->montant_disponible - $delegation->montant_consomme;
-        $delegation->save();
+        $paiements = $query->get();
 
         return response()->json([
-            'message' => 'Paiement enregistré avec succès.',
-            'paiement' => $paiement,
-            'delegation' => new DelegationCreditResource($delegation)
-        ], 201);
+            'delegation' => [
+                'id' => $delegation->id,
+                'reference' => $delegation->reference,
+                'objet' => $delegation->objet,
+                'structure' => $delegation->structure?->nom,
+                'service' => $delegation->service?->nom,
+                'montant_disponible' => round($delegation->montant_disponible, 2),
+                'montant_consomme' => round($delegation->montant_consomme, 2),
+                'solde' => round($delegation->solde, 2),
+                'taux_consommation' => $delegation->montant_disponible > 0
+                    ? round(($delegation->montant_consomme / $delegation->montant_disponible) * 100, 1)
+                    : 0,
+            ],
+            'paiements' => $paiements,
+            'total' => round($paiements->sum('montant'), 2),
+            'nombre' => $paiements->count(),
+        ]);
+    }
+
+    public function tousConsommations(\Illuminate\Http\Request $request)
+    {
+        $query = PaiementSalaire::with(['delegationCredit.structure', 'delegationCredit.service'])
+            ->orderByDesc('date_paiement');
+
+        if ($request->structure_id) {
+            $query->whereHas('delegationCredit', fn ($q) => $q->where('structure_id', $request->structure_id));
+        }
+        if ($request->service_id) {
+            $query->whereHas('delegationCredit', fn ($q) => $q->where('service_id', $request->service_id));
+        }
+        if ($request->date_debut) {
+            $query->where('date_paiement', '>=', $request->date_debut);
+        }
+        if ($request->date_fin_filtre) {
+            $query->where('date_paiement', '<=', $request->date_fin_filtre);
+        }
+        if ($request->nom_agent) {
+            $query->where('nom_agent', 'like', '%' . $request->nom_agent . '%');
+        }
+
+        $paiements = $query->get()->map(fn ($p) => [
+            'id' => $p->id,
+            'nom_agent' => $p->nom_agent,
+            'mois' => $p->mois,
+            'montant' => round($p->montant, 2),
+            'date_paiement' => $p->date_paiement,
+            'delegation_reference' => $p->delegationCredit->reference,
+            'delegation_id' => $p->delegation_credit_id,
+            'structure' => $p->delegationCredit->structure?->nom ?? '-',
+            'service' => $p->delegationCredit->service?->nom ?? '-',
+        ]);
+
+        return response()->json([
+            'paiements' => $paiements,
+            'total' => round($paiements->sum('montant'), 2),
+            'nombre' => $paiements->count(),
+        ]);
     }
 
     public function definirMontantDisponible(\Illuminate\Http\Request $request, $id)

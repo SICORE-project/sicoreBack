@@ -31,6 +31,8 @@ Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:lo
     Route::put('delegation-credits/{id}/engager', [DelegationCreditController::class, 'engager']);
     Route::get('delegation-credits/{id}/engagements', [DelegationCreditController::class, 'historiqueEngagements']);
     Route::get('engagements', [DelegationCreditController::class, 'tousEngagements']);
+    Route::get('delegation-credits/{id}/consommations', [DelegationCreditController::class, 'historiqueConsommations']);
+    Route::get('consommations', [DelegationCreditController::class, 'tousConsommations']);
     Route::put('delegation-credits/{id}/consommer', [DelegationCreditController::class, 'consommer']
     );
     Route::get('delegation-credits/{id}/solde', [DelegationCreditController::class, 'solde']
