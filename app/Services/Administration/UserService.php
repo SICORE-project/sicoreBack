@@ -3,6 +3,7 @@
 namespace App\Services\Administration;
 
 use App\Models\admin\User;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Hash;
 
 class UserService
@@ -36,6 +37,27 @@ class UserService
             ->orderByDesc('id')
             ->get();
     }
+
+    /**
+     * Liste paginée des utilisateurs.
+     */
+    public function paginate(
+        int $perPage = 10,
+        ?string $structureType = null
+    ): LengthAwarePaginator
+    {
+        return User::with(['role', 'lieuService'])
+            ->when($structureType, function ($query, string $type) {
+                $query->whereHas('lieuService', function ($structureQuery) use ($type) {
+                    $structureQuery->whereRaw('UPPER(type) = ?', [mb_strtoupper($type)]);
+                });
+            })
+            ->orderBy('nom')
+            ->orderBy('prenom')
+            ->paginate($perPage);
+    }
+
+
 
     /**
      * Trouver un utilisateur

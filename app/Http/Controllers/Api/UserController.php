@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Administration\StoreUserRequest;
 use App\Http\Requests\Administration\UpdateUserRequest;
 use App\Http\Resources\UserResource;
+use App\Models\Admin\User;
 use App\Rules\CompatibleRoleStructure;
 use App\Services\Administration\UserService;
 use Illuminate\Http\Request;
@@ -22,8 +23,15 @@ class UserController extends Controller
      */
     public function index(Request $request)
     {
-        $validated = $request->validate(['type_structure' => ['nullable', 'string', 'max:50']]);
-        $users = $this->userService->all($validated['type_structure'] ?? null);
+        $validated = $request->validate([
+            'type_structure' => ['nullable', 'string', 'max:50'],
+            'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],
+        ]);
+
+        $users = $this->userService->paginate(
+            $validated['per_page'] ?? 10,
+            $validated['type_structure'] ?? null,
+        );
 
         return UserResource::collection($users)->additional([
             'success' => true,
@@ -56,6 +64,23 @@ class UserController extends Controller
             'message' => 'Utilisateur créé avec succès.',
             'data' => new UserResource($user),
         ], 201);
+    }
+
+    /**
+     * Vérifier la disponibilité d'une adresse avant la soumission du formulaire.
+     */
+    public function checkEmail(Request $request)
+    {
+        $data = $request->validate([
+            'email' => ['required', 'email'],
+        ]);
+
+        $available = ! User::where('email', $data['email'])->exists();
+
+        return response()->json([
+            'available' => $available,
+            'message' => $available ? null : 'Cette adresse e-mail est déjà utilisée.',
+        ]);
     }
 
     /**

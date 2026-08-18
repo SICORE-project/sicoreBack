@@ -290,6 +290,13 @@ Route::prefix('admin')->group(function () {
         ->middleware('permission:administration.users.create');
 
 
+        Route::get('/check-email', [
+            UserController::class,
+            'checkEmail'
+        ])
+        ->middleware('permission:administration.users.create');
+
+
         Route::get('/{id}', [
             UserController::class,
             'show'
