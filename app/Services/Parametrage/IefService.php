@@ -228,4 +228,41 @@ public function update(int $id, array $data): Ief
     return $ief->fresh(['ia']);
 }
 
+public function changeStatus(int $id, bool $newStatus): Ief
+{
+    // Vérifier l'existence de l'IEF
+    $ief = $this->findById($id);
+
+    // Éviter une opération inutile
+    if ($ief->est_actif === $newStatus) {
+        throw new \DomainException(
+            $newStatus
+                ? 'Cette IEF est déjà active.'
+                : 'Cette IEF est déjà inactive.'
+        );
+    }
+
+    /*
+    | Réactivation
+    */
+    if ($newStatus) {
+        $ia = Ia::findOrFail($ief->ia_id);
+
+        if (!$ia->est_actif) {
+            throw new \DomainException(
+                'Impossible d’activer cette IEF car son IA de rattachement est inactive.'
+            );
+        }
+    }
+
+    /*
+    | Changement de statut
+    */
+
+    $ief->est_actif = $newStatus;
+    $ief->save();
+
+    return $ief->fresh(['ia']);
+}
+
 }
