@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\Parametrage\CorpsController;
 use App\Http\Controllers\Api\Parametrage\LieuServiceController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\Parametrage\AnneeAcademiqueController;
+use App\Http\Controllers\Api\Parametrage\SyndicatController;
 
 /*
 |--------------------------------------------------------------------------
@@ -105,3 +106,17 @@ Route::patch(
     'annees-academiques/{id}/close',
     [AnneeAcademiqueController::class, 'close']
 );
+// Routes for the Syndicat resource.
+Route::prefix('syndicats')->group(function () {
+    Route::get('/', [SyndicatController::class, 'index']);
+
+    Route::post('/', [SyndicatController::class, 'store']);
+
+    Route::get('/{id}', [SyndicatController::class, 'show']);
+
+    Route::put('/{id}', [SyndicatController::class, 'update']);
+
+    Route::patch('/{id}', [SyndicatController::class, 'update']);
+
+    Route::delete('/{id}', [SyndicatController::class, 'destroy']);
+});

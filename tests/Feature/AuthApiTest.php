@@ -32,6 +32,7 @@ class AuthApiTest extends TestCase
         Schema::dropIfExists('iefs');
         Schema::dropIfExists('regions');
         Schema::dropIfExists('roles');
+        Schema::dropIfExists('type_roles');
         Schema::dropIfExists('role_permission');
         Schema::dropIfExists('permissions');
 
@@ -60,10 +61,25 @@ class AuthApiTest extends TestCase
             $t->softDeletes();
         });
 
+        Schema::create('type_roles', function (Blueprint $t) {
+            $t->id();
+            $t->string('code')->unique();
+            $t->string('libelle');
+            $t->boolean('est_actif')->default(true);
+            $t->timestamps();
+        });
+
+        \DB::table('type_roles')->insert([
+            ['id' => 1, 'code' => 'systeme', 'libelle' => 'Système', 'created_at' => now(), 'updated_at' => now()],
+            ['id' => 2, 'code' => 'admin_metier', 'libelle' => 'Administration métier', 'created_at' => now(), 'updated_at' => now()],
+            ['id' => 3, 'code' => 'gestionnaire', 'libelle' => 'Gestion', 'created_at' => now(), 'updated_at' => now()],
+        ]);
+
         Schema::create('roles', function (Blueprint $t) {
             $t->id();
             $t->string('libelle');
             $t->string('niveau')->default('consultation');
+            $t->unsignedBigInteger('type_role_id')->default(3);
             $t->timestamps();
         });
 
@@ -391,6 +407,7 @@ class AuthApiTest extends TestCase
     {
         \DB::table('roles')->insert([
             'id' => 40, 'libelle' => 'Super Administrateur', 'niveau' => 'systeme',
+            'type_role_id' => 1,
             'created_at' => now(), 'updated_at' => now(),
         ]);
 
