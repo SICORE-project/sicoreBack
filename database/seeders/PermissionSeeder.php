@@ -2,8 +2,8 @@
 
 namespace Database\Seeders;
 
-use Illuminate\Database\Seeder;
 use App\Models\Admin\Permission;
+use Illuminate\Database\Seeder;
 
 class PermissionSeeder extends Seeder
 {
@@ -40,6 +40,7 @@ class PermissionSeeder extends Seeder
             ['nom' => 'Consulter les syndicats', 'slug' => 'parametrage.syndicats.read', 'groupe' => 'parametrage', 'module' => 'syndicats', 'action' => 'read'],
             ['nom' => 'Gérer les syndicats', 'slug' => 'parametrage.syndicats.manage', 'groupe' => 'parametrage', 'module' => 'syndicats', 'action' => 'manage'],
             ['nom' => 'Consulter les institutions financières', 'slug' => 'parametrage.institutions_financieres.read', 'groupe' => 'parametrage', 'module' => 'institutions_financieres', 'action' => 'read'],
+            ['nom' => 'Gérer les institutions financières', 'slug' => 'parametrage.institutions_financieres.manage', 'groupe' => 'parametrage', 'module' => 'institutions_financieres', 'action' => 'manage'],
 
             // === ENSEIGNANTS ===
             ['nom' => 'Consulter les enseignants', 'slug' => 'enseignants.read', 'groupe' => 'personnel', 'module' => 'enseignants', 'action' => 'read'],
