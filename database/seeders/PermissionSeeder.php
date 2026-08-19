@@ -39,6 +39,7 @@ class PermissionSeeder extends Seeder
             ['nom' => 'Gérer les disciplines', 'slug' => 'parametrage.disciplines.manage', 'groupe' => 'parametrage', 'module' => 'disciplines', 'action' => 'manage'],
             ['nom' => 'Consulter les syndicats', 'slug' => 'parametrage.syndicats.read', 'groupe' => 'parametrage', 'module' => 'syndicats', 'action' => 'read'],
             ['nom' => 'Gérer les syndicats', 'slug' => 'parametrage.syndicats.manage', 'groupe' => 'parametrage', 'module' => 'syndicats', 'action' => 'manage'],
+            ['nom' => 'Consulter les institutions financières', 'slug' => 'parametrage.institutions_financieres.read', 'groupe' => 'parametrage', 'module' => 'institutions_financieres', 'action' => 'read'],
 
             // === ENSEIGNANTS ===
             ['nom' => 'Consulter les enseignants', 'slug' => 'enseignants.read', 'groupe' => 'personnel', 'module' => 'enseignants', 'action' => 'read'],
