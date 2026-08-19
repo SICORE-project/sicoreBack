@@ -5,8 +5,10 @@ namespace App\Http\Controllers\Api\Parametrage;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Parametrage\Ief\StoreIefRequest;
 use App\Http\Requests\Parametrage\Ief\UpdateIefRequest;
+use App\Http\Requests\Parametrage\Ief\ChangeIefStatusRequest;
 use App\Http\Resources\Parametrage\IefResource;
 use App\Services\Parametrage\IefService;
+
 
 use Illuminate\Support\Facades\Log;
 
@@ -237,6 +239,69 @@ public function update(UpdateIefRequest $request, int $id)
     return response()->json([
         'success' => true,
         'message' => 'IEF mise à jour avec succès.',
+        'data' => new IefResource($ief),
+    ]);
+}
+
+public function changeStatus(ChangeIefStatusRequest $request, int $id)
+{
+    $user = $request->user();
+
+    /*
+    | Autorisation
+    */
+
+    if (
+        !$user->hasRole('super_admin') &&
+        !$user->hasRole('admin')
+    ) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Vous n’êtes pas autorisé à modifier le statut d’une IEF.',
+        ], 403);
+    }
+
+    try {
+        $iefAvant = $this->iefService->findById($id);
+
+        $ancienStatut = $iefAvant->est_actif;
+
+        $ief = $this->iefService->changeStatus(
+            $id,
+            $request->boolean('est_actif')
+        );
+
+    } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+        return response()->json([
+            'success' => false,
+            'message' => 'L’IEF demandée n’existe pas.',
+        ], 404);
+
+    } catch (\DomainException $e) {
+        return response()->json([
+            'success' => false,
+            'message' => $e->getMessage(),
+        ], 422);
+    }
+
+    Log::info('Changement statut IEF', [
+        'action' => $ief->est_actif
+            ? 'ACTIVATE_IEF'
+            : 'DEACTIVATE_IEF',
+
+        'user_id' => $user->id,
+        'ief_id' => $ief->id,
+        'ia_id' => $ief->ia_id,
+        'ancien_statut' => $ancienStatut,
+        'nouveau_statut' => $ief->est_actif,
+        'ip' => $request->ip(),
+    ]);
+
+    return response()->json([
+        'success' => true,
+        'message' => $ief->est_actif
+            ? 'IEF activée avec succès.'
+            : 'IEF désactivée avec succès.',
         'data' => new IefResource($ief),
     ]);
 }
