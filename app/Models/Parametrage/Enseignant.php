@@ -2,11 +2,11 @@
 
 namespace App\Models\Parametrage;
 
+use App\Models\Admin\User;
+use App\Services\Administration\OrganizationalScope;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
-use App\Models\Admin\User;
-use App\Services\Administration\OrganizationalScope;
 
 class Enseignant extends Model
 {
@@ -110,8 +110,6 @@ class Enseignant extends Model
         return $this->belongsTo(Corps::class);
     }
 
-  
-
     public function diplome()
     {
         return $this->belongsTo(Diplome::class);
@@ -152,33 +150,31 @@ class Enseignant extends Model
         return $this->belongsTo(Ia::class);
     }
 
-   
     public function statutEnseignant()
     {
         return $this->belongsTo(StatutEnseignant::class, 'statut_enseignant_id');
     }
-    
 
     // === RELATIONS MANY TO MANY ===
     public function syndicats()
     {
         return $this->belongsToMany(Syndicat::class, 'enseignant_syndicat')
-                    ->withPivot('taux_personnalise', 'date_adhesion', 'date_resiliation', 'numero_affiliation', 'est_actif')
-                    ->withTimestamps();
+            ->withPivot('taux_personnalise', 'date_adhesion', 'date_resiliation', 'numero_affiliation', 'est_actif')
+            ->withTimestamps();
     }
 
     public function institutsFinanciers()
     {
         return $this->belongsToMany(InstitutFinancier::class, 'enseignant_institut_financier')
-                    ->withPivot('iban', 'bic', 'titulaire_compte', 'est_principal', 'est_actif')
-                    ->withTimestamps();
+            ->withPivot('iban', 'bic', 'titulaire_compte', 'est_principal', 'est_actif')
+            ->withTimestamps();
     }
 
     public function centresFormation()
     {
         return $this->belongsToMany(CentreFormation::class, 'enseignant_etablissement')
-                    ->withPivot('date_affectation', 'date_fin', 'est_actif')
-                    ->withTimestamps();
+            ->withPivot('date_affectation', 'date_fin', 'est_actif')
+            ->withTimestamps();
     }
 
     // === RELATIONS PERSONNALISÉES ===
@@ -207,8 +203,6 @@ class Enseignant extends Model
         return $this->hasMany(HeureSupplementaire::class);
     }
 
-   
-
     public function miseAJourMcVe()
     {
         return $this->hasMany(MiseAJourMcVe::class);
@@ -218,8 +212,6 @@ class Enseignant extends Model
     {
         return $this->hasMany(MiseAJourPcVac::class);
     }
-
-  
 
     public function validations()
     {
@@ -264,24 +256,24 @@ class Enseignant extends Model
 
     public function scopeSearch($query, $search)
     {
-        return $query->where(function($q) use ($search) {
+        return $query->where(function ($q) use ($search) {
             $q->where('matricule', 'LIKE', "%{$search}%")
-              ->orWhere('nom', 'LIKE', "%{$search}%")
-              ->orWhere('prenom', 'LIKE', "%{$search}%")
-              ->orWhere('cni', 'LIKE', "%{$search}%")
-              ->orWhere('email', 'LIKE', "%{$search}%");
+                ->orWhere('nom', 'LIKE', "%{$search}%")
+                ->orWhere('prenom', 'LIKE', "%{$search}%")
+                ->orWhere('cni', 'LIKE', "%{$search}%")
+                ->orWhere('email', 'LIKE', "%{$search}%");
         });
     }
 
     // === ACCESSORS ===
     public function getNomCompletAttribute()
     {
-        return $this->prenom . ' ' . $this->nom;
+        return $this->prenom.' '.$this->nom;
     }
 
     public function getNomCompletInverseAttribute()
     {
-        return $this->nom . ' ' . $this->prenom;
+        return $this->nom.' '.$this->prenom;
     }
 
     public function getAgeAttribute()
@@ -289,6 +281,7 @@ class Enseignant extends Model
         if ($this->date_naissance) {
             return $this->date_naissance->age;
         }
+
         return null;
     }
 
@@ -304,6 +297,7 @@ class Enseignant extends Model
             'radie' => 'Radié',
             'cessation_paiement' => 'Cessation de paiement',
         ];
+
         return $statuts[$this->statut] ?? $this->statut;
     }
 
@@ -313,8 +307,13 @@ class Enseignant extends Model
         return $this->est_actif && $this->statut === 'en_activite';
     }
 
+    public function comptesBancaires()
+    {
+        return $this->hasMany(CompteBancaireEnseignant::class);
+    }
+
     public function getSalaireBrutFormattedAttribute()
     {
-        return number_format($this->salaire_brut, 0, ',', ' ') . ' FCFA';
+        return number_format($this->salaire_brut, 0, ',', ' ').' FCFA';
     }
 }

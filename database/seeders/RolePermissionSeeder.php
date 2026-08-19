@@ -2,9 +2,9 @@
 
 namespace Database\Seeders;
 
-use Illuminate\Database\Seeder;
-use App\Models\Admin\Role;
 use App\Models\Admin\Permission;
+use App\Models\Admin\Role;
+use Illuminate\Database\Seeder;
 
 class RolePermissionSeeder extends Seeder
 {
@@ -52,6 +52,7 @@ class RolePermissionSeeder extends Seeder
                 'enseignants.create',
                 'enseignants.update',
                 'enseignants.validate',
+                'enseignants.comptes_bancaires.manage',
             ])->pluck('id')->toArray();
             $gestionnaireIa->permissions()->sync($iaPermissions);
         }
@@ -63,6 +64,7 @@ class RolePermissionSeeder extends Seeder
                 'enseignants.read',
                 'enseignants.create',
                 'enseignants.update',
+                'enseignants.comptes_bancaires.manage',
             ])->pluck('id')->toArray();
             $gestionnaireIef->permissions()->sync($iefPermissions);
         }
@@ -77,6 +79,7 @@ class RolePermissionSeeder extends Seeder
                 'enseignants.validate',
                 'enseignants.export',
                 'enseignants.search',
+                'enseignants.comptes_bancaires.manage',
             ])->pluck('id')->toArray();
             $drh->permissions()->sync($drhPermissions);
         }
