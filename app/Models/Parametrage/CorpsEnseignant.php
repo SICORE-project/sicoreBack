@@ -14,18 +14,23 @@ class CorpsEnseignant extends Model
     protected $fillable = [
         'code',
         'libelle',
-        'categorie_id',
         'description',
     ];
 
-    public function categorie()
+    public function categories()
     {
-        return $this->belongsTo(Categorie::class, 'categorie_id');
+        return $this->hasMany(
+            Categorie::class,
+            'corps_id'
+        );
     }
 
     public function enseignants()
     {
-        return $this->hasMany(Enseignant::class, 'corps_enseignant_id');
+        return $this->hasMany(
+            Enseignant::class,
+            'corps_enseignant_id'
+        );
     }
 
     public function rubriques()

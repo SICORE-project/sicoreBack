@@ -1,5 +1,6 @@
 <?php
 use App\Http\Controllers\Api\Parametrage\CorpsController;
+use App\Http\Controllers\Api\Parametrage\CategorieController;
 
 Route::prefix('corps')->group(function () {
 
@@ -25,3 +26,16 @@ Route::prefix('corps')->group(function () {
         'deactivate'
     ]);
 });
+
+
+Route::apiResource('categories', CategorieController::class);
+
+Route::patch(
+    'categories/{id}/activate',
+    [CategorieController::class, 'activate']
+);
+
+Route::patch(
+    'categories/{id}/deactivate',
+    [CategorieController::class, 'deactivate']
+);
