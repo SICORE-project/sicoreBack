@@ -50,6 +50,7 @@ class PermissionSeeder extends Seeder
             ['nom' => 'Valider un enseignant', 'slug' => 'enseignants.validate', 'groupe' => 'personnel', 'module' => 'enseignants', 'action' => 'validate'],
             ['nom' => 'Rechercher un enseignant', 'slug' => 'enseignants.search', 'groupe' => 'personnel', 'module' => 'enseignants', 'action' => 'search'],
             ['nom' => 'Exporter les enseignants', 'slug' => 'enseignants.export', 'groupe' => 'personnel', 'module' => 'enseignants', 'action' => 'export'],
+            ['nom' => 'Gérer les comptes bancaires des enseignants', 'slug' => 'enseignants.comptes_bancaires.manage', 'groupe' => 'personnel', 'module' => 'comptes_bancaires', 'action' => 'manage'],
 
             // === PAIE ===
             ['nom' => 'Consulter les bulletins de paie', 'slug' => 'paie.bulletins.read', 'groupe' => 'paie', 'module' => 'bulletins', 'action' => 'read'],

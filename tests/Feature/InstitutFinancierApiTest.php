@@ -32,9 +32,37 @@ class InstitutFinancierApiTest extends TestCase
             $table->timestamps();
         });
 
+        Schema::create('enseignants', function (Blueprint $table) {
+            $table->id();
+            $table->string('matricule')->unique();
+            $table->string('nom');
+            $table->string('prenom');
+            $table->timestamps();
+            $table->softDeletes();
+        });
+
+        Schema::create('comptes_bancaires_enseignants', function (Blueprint $table) {
+            $table->id();
+            $table->unsignedBigInteger('enseignant_id');
+            $table->unsignedBigInteger('institut_financier_id');
+            $table->string('numero_compte', 34);
+            $table->string('rib', 34);
+            $table->boolean('est_actif')->default(true);
+            $table->timestamps();
+        });
+
         DB::table('instituts_financieres')->insert([
             ['code' => 'B001', 'libelle' => 'Banque Atlantique', 'sigle' => 'BA', 'type_institution' => 'banque', 'est_actif' => true, 'telephone' => '330000001', 'email' => 'ba@example.sn', 'adresse' => 'Dakar', 'created_at' => now(), 'updated_at' => now()],
             ['code' => 'M001', 'libelle' => 'Mutuelle du Sénégal', 'sigle' => 'MS', 'type_institution' => 'microfinance', 'est_actif' => false, 'telephone' => null, 'email' => null, 'adresse' => null, 'created_at' => now(), 'updated_at' => now()],
+        ]);
+
+        DB::table('enseignants')->insert([
+            'id' => 1,
+            'matricule' => 'ENS001',
+            'nom' => 'Diop',
+            'prenom' => 'Awa',
+            'created_at' => now(),
+            'updated_at' => now(),
         ]);
     }
 
@@ -214,6 +242,71 @@ class InstitutFinancierApiTest extends TestCase
     {
         $this->patchJson('/api/parametrage/institutions-financieres/999/statut', [
             'est_actif' => false,
+        ])->assertNotFound();
+    }
+
+    public function test_associe_une_institution_active_au_compte_bancaire_d_un_enseignant(): void
+    {
+        $this->postJson('/api/enseignants/1/comptes-bancaires', [
+            'institut_financier_id' => 1,
+            'numero_compte' => 'SN001234567890',
+            'rib' => 'SN08 00001 00002 123456789 01',
+            'est_actif' => true,
+        ])
+            ->assertCreated()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.enseignant_id', 1)
+            ->assertJsonPath('data.institution_financiere.code', 'B001');
+
+        $this->assertDatabaseHas('comptes_bancaires_enseignants', [
+            'enseignant_id' => 1,
+            'institut_financier_id' => 1,
+            'numero_compte' => 'SN001234567890',
+        ]);
+        $this->assertDatabaseHas('enseignants', ['id' => 1, 'matricule' => 'ENS001']);
+    }
+
+    public function test_refuse_d_associer_une_institution_inactive(): void
+    {
+        $this->postJson('/api/enseignants/1/comptes-bancaires', [
+            'institut_financier_id' => 2,
+            'numero_compte' => 'SN009999999999',
+            'rib' => 'SN08 00001 00002 999999999 01',
+            'est_actif' => true,
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('institut_financier_id');
+    }
+
+    public function test_refuse_un_compte_duplique_pour_le_meme_enseignant(): void
+    {
+        DB::table('comptes_bancaires_enseignants')->insert([
+            'enseignant_id' => 1,
+            'institut_financier_id' => 1,
+            'numero_compte' => 'SN001234567890',
+            'rib' => 'RIB-EXISTANT',
+            'est_actif' => true,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $this->postJson('/api/enseignants/1/comptes-bancaires', [
+            'institut_financier_id' => 1,
+            'numero_compte' => 'SN001234567890',
+            'rib' => 'NOUVEAU-RIB',
+            'est_actif' => true,
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('numero_compte');
+    }
+
+    public function test_retourne_404_si_enseignant_est_introuvable_pour_l_association(): void
+    {
+        $this->postJson('/api/enseignants/999/comptes-bancaires', [
+            'institut_financier_id' => 1,
+            'numero_compte' => 'SN001234567890',
+            'rib' => 'SN08 00001 00002 123456789 01',
+            'est_actif' => true,
         ])->assertNotFound();
     }
 }

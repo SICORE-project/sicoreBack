@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\Parametrage\CompteBancaireEnseignantController;
 use App\Http\Controllers\Api\Parametrage\InstitutFinancierController;
 use Illuminate\Support\Facades\Route;
 
@@ -16,3 +17,7 @@ Route::put('parametrage/institutions-financieres/{institution}', [InstitutFinanc
 Route::patch('parametrage/institutions-financieres/{institution}/statut', [InstitutFinancierController::class, 'updateStatut'])
     ->whereNumber('institution')
     ->middleware('permission:parametrage.institutions_financieres.manage');
+
+Route::post('enseignants/{enseignant}/comptes-bancaires', [CompteBancaireEnseignantController::class, 'store'])
+    ->whereNumber('enseignant')
+    ->middleware('permission:enseignants.comptes_bancaires.manage');
