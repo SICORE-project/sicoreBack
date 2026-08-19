@@ -106,4 +106,49 @@ class IefController extends Controller
         'data' => new IefResource($ief),
     ], 201);
 }
+
+public function byIa(int $id)
+{
+    $user = request()->user();
+
+    $ia = \App\Models\Parametrage\Ia::find($id);
+
+    if (!$ia) {
+        return response()->json([
+            'success' => false,
+            'message' => 'L’Inspection d’Académie demandée n’existe pas.',
+        ], 404);
+    }
+
+    if (
+        $user->hasRole('gestionnaire_ia') &&
+        (int) $user->ia_id !== (int) $ia->id
+    ) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Vous n’êtes pas autorisé à consulter les IEF de cette IA.',
+        ], 403);
+    }
+
+    $iefs = $this->iefService->getByIa(
+        $ia->id,
+        request()->only([
+            'search',
+            'est_actif',
+            'sort_by',
+            'sort_direction',
+            'per_page',
+        ])
+    );
+
+    return response()->json([
+        'success' => true,
+        'ia' => [
+            'id' => $ia->id,
+            'code' => $ia->code,
+            'libelle' => $ia->libelle,
+        ],
+        'data' => $iefs,
+    ]);
+}
 }
