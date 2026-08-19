@@ -10,6 +10,15 @@ return new class extends Migration
     public function up(): void
     {
         // Mise à niveau des installations où lieu_de_services existe déjà.
+        Schema::table('ias', function (Blueprint $table) {
+            if (! Schema::hasColumn('ias', 'est_actif')) {
+                $table->boolean('est_actif')->default(true)->index();
+            }
+            if (! Schema::hasColumn('ias', 'deleted_at')) {
+                $table->softDeletes();
+            }
+        });
+
         Schema::table('lieu_de_services', function (Blueprint $table) {
             if (! Schema::hasColumn('lieu_de_services', 'perimetre')) {
                 $table->enum('perimetre', ['national', 'regional'])->nullable()->index();

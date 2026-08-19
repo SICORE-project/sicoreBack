@@ -14,6 +14,7 @@ if (root) {
         form: root.querySelector('[data-form]'), title: root.querySelector('[data-title]'),
         errors: root.querySelector('[data-errors]'), structure: root.querySelector('[data-structure-field]'),
         structureHint: root.querySelector('[data-structure-hint]'),
+        structureTypeFilter: root.querySelector('[data-structure-type-filter]'),
         password: root.querySelector('[data-password-field]'), submit: root.querySelector('[data-submit]'),
     };
     let users = [];
@@ -66,6 +67,14 @@ if (root) {
             </tr>`;
         }).join('');
     };
+    const populateStructureTypeFilter = () => {
+        const selected = elements.structureTypeFilter.value;
+        const types = [...new Set(structures.map(structure => structure.type).filter(Boolean))]
+            .sort((left, right) => left.localeCompare(right, 'fr'));
+        elements.structureTypeFilter.innerHTML = '<option value="">Tous les types</option>'
+            + types.map(type => `<option value="${escape(type)}">${escape(type)}</option>`).join('');
+        elements.structureTypeFilter.value = selected;
+    };
     const showErrors = (response) => {
         const validation = response?.data?.errors;
         const messages = validation ? Object.values(validation).flat() : [response?.data?.message || 'Une erreur est survenue.'];
@@ -88,18 +97,24 @@ if (root) {
         updateStructureRequirement(user?.structure_organisationnelle?.id);
         elements.dialog.showModal();
     };
-    const load = async () => {
+    const load = async (reloadReferences = true) => {
         if (!token) {
             showAlert('Aucun jeton de connexion trouvé. Connectez-vous avant d’ouvrir cette page.', true);
             return;
         }
         try {
+            const params = elements.structureTypeFilter.value
+                ? { type_structure: elements.structureTypeFilter.value }
+                : {};
             const [userResponse, roleResponse, structureResponse] = await Promise.all([
-                api.get('/users'), api.get('/roles/all'), api.get('/structures-organisationnelles'),
+                api.get('/users', { params }),
+                reloadReferences ? api.get('/roles/all') : Promise.resolve({ data: { data: roles } }),
+                reloadReferences ? api.get('/structures-organisationnelles') : Promise.resolve({ data: { data: structures } }),
             ]);
             users = userResponse.data.data;
             roles = roleResponse.data.data;
             structures = structureResponse.data.data;
+            populateStructureTypeFilter();
             elements.form.role_id.innerHTML = '<option value="">Sélectionner un rôle</option>' + roles.map(role => `<option value="${role.id}">${escape(role.nom)}</option>`).join('');
             updateStructureRequirement();
             render();
@@ -111,6 +126,7 @@ if (root) {
     root.querySelector('[data-action="new"]').addEventListener('click', () => openForm());
     root.querySelectorAll('[data-action="close"]').forEach(button => button.addEventListener('click', () => elements.dialog.close()));
     elements.form.role_id.addEventListener('change', updateStructureRequirement);
+    elements.structureTypeFilter.addEventListener('change', () => load(false));
     elements.rows.addEventListener('click', event => {
         const button = event.target.closest('[data-edit]');
         if (button) openForm(users.find(user => String(user.id) === button.dataset.edit));

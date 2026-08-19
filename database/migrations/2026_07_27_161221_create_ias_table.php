@@ -18,8 +18,9 @@ return new class extends Migration
             $table->string('telephone', 20)->nullable();
             $table->string('email', 100)->nullable();
             $table->string('responsable', 100)->nullable();
-            $table->boolean('est_actif')->default(true);
+            $table->boolean('est_actif')->default(true)->index();
             $table->timestamps();
+            $table->softDeletes();
         });
     }
 
