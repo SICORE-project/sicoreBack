@@ -119,4 +119,14 @@ Route::prefix('syndicats')->group(function () {
     Route::patch('/{id}', [SyndicatController::class, 'update']);
 
     Route::delete('/{id}', [SyndicatController::class, 'destroy']);
+
+    Route::patch('/{id}/activate', [
+        SyndicatController::class,
+        'activate'
+    ]);
+
+    Route::patch('/{id}/deactivate', [
+        SyndicatController::class,
+        'deactivate'
+    ]);
 });

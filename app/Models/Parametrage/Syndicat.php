@@ -29,5 +29,9 @@ class Syndicat extends Model
         'est_actif' => 'boolean',
     ];
     
+    // public function enseignants()
+    // {
+    //     return $this->hasMany(Enseignant::class, 'syndicat_id');
+    // }
 
 }
