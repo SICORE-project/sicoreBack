@@ -38,6 +38,7 @@ Route::prefix('parametrage')->group(function () {
         Route::post('/', [IefController::class, 'store'])->middleware('permission:parametrage.ief.manage');
         Route::get('/{id}', [IefController::class, 'show'])->middleware('permission:parametrage.ief.read');
         Route::get('/{id}/iefs', [IefController::class, 'byIa'])->middleware('permission:parametrage.ief.read');
+        Route::put('/{id}', [IefController::class, 'update'])->middleware('permission:parametrage.ief.manage');
 });     
 
 });

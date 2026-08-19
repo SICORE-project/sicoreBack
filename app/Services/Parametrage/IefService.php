@@ -156,4 +156,76 @@ class IefService
 
     return $query->paginate($perPage);
 }
+
+/**
+ * Modifier une IEF.
+ */
+public function update(int $id, array $data): Ief
+{
+    // Vérifier que l'IEF existe
+    $ief = $this->findById($id);
+
+    // Vérifier que l'IA sélectionnée existe
+    $ia = Ia::findOrFail($data['ia_id']);
+
+    // Vérifier que l'IA sélectionnée est active
+    if (!$ia->est_actif) {
+        throw new \DomainException(
+            'Impossible de rattacher une IEF à une IA inactive.'
+        );
+    }
+
+    /*
+    | Vérifier s'il y a un changement d'IA
+    */
+
+    $changementIa = (int) $ief->ia_id !== (int) $data['ia_id'];
+
+    if ($changementIa) {
+
+        /*
+        | Vérifier les lieux de service / établissements rattachés
+        */
+
+        if ($ief->lieuxServices()->exists()) {
+            throw new \DomainException(
+                'Impossible de changer l’IA de cette IEF car des lieux de service y sont rattachés.'
+            );
+        }
+
+        /*
+        | Vérifier les enseignants rattachés
+        */
+
+        if ($ief->enseignants()->exists()) {
+            throw new \DomainException(
+                'Impossible de changer l’IA de cette IEF car des enseignants y sont rattachés.'
+            );
+        }
+
+        /*
+        
+        | Vérifier les utilisateurs rattachés
+        */
+
+        if ($ief->users()->exists()) {
+            throw new \DomainException(
+                'Impossible de changer l’IA de cette IEF car des utilisateurs y sont rattachés.'
+            );
+        }
+    }
+
+    /*
+    | Mise à jour
+    */
+
+    $ief->update($data);
+
+    /*
+    | Retourner l'IEF avec son IA
+    */
+
+    return $ief->fresh(['ia']);
+}
+
 }

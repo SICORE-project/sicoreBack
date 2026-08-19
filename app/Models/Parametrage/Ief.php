@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use App\Models\Admin\User;
+use App\Models\Personnel\Enseignant;
 
 class Ief extends Model
 {
@@ -34,7 +35,7 @@ class Ief extends Model
 
     public function lieuxServices()
     {
-        return $this->hasMany(LieuService::class);
+        return $this->hasMany(LieuService::class, 'ief_id');
     }
 
     public function centresFormation()
