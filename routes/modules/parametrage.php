@@ -76,16 +76,6 @@ Route::prefix('parametrage/ief')->group(function () {
         ->middleware('permission:parametrage.ief.manage');
 });
 
-Route::prefix('parametrage/ief')->group(function () {
-    Route::get('/', [IefController::class, 'index'])
-        ->middleware('permission:parametrage.ief.read');
-    Route::post('/', [IefController::class, 'store'])
-        ->middleware('permission:parametrage.ief.manage');
-    Route::get('/{id}', [IefController::class, 'show'])
-        ->whereNumber('id')
-        ->middleware('permission:parametrage.ief.read');
-});
-
 /*
 |--------------------------------------------------------------------------
 | LIEUX DE SERVICE
