@@ -2,6 +2,8 @@
 
 namespace Tests\Feature;
 
+use App\Http\Middleware\PermissionMiddleware;
+use Illuminate\Auth\Middleware\Authenticate;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -12,7 +14,10 @@ class InstitutFinancierApiTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->withoutMiddleware();
+        $this->withoutMiddleware([
+            Authenticate::class,
+            PermissionMiddleware::class,
+        ]);
 
         Schema::create('instituts_financieres', function (Blueprint $table) {
             $table->id();
@@ -106,5 +111,109 @@ class InstitutFinancierApiTest extends TestCase
         $this->postJson('/api/parametrage/institutions-financieres', [])
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['code', 'libelle', 'type_institution', 'est_actif']);
+    }
+
+    public function test_modifie_une_institution_sans_changer_son_statut(): void
+    {
+        $payload = [
+            'code' => ' b001 ',
+            'libelle' => 'Banque Atlantique Sénégal',
+            'sigle' => 'BAS',
+            'type_institution' => 'Banque',
+            'telephone' => '+221 33 811 11 11',
+            'email' => 'contact@bas.sn',
+            'adresse' => 'Plateau, Dakar',
+        ];
+
+        $this->putJson('/api/parametrage/institutions-financieres/1', $payload)
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.code', 'B001')
+            ->assertJsonPath('data.libelle', 'Banque Atlantique Sénégal')
+            ->assertJsonPath('data.est_actif', true);
+
+        $this->assertDatabaseHas('instituts_financieres', [
+            'id' => 1,
+            'sigle' => 'BAS',
+            'est_actif' => true,
+        ]);
+    }
+
+    public function test_refuse_un_code_deja_utilise_lors_de_la_modification(): void
+    {
+        $this->putJson('/api/parametrage/institutions-financieres/1', [
+            'code' => 'M001',
+            'libelle' => 'Banque Atlantique',
+            'type_institution' => 'Banque',
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('code');
+    }
+
+    public function test_refuse_de_modifier_le_statut_depuis_la_route_de_modification(): void
+    {
+        $this->putJson('/api/parametrage/institutions-financieres/1', [
+            'code' => 'B001',
+            'libelle' => 'Banque Atlantique',
+            'type_institution' => 'Banque',
+            'est_actif' => false,
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('est_actif');
+
+        $this->assertDatabaseHas('instituts_financieres', ['id' => 1, 'est_actif' => true]);
+    }
+
+    public function test_retourne_404_si_institution_a_modifier_est_introuvable(): void
+    {
+        $this->putJson('/api/parametrage/institutions-financieres/999', [
+            'code' => 'IF999',
+            'libelle' => 'Institution inconnue',
+            'type_institution' => 'Banque',
+        ])->assertNotFound();
+    }
+
+    public function test_desactive_une_institution_sans_la_supprimer(): void
+    {
+        $this->patchJson('/api/parametrage/institutions-financieres/1/statut', [
+            'est_actif' => false,
+        ])
+            ->assertOk()
+            ->assertJsonPath('message', 'Institution financière désactivée avec succès.')
+            ->assertJsonPath('data.est_actif', false);
+
+        $this->assertDatabaseHas('instituts_financieres', [
+            'id' => 1,
+            'code' => 'B001',
+            'est_actif' => false,
+        ]);
+    }
+
+    public function test_active_une_institution(): void
+    {
+        $this->patchJson('/api/parametrage/institutions-financieres/2/statut', [
+            'est_actif' => true,
+        ])
+            ->assertOk()
+            ->assertJsonPath('message', 'Institution financière activée avec succès.')
+            ->assertJsonPath('data.est_actif', true);
+
+        $this->assertDatabaseHas('instituts_financieres', ['id' => 2, 'est_actif' => true]);
+    }
+
+    public function test_exige_un_statut_booleen(): void
+    {
+        $this->patchJson('/api/parametrage/institutions-financieres/1/statut', [
+            'est_actif' => 'inactif',
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('est_actif');
+    }
+
+    public function test_retourne_404_si_institution_du_statut_est_introuvable(): void
+    {
+        $this->patchJson('/api/parametrage/institutions-financieres/999/statut', [
+            'est_actif' => false,
+        ])->assertNotFound();
     }
 }

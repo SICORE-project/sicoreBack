@@ -8,3 +8,11 @@ Route::get('parametrage/institutions-financieres', [InstitutFinancierController:
 
 Route::post('parametrage/institutions-financieres', [InstitutFinancierController::class, 'store'])
     ->middleware('permission:parametrage.institutions_financieres.manage');
+
+Route::put('parametrage/institutions-financieres/{institution}', [InstitutFinancierController::class, 'update'])
+    ->whereNumber('institution')
+    ->middleware('permission:parametrage.institutions_financieres.manage');
+
+Route::patch('parametrage/institutions-financieres/{institution}/statut', [InstitutFinancierController::class, 'updateStatut'])
+    ->whereNumber('institution')
+    ->middleware('permission:parametrage.institutions_financieres.manage');
