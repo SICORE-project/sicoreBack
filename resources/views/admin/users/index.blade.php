@@ -13,6 +13,13 @@
         <button data-action="new" class="rounded-lg bg-indigo-600 px-5 py-3 font-semibold text-white shadow-sm hover:bg-indigo-700">Ajouter un utilisateur</button>
     </header>
     <div data-alert class="mb-5 hidden rounded-lg border px-4 py-3 text-sm" role="alert"></div>
+    <div class="mb-5 flex justify-end">
+        <label class="grid w-full max-w-xs gap-2 text-sm font-medium">Type de structure
+            <select data-structure-type-filter class="rounded-lg border border-slate-300 bg-white px-3 py-2.5">
+                <option value="">Tous les types</option>
+            </select>
+        </label>
+    </div>
     <section class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
         <div class="overflow-x-auto"><table class="min-w-full divide-y divide-slate-200">
             <thead class="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wider text-slate-500"><tr><th class="px-5 py-4">Utilisateur</th><th class="px-5 py-4">Rôle</th><th class="px-5 py-4">Structure</th><th class="px-5 py-4">Statut</th><th class="px-5 py-4 text-right">Action</th></tr></thead>

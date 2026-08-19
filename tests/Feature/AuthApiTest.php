@@ -4,10 +4,16 @@ namespace Tests\Feature;
 use App\Models\admin\User;
 use App\Http\Requests\Administration\StoreUserRequest;
 use App\Http\Requests\Administration\UpdateUserRequest;
+use App\Http\Controllers\Api\UserController;
+use App\Services\Administration\UserService;
+use Illuminate\Http\Request;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Routing\Route;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\ValidationException;
+use App\Models\Parametrage\LieuService;
+use App\Services\Administration\OrganizationalScope;
 use Laravel\Sanctum\PersonalAccessToken;
 use Tests\TestCase;
 
@@ -271,6 +277,111 @@ class AuthApiTest extends TestCase {
         $user->update(['role_id' => 20, 'lieu_service_id' => $dageId]);
         $structureRequest = $this->updateRequest($user->id, ['structure_organisationnelle_id' => $iefId]);
         $this->assertArrayHasKey('structure_organisationnelle_id', Validator::make($structureRequest->all(), $structureRequest->rules())->errors()->toArray());
+    }
+
+    public function test_rattachement_dedie_applique_les_regles_role_structure(): void
+    {
+        \DB::table('roles')->insert([
+            'id' => 20, 'libelle' => 'Administrateur metier', 'niveau' => 'admin_metier',
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+        $dageId = \DB::table('lieu_de_services')->insertGetId([
+            'type' => 'DAGE', 'libelle' => 'DAGE', 'est_actif' => true,
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+        $iefId = \DB::table('lieu_de_services')->insertGetId([
+            'type' => 'IEF', 'libelle' => 'IEF', 'est_actif' => true,
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+        $user = User::create([
+            'nom' => 'Fall', 'prenom' => 'Aminata', 'email' => 'attach@example.com',
+            'password' => 'password123', 'role_id' => 20,
+        ]);
+        $controller = new UserController(app(UserService::class));
+
+        $response = $controller->assignStructure(Request::create('/', 'POST', [
+            'structure_organisationnelle_id' => $dageId,
+        ]), (string) $user->id);
+
+        $this->assertSame(200, $response->status());
+        $this->assertSame($dageId, $user->fresh()->lieu_service_id);
+
+        try {
+            $controller->assignStructure(Request::create('/', 'POST', [
+                'structure_organisationnelle_id' => $iefId,
+            ]), (string) $user->id);
+            $this->fail('Le rattachement d’un admin métier à une IEF devait être refusé.');
+        } catch (ValidationException $exception) {
+            $this->assertArrayHasKey('structure_organisationnelle_id', $exception->errors());
+            $this->assertSame($dageId, $user->fresh()->lieu_service_id);
+        }
+    }
+
+    public function test_perimetres_national_ia_et_ief_filtrent_les_donnees(): void
+    {
+        \DB::table('roles')->insert([
+            'id' => 30, 'libelle' => 'Gestionnaire', 'niveau' => 'gestion',
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+
+        $ia = LieuService::create(['code' => 'IA-1', 'type' => 'IA', 'perimetre' => 'regional', 'libelle' => 'IA 1', 'ia_id' => 10, 'est_actif' => true]);
+        $ief = LieuService::create(['code' => 'IEF-1', 'type' => 'IEF', 'perimetre' => 'regional', 'libelle' => 'IEF 1', 'ia_id' => 10, 'ief_id' => 100, 'est_actif' => true]);
+        LieuService::create(['code' => 'IEF-2', 'type' => 'IEF', 'perimetre' => 'regional', 'libelle' => 'IEF 2', 'ia_id' => 20, 'ief_id' => 200, 'est_actif' => true]);
+        $national = LieuService::create(['code' => 'DAGE', 'type' => 'DAGE', 'perimetre' => 'national', 'libelle' => 'DAGE', 'est_actif' => true]);
+
+        $scope = app(OrganizationalScope::class);
+        $user = $this->user(30);
+
+        $user->update(['lieu_service_id' => $ia->id]);
+        $this->assertSame(2, $scope->apply(LieuService::query(), $user->fresh())->count());
+
+        $user->update(['lieu_service_id' => $ief->id]);
+        $this->assertSame(1, $scope->apply(LieuService::query(), $user->fresh())->count());
+
+        $user->update(['lieu_service_id' => $national->id]);
+        $this->assertSame(4, $scope->apply(LieuService::query(), $user->fresh())->count());
+
+        $user->update(['lieu_service_id' => null]);
+        $this->assertSame(0, $scope->apply(LieuService::query(), $user->fresh())->count());
+    }
+
+    public function test_liste_utilisateurs_retourne_un_tableau_directement_exploitable(): void
+    {
+        $this->user();
+        $controller = new UserController(app(UserService::class));
+
+        $response = $controller->all(Request::create('/api/admin/users/all', 'GET'))->response();
+        $payload = $response->getData(true);
+
+        $this->assertSame(200, $response->status());
+        $this->assertTrue($payload['success']);
+        $this->assertCount(1, $payload['data']);
+        $this->assertSame('bdiaw@example.com', $payload['data'][0]['email']);
+    }
+
+    public function test_liste_utilisateurs_se_filtre_par_type_de_structure(): void
+    {
+        $iaId = \DB::table('lieu_de_services')->insertGetId([
+            'type' => 'IA', 'libelle' => 'IA Dakar', 'est_actif' => true,
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+        $iefId = \DB::table('lieu_de_services')->insertGetId([
+            'type' => 'IEF', 'libelle' => 'IEF Dakar', 'est_actif' => true,
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+        $this->user()->update(['lieu_service_id' => $iaId]);
+        User::create([
+            'nom' => 'Fall', 'prenom' => 'Awa', 'email' => 'awa@example.com',
+            'password' => 'password123', 'lieu_service_id' => $iefId,
+        ]);
+
+        $request = Request::create('/api/admin/users', 'GET', ['type_structure' => 'ief']);
+        $response = (new UserController(app(UserService::class)))->index($request)->response();
+        $payload = $response->getData(true);
+
+        $this->assertCount(1, $payload['data']);
+        $this->assertSame('awa@example.com', $payload['data'][0]['email']);
+        $this->assertSame('IEF', $payload['data'][0]['structure_organisationnelle']['type']);
     }
 
     private function updateRequest(int $userId, array $data): UpdateUserRequest

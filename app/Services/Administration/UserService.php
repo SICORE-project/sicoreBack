@@ -29,9 +29,17 @@ class UserService
     /**
      * Liste des utilisateurs
      */
-    public function all()
+    public function all(?string $structureType = null)
     {
-        return User::with(['role', 'structureOrganisationnelle'])->get();
+        return User::with(['role', 'structureOrganisationnelle'])
+            ->when($structureType, function ($query, string $type) {
+                $query->whereHas('structureOrganisationnelle', function ($structureQuery) use ($type) {
+                    $structureQuery->whereRaw('UPPER(type) = ?', [mb_strtoupper($type)]);
+                });
+            })
+            ->orderBy('nom')
+            ->orderBy('prenom')
+            ->get();
     }
 
 
