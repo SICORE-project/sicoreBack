@@ -21,7 +21,7 @@ class SyndicatController extends Controller
 
     public function show($id)
     {
-        // return response()->json($this->syndicatService->getSyndicatById($id));
+        return response()->json($this->syndicatService->getSyndicatById($id));
     }
 
     public function store(StoreSyndicatRequest $request)
@@ -52,10 +52,35 @@ class SyndicatController extends Controller
         ], 201);
     }
 
-    public function update(UpdateSyndicatRequest $request, $id)
+    public function update(UpdateSyndicatRequest $request, int $id)
     {
-        $syndicat = $this->syndicatService->updateSyndicat($id, $request->validated());
-        return response()->json($syndicat);
+        $syndicat = $this->syndicatService->updateSyndicat(
+            $id,
+            $request->validated(),
+        );
+
+        // JOURNALISER LES ANCIENNES VALEURS DES CHAMPS MODIFIÉS ET LES NOUVELLES VALEURS
+        $champsModifies = array_keys($request->validated());
+        Log::info('Modification d’un syndicat', [
+            'syndicat_id' => $syndicat->id,
+            'champs_modifies' => $champsModifies,
+            'utilisateur_id' => $request->user()?->id,
+            'adresse_ip' => $request->ip(),
+        ]);
+
+        return response()->json([
+            'message' => 'Syndicat modifié avec succès.',
+            'data' => $syndicat->only([
+                'id',
+                'code',
+                'libelle',
+                'montant_check_off',
+                'montant_oeuvre_sociale',
+                'est_actif',
+                'created_at',
+                'updated_at',
+            ]),
+        ]);
     }
 
     public function destroy($id)

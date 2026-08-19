@@ -25,11 +25,12 @@ class SyndicatService
         return $this->syndicat->create($data);
     }
 
-    public function updateSyndicat($id, array $data)
+    public function updateSyndicat(int $id, array $data): Syndicat
     {
         $syndicat = $this->getSyndicatById($id);
         $syndicat->update($data);
-        return $syndicat;
+
+        return $syndicat->refresh();
     }
 
     public function deleteSyndicat($id)
