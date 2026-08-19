@@ -9,10 +9,13 @@ class InstitutFinancier extends Model
 {
     use HasFactory;
 
+    protected $table = 'instituts_financieres';
+
     protected $fillable = [
         'code',
-        'nom',
+        'libelle',
         'sigle',
+        'type_institution',
         'adresse',
         'telephone',
         'email',
@@ -37,7 +40,7 @@ class InstitutFinancier extends Model
     public function enseignants()
     {
         return $this->belongsToMany(Enseignant::class, 'enseignant_institut_financier')
-                    ->withPivot('iban', 'bic', 'titulaire_compte', 'est_principal', 'est_actif')
-                    ->withTimestamps();
+            ->withPivot('iban', 'bic', 'titulaire_compte', 'est_principal', 'est_actif')
+            ->withTimestamps();
     }
 }

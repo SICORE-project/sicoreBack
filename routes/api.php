@@ -32,5 +32,6 @@ Route::middleware(['auth:sanctum'])->group(function () {
 
     require __DIR__.'/modules/administration.php';
     require __DIR__.'/modules/parametrage.php';
+    require __DIR__.'/modules/indemnites.php';
 
 });

@@ -2,10 +2,11 @@
 
 use App\Http\Controllers\Api\Parametrage\CategorieController;
 use App\Http\Controllers\Api\Parametrage\CorpsController;
+use App\Http\Controllers\Api\Parametrage\InstitutFinancierController;
 use App\Http\Controllers\Api\Parametrage\LieuServiceController;
-use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\Parametrage\AnneeAcademiqueController;
 use App\Http\Controllers\Api\Parametrage\SyndicatController;
+use Illuminate\Support\Facades\Route;
 
 /*
 |--------------------------------------------------------------------------
@@ -130,3 +131,6 @@ Route::prefix('syndicats')->group(function () {
         'deactivate'
     ]);
 });
+
+Route::get('parametrage/institutions-financieres', [InstitutFinancierController::class, 'index'])
+    ->middleware('permission:parametrage.institutions_financieres.read');
