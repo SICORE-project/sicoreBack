@@ -41,6 +41,9 @@ Route::prefix('parametrage/ief')->group(function () {
     Route::get('/{id}', [IefController::class, 'show'])
         ->whereNumber('id')
         ->middleware('permission:parametrage.ief.read');
+    Route::put('/{id}', [IefController::class, 'update'])
+        ->whereNumber('id')
+        ->middleware('permission:parametrage.ief.manage');
 });
 
 /*

@@ -4,8 +4,10 @@ namespace App\Http\Controllers\Api\Parametrage;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Parametrage\Ief\StoreIefRequest;
+use App\Http\Requests\Parametrage\Ief\UpdateIefRequest;
 use App\Http\Resources\Parametrage\IefResource;
 use App\Services\Parametrage\IefService;
+
 use Illuminate\Support\Facades\Log;
 
 class IefController extends Controller
@@ -149,6 +151,93 @@ public function byIa(int $id)
             'libelle' => $ia->libelle,
         ],
         'data' => $iefs,
+    ]);
+}
+
+public function update(UpdateIefRequest $request, int $id)
+{
+    $user = $request->user();
+
+    /*
+    |--------------------------------------------------------------------------
+    | Vérification des rôles autorisés
+    |--------------------------------------------------------------------------
+    */
+
+    if (
+        !$user->hasRole('super_admin') &&
+        !$user->hasRole('admin')
+    ) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Vous n’êtes pas autorisé à modifier une IEF.',
+        ], 403);
+    }
+
+    try {
+        // Valeurs avant modification
+        $iefAvant = $this->iefService->findById($id);
+
+        $anciennesValeurs = $iefAvant->only([
+            'code',
+            'libelle',
+            'ia_id',
+            'adresse',
+            'telephone',
+            'email',
+            'responsable',
+            'est_actif',
+        ]);
+
+        // Modification
+        $ief = $this->iefService->update(
+            $id,
+            $request->validated()
+        );
+
+        $nouvellesValeurs = $ief->only([
+            'code',
+            'libelle',
+            'ia_id',
+            'adresse',
+            'telephone',
+            'email',
+            'responsable',
+            'est_actif',
+        ]);
+
+    } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+        return response()->json([
+            'success' => false,
+            'message' => 'L’IEF demandée n’existe pas.',
+        ], 404);
+
+    } catch (\DomainException $e) {
+        return response()->json([
+            'success' => false,
+            'message' => $e->getMessage(),
+        ], 422);
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Journalisation
+    |--------------------------------------------------------------------------
+    */
+
+    Log::info('Modification IEF', [
+        'action' => 'UPDATE_IEF',
+        'user_id' => $user->id,
+        'ief_id' => $ief->id,
+        'anciennes_valeurs' => $anciennesValeurs,
+        'nouvelles_valeurs' => $nouvellesValeurs,
+        'ip' => $request->ip(),
+    ]);
+
+    return response()->json([
+        'success' => true,
+        'message' => 'IEF mise à jour avec succès.',
+        'data' => new IefResource($ief),
     ]);
 }
 }
