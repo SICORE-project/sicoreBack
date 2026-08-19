@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\Parametrage\CompteBancaireEnseignantController;
 use App\Http\Controllers\Api\Parametrage\CorpsController;
 use App\Http\Controllers\Api\Parametrage\InstitutFinancierController;
 use App\Http\Controllers\Api\Parametrage\IaController;
+use App\Http\Controllers\Api\Parametrage\IefController;
 use App\Http\Controllers\Api\Parametrage\LieuServiceController;
 use App\Http\Controllers\Api\Parametrage\AnneeAcademiqueController;
 use App\Http\Controllers\Api\Parametrage\SyndicatController;
@@ -27,6 +28,16 @@ Route::prefix('parametrage/ia')->group(function () {
     Route::delete('/{id}', [IaController::class, 'destroy'])
         ->whereNumber('id')
         ->middleware('permission:parametrage.ia.manage');
+});
+
+Route::prefix('parametrage/ief')->group(function () {
+    Route::get('/', [IefController::class, 'index'])
+        ->middleware('permission:parametrage.ief.read');
+    Route::post('/', [IefController::class, 'store'])
+        ->middleware('permission:parametrage.ief.manage');
+    Route::get('/{id}', [IefController::class, 'show'])
+        ->whereNumber('id')
+        ->middleware('permission:parametrage.ief.read');
 });
 
 /*
