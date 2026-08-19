@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\Parametrage\IaController;
+use App\Http\Controllers\Api\Parametrage\IefController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -26,15 +27,14 @@ Route::prefix('parametrage')->group(function () {
     });
 
     // ============================================================
-    // ROUTES IEF (à ajouter plus tard)
-    // ============================================================
+// ROUTES IEF (Inspection de l'Éducation et de la Formation)
+// ============================================================
 
-    // Route::prefix('ief')->group(function () {
-    //     Route::get('/', [IefController::class, 'index']);
-    //     Route::post('/', [IefController::class, 'store']);
-    //     Route::get('/{id}', [IefController::class, 'show']);
-    //     Route::put('/{id}', [IefController::class, 'update']);
-    //     Route::delete('/{id}', [IefController::class, 'destroy']);
-    // });
+    Route::prefix('ief')->group(function () {
+
+        Route::get('/', [IefController::class, 'index'])->middleware('permission:parametrage.ief.read');
+        Route::post('/', [IefController::class, 'store'])->middleware('permission:parametrage.ief.manage');
+        Route::get('/{id}', [IefController::class, 'show'])->middleware('permission:parametrage.ief.read');
+});
 
 });

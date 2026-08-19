@@ -19,7 +19,6 @@ class Ief extends Model
         'telephone',
         'email',
         'responsable',
-        'responsable_titre',
         'est_actif',
     ];
 
