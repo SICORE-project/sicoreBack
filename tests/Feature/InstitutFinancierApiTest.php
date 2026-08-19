@@ -61,4 +61,50 @@ class InstitutFinancierApiTest extends TestCase
             ->assertUnprocessable()
             ->assertJsonValidationErrors('per_page');
     }
+
+    public function test_cree_une_institution_financiere(): void
+    {
+        $payload = [
+            'code' => ' if007 ',
+            'libelle' => 'Nouvelle Banque du Sénégal',
+            'sigle' => 'NBS',
+            'type_institution' => 'Banque',
+            'telephone' => '+221 33 800 00 00',
+            'email' => 'contact@nbs.sn',
+            'adresse' => 'Dakar',
+            'est_actif' => true,
+        ];
+
+        $this->postJson('/api/parametrage/institutions-financieres', $payload)
+            ->assertCreated()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.code', 'IF007')
+            ->assertJsonPath('data.est_actif', true);
+
+        $this->assertDatabaseHas('instituts_financieres', [
+            'code' => 'IF007',
+            'libelle' => 'Nouvelle Banque du Sénégal',
+            'est_actif' => true,
+        ]);
+    }
+
+    public function test_refuse_un_code_duplique_et_un_email_invalide(): void
+    {
+        $this->postJson('/api/parametrage/institutions-financieres', [
+            'code' => 'b001',
+            'libelle' => 'Doublon',
+            'type_institution' => 'Banque',
+            'email' => 'email-invalide',
+            'est_actif' => true,
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['code', 'email']);
+    }
+
+    public function test_exige_les_donnees_obligatoires_a_la_creation(): void
+    {
+        $this->postJson('/api/parametrage/institutions-financieres', [])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['code', 'libelle', 'type_institution', 'est_actif']);
+    }
 }

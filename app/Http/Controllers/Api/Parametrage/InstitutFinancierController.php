@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\Parametrage;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Parametrage\IndexInstitutFinancierRequest;
+use App\Http\Requests\Parametrage\StoreInstitutFinancierRequest;
 use App\Http\Resources\Parametrage\InstitutFinancierResource;
 use App\Models\Parametrage\InstitutFinancier;
 
@@ -38,5 +39,18 @@ class InstitutFinancierController extends Controller
             'success' => true,
             'message' => 'Liste des institutions financières.',
         ]);
+    }
+
+    public function store(StoreInstitutFinancierRequest $request)
+    {
+        $institution = InstitutFinancier::create($request->validated());
+
+        return (new InstitutFinancierResource($institution))
+            ->additional([
+                'success' => true,
+                'message' => 'Institution financière créée avec succès.',
+            ])
+            ->response()
+            ->setStatusCode(201);
     }
 }
