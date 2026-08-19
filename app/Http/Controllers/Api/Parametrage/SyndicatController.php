@@ -16,7 +16,7 @@ class SyndicatController extends Controller
 
     public function index()
     {
-        // return response()->json($this->syndicatService->getAllSyndicats());
+        return response()->json($this->syndicatService->getAllSyndicats());
     }
 
     public function show($id)
