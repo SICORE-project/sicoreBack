@@ -3,6 +3,8 @@
 namespace App\Services\Parametrage;
 
 use App\Models\Parametrage\Syndicat;
+use Illuminate\Support\Facades\DB;
+use Symfony\Component\HttpKernel\Exception\ConflictHttpException;
 
 class SyndicatService
 {
@@ -30,7 +32,29 @@ class SyndicatService
         $syndicat = $this->getSyndicatById($id);
         $syndicat->update($data);
 
-        return $syndicat->refresh();
+        return $syndicat;
+    }
+
+    public function setActiveStatus(int $id, bool $estActif): Syndicat
+    {
+        return DB::transaction(function () use ($id, $estActif) {
+            $syndicat = $this->syndicat
+                ->newQuery()
+                ->lockForUpdate()
+                ->findOrFail($id);
+
+            if ($syndicat->est_actif === $estActif) {
+                throw new ConflictHttpException(
+                    $estActif
+                        ? 'Le syndicat est déjà actif.'
+                        : 'Le syndicat est déjà inactif.',
+                );
+            }
+
+            $syndicat->update(['est_actif' => $estActif]);
+
+            return $syndicat;
+        });
     }
 
     public function deleteSyndicat($id)
