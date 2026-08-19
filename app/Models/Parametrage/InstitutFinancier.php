@@ -31,6 +31,11 @@ class InstitutFinancier extends Model
         'est_actif' => 'boolean',
     ];
 
+    public function scopeActif($query)
+    {
+        return $query->where('est_actif', true);
+    }
+
     // === RELATIONS ===
     public function lieuxPaiement()
     {
