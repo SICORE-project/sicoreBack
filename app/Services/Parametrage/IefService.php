@@ -98,4 +98,62 @@ class IefService
 
         return $ief->fresh(['ia']);
     }
+
+
+    public function getByIa(int $iaId, array $filters = [])
+{
+    $query = Ief::where('ia_id', $iaId);
+
+    if (!empty($filters['search'])) {
+        $search = trim($filters['search']);
+
+        $query->where(function ($q) use ($search) {
+            $q->where('code', 'like', '%' . $search . '%')
+                ->orWhere('libelle', 'like', '%' . $search . '%');
+        });
+    }
+
+    if (isset($filters['est_actif']) && $filters['est_actif'] !== '') {
+        $query->where(
+            'est_actif',
+            filter_var(
+                $filters['est_actif'],
+                FILTER_VALIDATE_BOOLEAN
+            )
+        );
+    }
+
+    $allowedSorts = [
+        'code',
+        'libelle',
+    ];
+
+    $sortBy = $filters['sort_by'] ?? 'libelle';
+
+    if (!in_array($sortBy, $allowedSorts, true)) {
+        $sortBy = 'libelle';
+    }
+
+    $sortDirection = strtolower(
+        $filters['sort_direction'] ?? 'asc'
+    );
+
+    if (!in_array($sortDirection, ['asc', 'desc'], true)) {
+        $sortDirection = 'asc';
+    }
+
+    $query->orderBy($sortBy, $sortDirection);
+
+    $perPage = (int) ($filters['per_page'] ?? 15);
+
+    if ($perPage < 1) {
+        $perPage = 15;
+    }
+
+    if ($perPage > 100) {
+        $perPage = 100;
+    }
+
+    return $query->paginate($perPage);
+}
 }

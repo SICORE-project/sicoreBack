@@ -24,6 +24,8 @@ Route::prefix('parametrage')->group(function () {
         Route::get('/{id}', [IaController::class, 'show'])->middleware('permission:parametrage.ia.read');
         Route::put('/{id}', [IaController::class, 'update'])->middleware('permission:parametrage.ia.manage');
         Route::delete('/{id}', [IaController::class, 'destroy']);
+        Route::get('/{id}/iefs', [IefController::class, 'byIa'])->middleware('permission:parametrage.ief.read');
+
     });
 
     // ============================================================
@@ -35,6 +37,7 @@ Route::prefix('parametrage')->group(function () {
         Route::get('/', [IefController::class, 'index'])->middleware('permission:parametrage.ief.read');
         Route::post('/', [IefController::class, 'store'])->middleware('permission:parametrage.ief.manage');
         Route::get('/{id}', [IefController::class, 'show'])->middleware('permission:parametrage.ief.read');
-});
+        Route::get('/{id}/iefs', [IefController::class, 'byIa'])->middleware('permission:parametrage.ief.read');
+});     
 
 });
