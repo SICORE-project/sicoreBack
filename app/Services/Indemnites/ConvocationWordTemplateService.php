@@ -35,9 +35,15 @@ class ConvocationWordTemplateService
         'Métier / spécialité' => 'metier',
         'Chef de centre (nom complet)' => 'chef_centre',
         'Téléphone du chef de centre' => 'chef_centre_telephone',
-      
+        // Lieu où le chef de centre / le président du jury exerce
+        // habituellement (utilisé par le calcul des frais de déplacement
+        // pour l'ajustement ÷4 — même principe que la colonne "Provenance"
+        // du tableau Membres du jury ci-dessous).
+        'Provenance du chef de centre' => 'chef_centre_provenance',
+
         'Président du jury (nom complet)' => 'president_jury',
         'Téléphone du président du jury' => 'president_jury_telephone',
+        'Provenance du président du jury' => 'president_jury_provenance',
     ];
 
     private const CHAMPS_MEMBRE = [
@@ -384,8 +390,10 @@ class ConvocationWordTemplateService
             'metier' => $ligne['metier'] ?: null,
             'chef_centre_id' => $chefCentreId,
             'chef_centre_telephone' => $ligne['chef_centre_telephone'] ?: null,
+            'chef_centre_provenance' => $ligne['chef_centre_provenance'] ?: null,
             'president_jury_id' => $presidentJuryId,
             'president_jury_telephone' => $ligne['president_jury_telephone'] ?: null,
+            'president_jury_provenance' => $ligne['president_jury_provenance'] ?: null,
         ];
     }
 

@@ -55,8 +55,8 @@ class ConvocationSyncController extends Controller
                 $centreId = $centreDonnees['id'] ?? null;
 
                 $champsCentre = collect($centreDonnees)->only([
-                    'centre', 'jury', 'chef_centre_id', 'chef_centre_telephone',
-                    'president_jury_id', 'president_jury_telephone',
+                    'centre', 'jury', 'chef_centre_id', 'chef_centre_telephone', 'chef_centre_provenance',
+                    'president_jury_id', 'president_jury_telephone', 'president_jury_provenance',
                 ])->all();
 
                 if ($centreId && $convocation->centres()->where('id', $centreId)->exists()) {

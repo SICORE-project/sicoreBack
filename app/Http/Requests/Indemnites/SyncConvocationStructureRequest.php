@@ -50,8 +50,10 @@ class SyncConvocationStructureRequest extends FormRequest
             'centres.*.jury' => ['nullable', 'string', 'max:100'],
             'centres.*.chef_centre_id' => ['nullable', 'integer', 'exists:enseignants,id'],
             'centres.*.chef_centre_telephone' => ['nullable', 'string', 'max:30'],
+            'centres.*.chef_centre_provenance' => ['nullable', 'string', 'max:255'],
             'centres.*.president_jury_id' => ['nullable', 'integer', 'exists:enseignants,id'],
             'centres.*.president_jury_telephone' => ['nullable', 'string', 'max:30'],
+            'centres.*.president_jury_provenance' => ['nullable', 'string', 'max:255'],
 
             // Metiers de CE centre (un centre peut en couvrir plusieurs,
             // chacun avec ses propres membres — cf. modele papier

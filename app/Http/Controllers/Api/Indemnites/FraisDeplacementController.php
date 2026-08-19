@@ -11,6 +11,7 @@ use App\Http\Requests\Indemnites\DeposerJustificatifFraisRequest;
 use App\Http\Requests\Indemnites\RejeterFraisDeplacementRequest;
 use App\Http\Requests\Indemnites\RembourserFraisDeplacementRequest;
 use App\Models\Indemnite\Convocations as ConvocationModel;
+use App\Models\Indemnite\ConvocationCentre;
 use App\Models\Indemnite\MissionDeplacement;
 use App\Models\Indemnite\LigneFraisDeplacement;
 use App\Models\Indemnite\BaremeDeplacement;
@@ -28,19 +29,30 @@ use Illuminate\Support\Str;
  * dossier de pièces justificatives est complet (mêmes 6 documents que la
  * page Pièces justificatives — voir beneficiairesEligibles()).
  *
- * Montant : vacataire = 150 000 F fixe, contractuel = montant saisi
- * librement, fonctionnaire = en attente de l'étape "Calcul" (barème par
- * indice, pas encore spécifié) — voir store()/calculer().
+ * Montant : même méthodologie pour les 3 catégories de personnel — un
+ * Groupe (I/II/III) donne un taux journalier, ajusté selon le trajet puis
+ * multiplié par le nombre de jours de la période d'examen de la
+ * convocation. Voir determinerGroupe()/calculerMontantDeplacement().
  */
 class FraisDeplacementController extends Controller
 {
     use ApiResponseTrait;
 
     /**
-     * Montant fixe pour un bénéficiaire vacataire — cf. demande
-     * utilisatrice ("champ Somme avec un montant fixe à 150 000").
+     * Barème de référence (photo fournie par l'utilisatrice, seuil bas du
+     * Groupe I confirmé à 24 294 500 pour la colonne SG — continuité avec
+     * le plafond du Groupe II, la valeur "242 950" de la photo initiale
+     * chevauchait le Groupe III).
      */
-    private const MONTANT_VACATAIRE = 150000;
+    private const TAUX_PAR_GROUPE = ['I' => 25000, 'II' => 20000, 'III' => 15000];
+
+    private const SEUIL_INDICE_GROUPE_I = 2296;
+
+    private const SEUIL_INDICE_GROUPE_II = 1728;
+
+    private const SEUIL_SALAIRE_ANNUEL_GROUPE_I = 24294500;
+
+    private const SEUIL_SALAIRE_ANNUEL_GROUPE_II = 2109610;
 
     public function index(Request $request)
     {
@@ -90,7 +102,11 @@ class FraisDeplacementController extends Controller
         // centre/président du jury au dossier complet n'apparaissait
         // jamais ici : impossible d'établir sa fiche quels que soient ses
         // documents déposés.
-        $convocation = ConvocationModel::with(['enseignants', 'centres.chefCentre', 'centres.presidentJury'])->find($convocationId);
+        $convocation = ConvocationModel::with([
+            'enseignants.lieuService',
+            'centres.chefCentre.lieuService',
+            'centres.presidentJury.lieuService',
+        ])->find($convocationId);
 
         if (! $convocation) {
             return $this->error('Convocation introuvable.', 404);
@@ -125,13 +141,22 @@ class FraisDeplacementController extends Controller
         // la fiche existante pour ses cartes de stats (fiches en attente/
         // rejetees), pas seulement de son id.
         $missionsExistantes = MissionDeplacement::where('convocation_id', $convocationId)
-            ->get(['id', 'beneficiaire_id', 'statut'])
+            ->get(['id', 'beneficiaire_id', 'statut', 'montant_calcule', 'lieu_service', 'indice_agent', 'salaire_global_annuel'])
             ->keyBy('beneficiaire_id');
 
-        $beneficiaires = $membres->map(function ($enseignant) use ($typesRequis, $typesParEnseignant, $missionsExistantes) {
+        $beneficiaires = $membres->map(function ($enseignant) use ($convocation, $typesRequis, $typesParEnseignant, $missionsExistantes) {
             $typesPresents = $typesParEnseignant->get($enseignant->id, []);
             $complet = count(array_intersect($typesRequis, $typesPresents)) === count($typesRequis);
             $mission = $missionsExistantes->get($enseignant->id);
+
+            // Mêmes règles que store()/update() (calcul des frais de
+            // déplacement) — voir centreAffectationEnseignant()/
+            // provenanceEnseignant() : "lieu d'affectation" = le centre où
+            // il est envoyé POUR CET EXAMEN, "provenance" = où il exerce
+            // HABITUELLEMENT. Le ÷4 du barème s'applique quand les deux
+            // coïncident.
+            $lieuAffectation = $this->centreAffectationEnseignant($convocation, $enseignant);
+            $provenance = $this->provenanceEnseignant($convocation, $enseignant, null);
 
             return [
                 'id' => $enseignant->id,
@@ -140,10 +165,24 @@ class FraisDeplacementController extends Controller
                 'matricule' => $enseignant->matricule,
                 'categorie_personnel' => $enseignant->categorie_personnel,
                 'indice' => $enseignant->indice,
+                'lieu_affectation' => $lieuAffectation,
+                'provenance' => $provenance,
                 'dossier_complet' => $complet,
                 'pieces_manquantes' => $complet ? [] : array_values(array_diff($typesRequis, $typesPresents)),
                 'fiche_deplacement_id' => $mission?->id,
                 'fiche_statut' => $mission?->statut,
+                'fiche_montant' => $mission?->montant_calcule,
+                // Valeurs réellement utilisées au moment du calcul de la
+                // fiche déjà créée (indice/salaire annuel : saisis à la
+                // création, peuvent différer du profil actuel de
+                // l'enseignant ex: indice mis à jour depuis — non
+                // redérivables autrement, contrairement à lieu_affectation/
+                // provenance ci-dessus qui restent toujours recalculés à
+                // partir de la structure actuelle de la convocation) — pour
+                // afficher le détail Groupe/Trajet même sur une ligne déjà
+                // pourvue, au lieu de la laisser vide.
+                'fiche_indice_agent' => $mission?->indice_agent,
+                'fiche_salaire_annuel' => $mission?->salaire_global_annuel,
             ];
         })->values();
 
@@ -188,11 +227,28 @@ class FraisDeplacementController extends Controller
             }
         }
 
-        $montantCalcule = match ($statutAgent) {
-            'vacataire' => self::MONTANT_VACATAIRE,
-            'contractuel' => $request->validated('montant_saisi'),
-            default => null, // fonctionnaire : attend l'étape "Calcul" (barème par indice, pas encore défini)
-        };
+        if (! $convocation->date_debut || ! $convocation->date_fin) {
+            return $this->error("La convocation n'a pas de période d'examen définie (date début/fin) : impossible de calculer le montant du déplacement.", 422);
+        }
+
+        // "Lieu d'affectation" = le centre auquel il est rattaché POUR CET
+        // EXAMEN ; "provenance" = où il exerce HABITUELLEMENT — voir
+        // centreAffectationEnseignant()/provenanceEnseignant(). Le ÷4
+        // s'applique quand les deux coïncident (l'examen a lieu là où il
+        // travaille déjà, pas de vrai déplacement).
+        $lieuAffectation = $this->centreAffectationEnseignant($convocation, $enseignant);
+        $provenance = $this->provenanceEnseignant($convocation, $enseignant, $request->validated('lieu_service'));
+
+        $groupeInfo = $this->determinerGroupe($statutAgent, $indiceAgent, $request->validated('montant_saisi'));
+        $joursExamen = $this->nombreJoursPeriodeExamen($convocation);
+        $calculDeplacement = $this->calculerMontantDeplacement(
+            $groupeInfo['taux_base'],
+            $lieuAffectation,
+            $provenance,
+            $joursExamen
+        );
+
+        $montantCalcule = $calculDeplacement['montant'];
 
         // Total du tableau "Décompte des avances au départ" (Nombre x Taux
         // par ligne, comme sur la feuille papier) — recalculé côté serveur,
@@ -281,12 +337,13 @@ class FraisDeplacementController extends Controller
             'observations' => $request->validated('observations'),
             'statut_agent' => $statutAgent,
             'indice_agent' => $indiceAgent,
-            'salaire_global_annuel' => $request->validated('salaire_global_annuel'),
-            'lieu_service' => $request->validated('lieu_service'),
-            // vacataire/contractuel : montant déjà connu, la fiche est
-            // directement "calculée". fonctionnaire : reste en brouillon en
-            // attendant l'étape Calcul.
-            'statut' => $montantCalcule !== null ? 'calcule' : 'brouillon',
+            'salaire_global_annuel' => $groupeInfo['salaire_annuel'] ?? $request->validated('salaire_global_annuel'),
+            'lieu_service' => $provenance,
+            // Le montant est désormais toujours calculable immédiatement
+            // (même méthodologie pour les 3 catégories) : la fiche part
+            // directement au statut "calculée", plus de "brouillon en
+            // attente de l'étape Calcul" pour les fonctionnaires.
+            'statut' => 'calcule',
             'montant_calcule' => $montantCalcule,
         ]);
 
@@ -353,11 +410,48 @@ class FraisDeplacementController extends Controller
 
         $indiceAgent = $mission->indice_agent;
         $montantCalcule = $mission->montant_calcule;
+        $salaireAnnuel = $mission->salaire_global_annuel;
+        $convocation = $mission->convocation ?? $mission->convocation()->first();
+        $beneficiaire = $mission->beneficiaire ?? $mission->beneficiaire()->first();
+
+        $provenance = $request->validated('lieu_service') ?: $mission->lieu_service;
+
+        // Si toujours vide (jamais renseignée, ni sur la fiche ni soumise
+        // maintenant) : même repli que store()/beneficiairesEligibles().
+        if (! $provenance && $convocation && $beneficiaire) {
+            $provenance = $this->provenanceEnseignant($convocation, $beneficiaire, null);
+        }
+
+        // "Lieu d'affectation" (centre de CETTE convocation) : toujours
+        // recalculé, jamais soumis par le front — voir
+        // centreAffectationEnseignant().
+        $lieuAffectation = ($convocation && $beneficiaire)
+            ? $this->centreAffectationEnseignant($convocation, $beneficiaire)
+            : null;
 
         if ($mission->statut_agent === 'fonctionnaire') {
             $indiceAgent = $request->validated('indice_agent') ?? $indiceAgent;
-        } elseif ($mission->statut_agent === 'contractuel') {
-            $montantCalcule = $request->validated('montant_saisi') ?? $montantCalcule;
+        }
+
+        // Montant mensuel saisi non repersisté tel quel (seul le total
+        // calculé l'est) : à défaut d'une nouvelle saisie, on le retrouve
+        // en désannualisant salaire_global_annuel (÷12) plutôt que
+        // d'ajouter une colonne dédiée.
+        $montantMensuel = $request->validated('montant_saisi')
+            ?? ($mission->salaire_global_annuel !== null ? $mission->salaire_global_annuel / 12 : null);
+
+        if ($convocation && $convocation->date_debut && $convocation->date_fin) {
+            $groupeInfo = $this->determinerGroupe($mission->statut_agent, $indiceAgent, $montantMensuel);
+            $joursExamen = $this->nombreJoursPeriodeExamen($convocation);
+            $calculDeplacement = $this->calculerMontantDeplacement(
+                $groupeInfo['taux_base'],
+                $lieuAffectation,
+                $provenance,
+                $joursExamen
+            );
+
+            $montantCalcule = $calculDeplacement['montant'];
+            $salaireAnnuel = $groupeInfo['salaire_annuel'] ?? $salaireAnnuel;
         }
 
         $mission->update([
@@ -419,8 +513,8 @@ class FraisDeplacementController extends Controller
             'observations' => $request->validated('observations'),
             'indice_agent' => $indiceAgent,
             'montant_calcule' => $montantCalcule,
-            'salaire_global_annuel' => $request->validated('salaire_global_annuel'),
-            'lieu_service' => $request->validated('lieu_service'),
+            'salaire_global_annuel' => $salaireAnnuel,
+            'lieu_service' => $provenance,
         ]);
 
         // Mémorise l'indice sur la fiche de l'agent s'il ne l'était pas
@@ -668,6 +762,164 @@ class FraisDeplacementController extends Controller
             ->unique();
 
         return count(array_intersect(array_keys(piece_justificatives::TYPES), $typesPresents->all())) === count(piece_justificatives::TYPES);
+    }
+
+    /**
+     * Centre auquel un bénéficiaire est rattaché POUR CETTE CONVOCATION —
+     * "lieu d'affectation" au sens métier précisé par l'utilisatrice : "où
+     * on l'a affecté pour l'examen" (pas où il travaille habituellement,
+     * voir provenanceEnseignant() ci-dessous). Le centre dont il est chef/
+     * président du jury prime ; sinon le centre_id de sa ligne pivot pour
+     * un membre du jury ordinaire. Repli sur le lieu d'examen global de la
+     * convocation si l'affectation à un centre précis est introuvable
+     * (convocation à un seul centre, ou donnée manquante).
+     */
+    private function centreAffectationEnseignant(ConvocationModel $convocation, \App\Models\Parametrage\Enseignant $enseignant): ?string
+    {
+        $centre = $this->centreDeResponsabilite($convocation, $enseignant);
+
+        if ($centre) {
+            return $centre->centre;
+        }
+
+        $centreId = $convocation->enseignants()
+            ->where('enseignant_id', $enseignant->id)
+            ->first()?->pivot?->centre_id;
+
+        if ($centreId) {
+            return ConvocationCentre::find($centreId)?->centre;
+        }
+
+        return $convocation->lieu_examen;
+    }
+
+    /**
+     * "Provenance" — lieu où le bénéficiaire exerce HABITUELLEMENT (précisé
+     * par l'utilisatrice : "où il exerce"), pour CETTE convocation, dans
+     * l'ordre de priorité : valeur explicitement soumise > provenance
+     * dédiée du centre pour un chef de centre/président de jury (voir
+     * migration add_provenance_to_convocation_centres_table) > "provenance"
+     * saisie pour cette convocation (pivot convocation_enseignant, pour un
+     * membre du jury ordinaire) > lieu de service permanent de
+     * l'enseignant (souvent vide en pratique — voir beneficiairesEligibles(),
+     * qui applique la même priorité côté aperçu).
+     */
+    private function provenanceEnseignant(ConvocationModel $convocation, \App\Models\Parametrage\Enseignant $enseignant, ?string $soumis): ?string
+    {
+        if ($soumis) {
+            return $soumis;
+        }
+
+        $centre = $this->centreDeResponsabilite($convocation, $enseignant);
+
+        if ($centre) {
+            $provenanceCentre = $centre->chef_centre_id === $enseignant->id
+                ? $centre->chef_centre_provenance
+                : $centre->president_jury_provenance;
+
+            return $provenanceCentre ?: $enseignant->lieuService?->libelle;
+        }
+
+        $provenancePivot = $convocation->enseignants()
+            ->where('enseignant_id', $enseignant->id)
+            ->first()?->pivot?->provenance;
+
+        return $provenancePivot ?: $enseignant->lieuService?->libelle;
+    }
+
+    /**
+     * Le centre de CETTE convocation dont l'enseignant est chef de centre
+     * OU président du jury, s'il y en a un — factorisé car utilisé par les
+     * deux méthodes ci-dessus.
+     */
+    private function centreDeResponsabilite(ConvocationModel $convocation, \App\Models\Parametrage\Enseignant $enseignant): ?ConvocationCentre
+    {
+        return ConvocationCentre::where('convocation_id', $convocation->id)
+            ->where(function ($q) use ($enseignant) {
+                $q->where('chef_centre_id', $enseignant->id)
+                    ->orWhere('president_jury_id', $enseignant->id);
+            })
+            ->first();
+    }
+
+    /**
+     * Détermine le Groupe (I/II/III) et son taux journalier de base.
+     *
+     * - Fonctionnaire : comparé directement à son Indice.
+     * - Contractuel / Vacataire (même règle pour les deux) : le montant
+     *   mensuel saisi librement est annualisé (×12) pour obtenir un
+     *   "salaire global" (SG), comparé aux mêmes bornes que l'Indice mais
+     *   sur l'autre colonne du barème.
+     *
+     * @return array{groupe: string, taux_base: int, salaire_annuel: float|null}
+     */
+    private function determinerGroupe(string $statutAgent, ?float $indice, ?float $montantMensuel): array
+    {
+        if ($statutAgent === 'fonctionnaire') {
+            $indice ??= 0;
+
+            $groupe = match (true) {
+                $indice >= self::SEUIL_INDICE_GROUPE_I => 'I',
+                $indice >= self::SEUIL_INDICE_GROUPE_II => 'II',
+                default => 'III',
+            };
+
+            return ['groupe' => $groupe, 'taux_base' => self::TAUX_PAR_GROUPE[$groupe], 'salaire_annuel' => null];
+        }
+
+        $salaireAnnuel = ($montantMensuel ?? 0) * 12;
+
+        $groupe = match (true) {
+            $salaireAnnuel >= self::SEUIL_SALAIRE_ANNUEL_GROUPE_I => 'I',
+            $salaireAnnuel >= self::SEUIL_SALAIRE_ANNUEL_GROUPE_II => 'II',
+            default => 'III',
+        };
+
+        return ['groupe' => $groupe, 'taux_base' => self::TAUX_PAR_GROUPE[$groupe], 'salaire_annuel' => $salaireAnnuel];
+    }
+
+    /**
+     * Nombre de jours de la période d'examen de la convocation (bornes
+     * incluses) — demande utilisatrice explicite : le calcul se base sur
+     * "le nombre de jour de la période d'examen", pas sur les dates de
+     * trajet propres à la fiche (date_depart/date_retour).
+     */
+    private function nombreJoursPeriodeExamen(ConvocationModel $convocation): int
+    {
+        if (! $convocation->date_debut || ! $convocation->date_fin) {
+            return 0;
+        }
+
+        return (int) $convocation->date_debut->startOfDay()->diffInDays($convocation->date_fin->startOfDay()) + 1;
+    }
+
+    /**
+     * Ajuste le taux de base selon le trajet, puis multiplie par le
+     * nombre de jours : lieu d'affectation (centre où il est envoyé pour
+     * CET examen) identique à sa provenance (où il exerce habituellement,
+     * ex : Dakar = Dakar) -> taux ÷ 4, il ne se déplace pas vraiment ;
+     * lieux différents -> taux plein. Comparaison insensible à la
+     * casse/aux espaces, comme les filtres de centre déjà en place sur les
+     * convocations.
+     *
+     * @return array{meme_lieu: bool, taux_ajuste: float, montant: float}
+     */
+    private function calculerMontantDeplacement(int $tauxBase, ?string $lieuAffectation, ?string $provenance, int $jours): array
+    {
+        $normaliser = fn (?string $valeur) => Str::of((string) $valeur)->lower()->trim()->toString();
+
+        $memeLieu = $lieuAffectation !== null
+            && $provenance !== null
+            && $normaliser($lieuAffectation) !== ''
+            && $normaliser($lieuAffectation) === $normaliser($provenance);
+
+        $tauxAjuste = $memeLieu ? $tauxBase / 4 : $tauxBase;
+
+        return [
+            'meme_lieu' => $memeLieu,
+            'taux_ajuste' => $tauxAjuste,
+            'montant' => $tauxAjuste * $jours,
+        ];
     }
 
     /**

@@ -84,8 +84,10 @@ class ConvocationCentreController extends Controller
             'metier' => ['nullable', 'string', 'max:255'],
             'chef_centre_id' => ['nullable', 'integer', 'exists:enseignants,id'],
             'chef_centre_telephone' => ['nullable', 'string', 'max:30'],
+            'chef_centre_provenance' => ['nullable', 'string', 'max:255'],
             'president_jury_id' => ['nullable', 'integer', 'exists:enseignants,id'],
             'president_jury_telephone' => ['nullable', 'string', 'max:30'],
+            'president_jury_provenance' => ['nullable', 'string', 'max:255'],
         ]);
 
         $centre->update($data);
