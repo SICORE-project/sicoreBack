@@ -5,6 +5,7 @@ namespace Database\Seeders;
 use Illuminate\Database\Seeder;
 use App\Models\Admin\Role;
 
+
 class RoleSeeder extends Seeder
 {
     public function run(): void
