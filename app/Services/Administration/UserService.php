@@ -21,8 +21,6 @@ class UserService
         return User::create($data)->load(['role', 'lieuService']);
     }
 
-
-
     /**
      * Liste des utilisateurs
      */
@@ -39,8 +37,6 @@ class UserService
             ->get();
     }
 
-
-
     /**
      * Trouver un utilisateur
      */
@@ -49,8 +45,6 @@ class UserService
         return User::with(['role', 'lieuService'])
             ->findOrFail($id);
     }
-
-
 
     /**
      * Mise à jour utilisateur
@@ -66,15 +60,12 @@ class UserService
 
         }
 
-
         $user->update($data);
 
         $user->load(['role', 'lieuService']);
 
         return $user;
     }
-
-
 
     /**
      * Suppression utilisateur
