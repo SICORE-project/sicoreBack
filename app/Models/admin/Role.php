@@ -36,6 +36,11 @@ class Role extends Model
             );
     }
 
+    public function getLibelleAttribute(): ?string
+    {
+        return $this->nom;
+    }
+
     // Vérifier si le rôle a une permission
     public function hasPermission($permissionSlug)
     {
