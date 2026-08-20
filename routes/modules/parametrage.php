@@ -47,6 +47,9 @@ Route::prefix('parametrage/ief')->group(function () {
     Route::patch('/{id}/statut', [IefController::class, 'changeStatus'])
         ->whereNumber('id')
         ->middleware('permission:parametrage.ief.manage');
+    Route::patch('/{id}/ia', [IefController::class, 'rattacherIa'])
+        ->whereNumber('id')
+        ->middleware('permission:parametrage.ief.manage');
 });
 
 /*
