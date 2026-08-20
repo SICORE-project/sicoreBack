@@ -470,29 +470,9 @@
         </tbody>
     </table>
 
-    {{-- ================================================================
-         PIECES JOINTES (RECTO/VERSO) — document interne, pas partie du
-         papier officiel ; simple liste des noms de fichiers déposés, pas
-         d'aperçu image (voir FraisDeplacementPdfController::
-         RELATIONS_POUR_PDF).
-    ================================================================ --}}
 
-    @php
-        $justificatifsParCommentaire = $mission->justificatifs->groupBy(fn ($j) => $j->commentaire ?? '');
-        $rectoPdf = $justificatifsParCommentaire->get('Recto', collect())->first();
-        $versoPdf = $justificatifsParCommentaire->get('Verso', collect())->first();
-    @endphp
 
-    <h2>Pièces jointes</h2>
-
-    <table class="info-grid">
-        <tr>
-            <td class="info-label">Recto</td>
-            <td>{{ $rectoPdf->nom_original ?? 'Non déposé' }}</td>
-            <td class="info-label">Verso</td>
-            <td>{{ $versoPdf->nom_original ?? 'Non déposé' }}</td>
-        </tr>
-    </table>
+  
 
 </body>
 </html>
