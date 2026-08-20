@@ -8,7 +8,7 @@ use Symfony\Component\HttpFoundation\Response;
 
 class RoleMiddleware
 {
-    public function handle(Request $request, Closure $next, string $role): Response
+    public function handle(Request $request, Closure $next, string ...$roles): Response
     {
         $user = $request->user();
 
@@ -20,11 +20,11 @@ class RoleMiddleware
         }
 
 
-        if (!$user->role || $user->role->slug !== $role) {
+        if (! $user->role || ! in_array($user->role->slug, $roles, true)) {
 
             return response()->json([
                 'success' => false,
-                'message' => 'Accès réservé au rôle : '.$role
+                'message' => 'Accès réservé aux rôles : '.implode(', ', $roles)
             ], 403);
         }
 
@@ -32,4 +32,3 @@ class RoleMiddleware
         return $next($request);
     }
 }
-

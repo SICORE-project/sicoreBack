@@ -1,46 +1,58 @@
 <?php
-
-use App\Http\Controllers\Api\Parametrage\IaController;
-use App\Http\Controllers\Api\Parametrage\IefController;
+use App\Http\Controllers\Api\Parametrage\CorpsController;
 use Illuminate\Support\Facades\Route;
+use \App\Http\Controllers\Api\Parametrage\SyndicatController;
 
-/*
-|--------------------------------------------------------------------------
-| Module Paramétrage
-|--------------------------------------------------------------------------
-*/
 
-Route::prefix('parametrage')->group(function () {
+/**
+ * Routes for the Corps resource.
+ */
+Route::prefix('corps')->group(function () {
 
-    // ============================================================
-    // ROUTES IA (Inspection Académique)
-    // ============================================================
+    Route::get('/', [CorpsController::class, 'index']);
 
-    Route::prefix('ia')->group(function () {
+    Route::post('/', [CorpsController::class, 'store']);
 
-        Route::get('/', [IaController::class, 'index'])->middleware('permission:parametrage.ia.read');
-        Route::post('/', [IaController::class, 'store'])->middleware('permission:parametrage.ia.manage');
-        Route::patch('/{id}/statut', [IaController::class, 'changeStatus'])->middleware('permission:parametrage.ia.manage');
-        Route::get('/{id}', [IaController::class, 'show'])->middleware('permission:parametrage.ia.read');
-        Route::put('/{id}', [IaController::class, 'update'])->middleware('permission:parametrage.ia.manage');
-        Route::delete('/{id}', [IaController::class, 'destroy']);
-        Route::get('/{id}/iefs', [IefController::class, 'byIa'])->middleware('permission:parametrage.ief.read');
+    Route::get('/{id}', [CorpsController::class, 'show']);
 
-    });
+    Route::put('/{id}', [CorpsController::class, 'update']);
 
-    // ============================================================
-// ROUTES IEF (Inspection de l'Éducation et de la Formation)
-// ============================================================
+    Route::patch('/{id}', [CorpsController::class, 'update']);
 
-    Route::prefix('ief')->group(function () {
+    Route::delete('/{id}', [CorpsController::class, 'destroy']);
 
-        Route::get('/', [IefController::class, 'index'])->middleware('permission:parametrage.ief.read');
-        Route::post('/', [IefController::class, 'store'])->middleware('permission:parametrage.ief.manage');
-        Route::get('/{id}', [IefController::class, 'show'])->middleware('permission:parametrage.ief.read');
-        Route::get('/{id}/iefs', [IefController::class, 'byIa'])->middleware('permission:parametrage.ief.read');
-        Route::put('/{id}', [IefController::class, 'update'])->middleware('permission:parametrage.ief.manage');
-        Route::patch('/{id}/statut', [IefController::class, 'changeStatus'])->middleware('permission:parametrage.ief.manage');
-        Route::patch('/{id}/ia', [IefController::class, 'rattacherIa'])->middleware('permission:parametrage.ief.manage');
-});     
+    Route::patch('/{id}/activate', [
+        CorpsController::class,
+        'activate'
+    ]);
 
+    Route::patch('/{id}/deactivate', [
+        CorpsController::class,
+        'deactivate'
+    ]);
+});
+
+// Routes for the Syndicat resource.
+Route::prefix('syndicats')->group(function () {
+    Route::get('/', [SyndicatController::class, 'index']);
+
+    Route::post('/', [SyndicatController::class, 'store']);
+
+    Route::get('/{id}', [SyndicatController::class, 'show']);
+
+    Route::put('/{id}', [SyndicatController::class, 'update']);
+
+    Route::patch('/{id}', [SyndicatController::class, 'update']);
+
+    Route::delete('/{id}', [SyndicatController::class, 'destroy']);
+
+    Route::patch('/{id}/activate', [
+        SyndicatController::class,
+        'activate'
+    ]);
+
+    Route::patch('/{id}/deactivate', [
+        SyndicatController::class,
+        'deactivate'
+    ]);
 });

@@ -16,30 +16,18 @@ class CorpsEnseignant extends Model
     protected $fillable = [
         'code',
         'libelle',
-        'sigle',
         'categorie_id',
         'description',
-        'est_actif',
-    ];
-
-    protected $casts = [
-        'est_actif' => 'boolean',
     ];
 
     public function categorie()
     {
-        return $this->belongsTo(
-            Categorie::class,
-            'categorie_id'
-        );
+        return $this->belongsTo(Categorie::class, 'categorie_id');
     }
 
     public function enseignants()
     {
-        return $this->hasMany(
-            Enseignant::class,
-            'corps_id'
-        );
+        return $this->hasMany(Enseignant::class, 'corps_enseignant_id');
     }
 
     public function rubriques()
@@ -48,13 +36,13 @@ class CorpsEnseignant extends Model
             RubriquePaie::class,
             'rubrique_par_corps'
         )
-        ->withPivot([
+        ->withPivot(
             'taux_personnalise',
             'montant_personnalise',
             'est_applicable',
             'formule_personnalisee',
-            'est_actif',
-        ])
+            'est_actif'
+        )
         ->withTimestamps();
     }
 }
