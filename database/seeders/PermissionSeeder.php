@@ -19,6 +19,9 @@ class PermissionSeeder extends Seeder
             ['nom' => 'Gérer les rôles', 'slug' => 'administration.roles.manage', 'groupe' => 'administration', 'module' => 'roles', 'action' => 'manage'],
             ['nom' => 'Consulter les permissions', 'slug' => 'administration.permissions.read', 'groupe' => 'administration', 'module' => 'permissions', 'action' => 'read'],
             ['nom' => 'Gérer les permissions', 'slug' => 'administration.permissions.manage', 'groupe' => 'administration', 'module' => 'permissions', 'action' => 'manage'],
+            ['nom' => 'Accès Gestionnaire IA','slug' => 'gestionnaire.ia.access','groupe' => 'administration','module' => 'gestionnaires','action' =>'access'],
+
+
 
             // === PARAMÉTRAGE ===
             ['nom' => 'Consulter les IA', 'slug' => 'parametrage.ia.read', 'groupe' => 'parametrage', 'module' => 'ia', 'action' => 'read'],

@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use App\Models\Admin\User;
+use App\Models\Personnel\Enseignant;
 
 class Ia extends Model
 {
@@ -14,21 +15,24 @@ class Ia extends Model
     protected $fillable = [
         'code',
         'libelle',
-        'region',
-        'departement',
+        'region_id',
+        'departement_id',
         'adresse',
         'telephone',
         'email',
         'responsable',
-        'responsable_titre',
         'est_actif',
+
     ];
 
     protected $casts = [
+        'region_id' => 'integer',
+        'departement_id' => 'integer',
         'est_actif' => 'boolean',
     ];
 
     // === RELATIONS ===
+
     public function iefs()
     {
         return $this->hasMany(Ief::class);
@@ -54,18 +58,30 @@ class Ia extends Model
         return $this->hasMany(User::class);
     }
 
-    // === SCOPES ===
-    public function scopeActif($query)
+    public function region()
     {
-        return $query->where('est_actif', true);
+        return $this->belongsTo(Region::class);
     }
 
-    public function scopeByRegion($query, $region)
+    public function departement()
     {
-        return $query->where('region', $region);
+        return $this->belongsTo(Departement::class);
+    }
+
+    // === SCOPES ===
+
+    public function scopeByRegion($query, $regionId)
+    {
+        return $query->where('region_id', $regionId);
+    }
+
+    public function scopeByDepartement($query, $departementId)
+    {
+        return $query->where('departement_id', $departementId);
     }
 
     // === ACCESSORS ===
+
     public function getNomCompletAttribute()
     {
         return $this->code . ' - ' . $this->libelle;

@@ -12,6 +12,7 @@ class LieuService extends Model
 {
     use HasFactory, SoftDeletes;
 
+    protected $table = 'lieu_de_services';
     protected $fillable = [
         'code',
         'libelle',
@@ -27,7 +28,7 @@ class LieuService extends Model
         'ief_id',
         'est_actif',
     ];
-
+    
     protected $casts = [
         'est_actif' => 'boolean',
     ];
