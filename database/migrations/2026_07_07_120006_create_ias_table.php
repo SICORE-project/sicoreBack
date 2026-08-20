@@ -10,10 +10,14 @@ return new class extends Migration
     {
         Schema::create('ias', function (Blueprint $table) {
             $table->id();
-            $table->string('libelle');
-            $table->string('code');
-            $table->string('centre_geo')->nullable();
-            $table->string('gouvernance')->nullable();
+            $table->string('code', 20)->unique();
+            $table->string('libelle', 100);
+            $table->string('region_id', 50)->nullable();
+            $table->string('departement_id', 50)->nullable();
+            $table->string('adresse', 255)->nullable();
+            $table->string('telephone', 20)->nullable();
+            $table->string('email', 100)->nullable();
+            $table->string('responsable', 100)->nullable();
             $table->timestamps();
         });
     }

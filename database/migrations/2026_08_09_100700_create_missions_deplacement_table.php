@@ -10,6 +10,18 @@ use Illuminate\Support\Facades\Schema;
  * Statuts observés dans FraisDeplacementController :
  * brouillon -> calcule -> valide -> rembourse -> cloture (ou rejete).
  * Doit être migrée avant lignes_frais_deplacement et justificatifs_frais_deplacement.
+ *
+ * CORRIGÉ (2026-08-17) : beneficiaire_id pointait vers `users`, mais le
+ * bénéficiaire d'une fiche de déplacement est un membre convoqué
+ * (App\Models\Indemnite\Convocations::enseignants(), table `enseignants`),
+ * pas forcément un compte utilisateur SICORE (users.enseignant_id est
+ * nullable — la plupart des membres de jury n'ont pas de compte). Repointé
+ * vers `enseignants`. `declare_par` reste sur `users` (l'agent DAGE qui
+ * remplit la fiche, lui a bien un compte). `convocation_id` ajouté pour
+ * relier la fiche à son dossier de convocation d'origine (nécessaire pour
+ * filtrer les bénéficiaires "dossier complet" — cf. FraisDeplacementController).
+ * Si cette migration a déjà été exécutée avant ce correctif, voir
+ * 2026_08_17_210010_fix_missions_deplacement_beneficiaire_fk.php.
  */
 return new class extends Migration
 {
@@ -24,7 +36,8 @@ return new class extends Migration
 
             $table->string('reference')->unique();
 
-            $table->foreignId('beneficiaire_id')->constrained('users')->restrictOnDelete();
+            $table->foreignId('convocation_id')->nullable()->constrained('convocations')->nullOnDelete();
+            $table->foreignId('beneficiaire_id')->constrained('enseignants')->restrictOnDelete();
             $table->foreignId('declare_par')->nullable()->constrained('users')->nullOnDelete();
 
             $table->string('lieu_depart', 255);

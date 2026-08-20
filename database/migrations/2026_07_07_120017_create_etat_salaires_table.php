@@ -15,9 +15,9 @@ return new class extends Migration
             $table->string('periode');
             $table->string('signature')->nullable()->comment('chemin de l\'image de signature');
 
-            $table->foreignId('ia_id')
-                ->nullable()
-                ->constrained('ias')
+       $table->foreignId('ia_id')
+              ->nullable()
+              ->constrained('ias')
                 ->nullOnDelete();
 
             $table->foreignId('ief_id')

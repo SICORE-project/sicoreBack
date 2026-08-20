@@ -24,7 +24,10 @@ return new class extends Migration
                 ['engagement_type', 'diploma_level', 'category_level', 'effective_from'],
                 'payroll_salary_scale_version_unique'
             );
-            $table->index(['engagement_type', 'effective_from', 'effective_to']);
+            $table->index(
+                ['engagement_type', 'effective_from', 'effective_to'],
+                'payroll_salary_scale_effective_index'
+            );
         });
 
         Schema::create('payroll_allowance_rates', function (Blueprint $table) {
@@ -59,27 +62,58 @@ return new class extends Migration
             );
         });
 
+        // Ajout des colonnes à la table enseignants SANS after()
         Schema::table('enseignants', function (Blueprint $table) {
-            $table->string('payroll_diploma_level', 30)->nullable()->after('type_engagement');
-            $table->unsignedTinyInteger('payroll_category_level')->nullable()->after('payroll_diploma_level');
-            $table->decimal('impr_monthly_amount', 14, 2)->nullable()->after('nombre_parts');
-            $table->decimal('trimf_monthly_amount', 14, 2)->nullable()->after('impr_monthly_amount');
-            $table->decimal('ipm_monthly_amount', 14, 2)->default(0)->after('trimf_monthly_amount');
-            $table->decimal('union_checkoff_monthly_amount', 14, 2)->default(0)->after('ipm_monthly_amount');
-            $table->timestamp('payroll_profile_configured_at')->nullable()->after('union_checkoff_monthly_amount');
-            $table->foreignId('payroll_profile_configured_by')
-                ->nullable()
-                ->after('payroll_profile_configured_at')
-                ->constrained('users')
-                ->nullOnDelete();
-            $table->index(
-                ['type_engagement', 'payroll_diploma_level', 'payroll_category_level'],
-                'enseignants_payroll_profile_index'
-            );
+            // Vérifier si la colonne existe avant de l'ajouter
+            if (!Schema::hasColumn('enseignants', 'payroll_diploma_level')) {
+                $table->string('payroll_diploma_level', 30)->nullable();
+            }
+            
+            if (!Schema::hasColumn('enseignants', 'payroll_category_level')) {
+                $table->unsignedTinyInteger('payroll_category_level')->nullable();
+            }
+            
+            if (!Schema::hasColumn('enseignants', 'impr_monthly_amount')) {
+                $table->decimal('impr_monthly_amount', 14, 2)->nullable();
+            }
+            
+            if (!Schema::hasColumn('enseignants', 'trimf_monthly_amount')) {
+                $table->decimal('trimf_monthly_amount', 14, 2)->nullable();
+            }
+            
+            if (!Schema::hasColumn('enseignants', 'ipm_monthly_amount')) {
+                $table->decimal('ipm_monthly_amount', 14, 2)->default(0);
+            }
+            
+            if (!Schema::hasColumn('enseignants', 'union_checkoff_monthly_amount')) {
+                $table->decimal('union_checkoff_monthly_amount', 14, 2)->default(0);
+            }
+            
+            if (!Schema::hasColumn('enseignants', 'payroll_profile_configured_at')) {
+                $table->timestamp('payroll_profile_configured_at')->nullable();
+            }
+            
+            if (!Schema::hasColumn('enseignants', 'payroll_profile_configured_by')) {
+                $table->foreignId('payroll_profile_configured_by')->nullable()->constrained('users')->nullOnDelete();
+            }
         });
 
+        // Ajouter l'index séparément (uniquement si les colonnes existent)
+        if (Schema::hasColumn('enseignants', 'type_engagement') && 
+            Schema::hasColumn('enseignants', 'payroll_diploma_level') && 
+            Schema::hasColumn('enseignants', 'payroll_category_level')) {
+            Schema::table('enseignants', function (Blueprint $table) {
+                $table->index(
+                    ['type_engagement', 'payroll_diploma_level', 'payroll_category_level'],
+                    'enseignants_payroll_profile_index'
+                );
+            });
+        }
+
         Schema::table('payroll_payslips', function (Blueprint $table) {
-            $table->json('profile_snapshot')->nullable()->after('reference');
+            if (!Schema::hasColumn('payroll_payslips', 'profile_snapshot')) {
+                $table->json('profile_snapshot')->nullable()->after('reference');
+            }
         });
 
         $this->seedReferenceRules();
@@ -88,13 +122,25 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('payroll_payslips', function (Blueprint $table) {
-            $table->dropColumn('profile_snapshot');
+            if (Schema::hasColumn('payroll_payslips', 'profile_snapshot')) {
+                $table->dropColumn('profile_snapshot');
+            }
         });
 
         Schema::table('enseignants', function (Blueprint $table) {
-            $table->dropIndex('enseignants_payroll_profile_index');
-            $table->dropConstrainedForeignId('payroll_profile_configured_by');
-            $table->dropColumn([
+            // Supprimer l'index s'il existe
+            $indexExists = true;
+            try {
+                $table->dropIndex('enseignants_payroll_profile_index');
+            } catch (\Exception $e) {
+                // L'index n'existe pas
+            }
+            
+            if (Schema::hasColumn('enseignants', 'payroll_profile_configured_by')) {
+                $table->dropConstrainedForeignId('payroll_profile_configured_by');
+            }
+            
+            $columns = [
                 'payroll_diploma_level',
                 'payroll_category_level',
                 'impr_monthly_amount',
@@ -102,7 +148,13 @@ return new class extends Migration
                 'ipm_monthly_amount',
                 'union_checkoff_monthly_amount',
                 'payroll_profile_configured_at',
-            ]);
+            ];
+            
+            foreach ($columns as $column) {
+                if (Schema::hasColumn('enseignants', $column)) {
+                    $table->dropColumn($column);
+                }
+            }
         });
 
         Schema::dropIfExists('payroll_parameters');

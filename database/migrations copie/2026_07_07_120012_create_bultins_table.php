@@ -8,14 +8,17 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create('iefs', function (Blueprint $table) {
+        Schema::create('bultins', function (Blueprint $table) {
             $table->id();
-            $table->string('libelle');
-            $table->string('code');
-            $table->string('telephone')->nullable();
-            $table->string('adresse')->nullable();
-            $table->string('email')->nullable();
-            $table->string('departement')->nullable();
+            $table->string('matricule');
+            $table->date('mois_validite');
+            $table->date('date_enregistrement');
+            $table->string('numero_ordre');
+            $table->decimal('net_a_payer', 12, 2);
+
+            $table->foreignId('enseignant_id')
+                ->constrained('enseignants')
+                ->cascadeOnDelete();
 
             $table->foreignId('ia_id')
                 ->nullable()
@@ -28,6 +31,6 @@ return new class extends Migration
 
     public function down(): void
     {
-        Schema::dropIfExists('iefs');
+        Schema::dropIfExists('bultins');
     }
 };

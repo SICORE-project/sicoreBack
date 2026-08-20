@@ -16,14 +16,14 @@ return new class extends Migration
             $table->string('numero_ordre');
             $table->decimal('net_a_payer', 12, 2);
 
-            $table->foreignId('enseignant_id')
-                ->constrained('enseignants')
-                ->cascadeOnDelete();
+            //$table->foreignId('enseignant_id')
+              //  ->constrained('enseignants')
+                //->cascadeOnDelete();
 
-            $table->foreignId('ia_id')
-                ->nullable()
-                ->constrained('ias')
-                ->nullOnDelete();
+           // $table->foreignId('ia_id')
+              //  ->nullable()
+               // ->constrained('ias')
+               // ->nullOnDelete();
 
             $table->timestamps();
         });

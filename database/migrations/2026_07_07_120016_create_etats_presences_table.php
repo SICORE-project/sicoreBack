@@ -13,7 +13,7 @@ return new class extends Migration
             $table->integer('nombre_jour');
 
             $table->foreignId('enseignant_id')
-                ->constrained('enseignants')
+               ->constrained('enseignants')
                 ->cascadeOnDelete();
 
             $table->timestamps();
