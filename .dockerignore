@@ -1,0 +1,12 @@
+.git
+.github
+.agents
+.codex
+vendor
+node_modules
+.env
+.env.*.local
+storage/logs/*.log
+storage/framework/cache/data/*
+storage/framework/sessions/*
+storage/framework/views/*

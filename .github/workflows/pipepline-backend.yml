@@ -1,0 +1,344 @@
+name: CI/CD Pipeline Backend Laravel
+
+on:
+  push:
+    branches: ["deploy"]
+
+  pull_request:
+    branches: ["deploy"]
+
+jobs:
+
+  # ==========================================================
+  # 1. CONTINUOUS INTEGRATION
+  # ==========================================================
+  test:
+    name: Tests Laravel
+    runs-on: ubuntu-latest
+
+    services:
+      mysql:
+        image: mysql:8.0
+
+        env:
+          MYSQL_ALLOW_EMPTY_PASSWORD: yes
+          MYSQL_DATABASE: testing
+
+        ports:
+          - 3306:3306
+
+        options: >-
+          --health-cmd="mysqladmin ping"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=3
+
+    steps:
+
+      # --------------------------------------------------------
+      # Checkout
+      # --------------------------------------------------------
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      # --------------------------------------------------------
+      # PHP
+      # --------------------------------------------------------
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.2"
+          extensions: mbstring, xml, ctype, iconv, pdo, pdo_mysql, bcmath, gd
+          coverage: none
+
+      # --------------------------------------------------------
+      # .env.testing
+      # --------------------------------------------------------
+      - name: Copy .env.testing
+        run: |
+          if [ ! -f .env.testing ]; then
+            cp .env.example .env.testing
+          fi
+
+      # --------------------------------------------------------
+      # Composer
+      # --------------------------------------------------------
+      - name: Install Composer Dependencies
+        run: |
+          composer install \
+            --no-ansi \
+            --no-interaction \
+            --no-scripts \
+            --no-progress \
+            --prefer-dist
+
+      # --------------------------------------------------------
+      # Laravel Key
+      # --------------------------------------------------------
+      - name: Generate Application Key
+        run: php artisan key:generate --env=testing
+
+      # --------------------------------------------------------
+      # Migrations de test
+      # --------------------------------------------------------
+      - name: Run Database Migrations
+        run: php artisan migrate:fresh --force --env=testing
+        env:
+          DB_CONNECTION: mysql
+          DB_HOST: 127.0.0.1
+          DB_PORT: 3306
+          DB_DATABASE: testing
+          DB_USERNAME: root
+          DB_PASSWORD: ""
+
+      # --------------------------------------------------------
+      # Seeders de test
+      # --------------------------------------------------------
+      - name: Run Database Seeders
+        run: php artisan db:seed --force --env=testing
+        env:
+          DB_CONNECTION: mysql
+          DB_HOST: 127.0.0.1
+          DB_PORT: 3306
+          DB_DATABASE: testing
+          DB_USERNAME: root
+          DB_PASSWORD: ""
+
+      # --------------------------------------------------------
+      # Tests
+      # --------------------------------------------------------
+      - name: Execute Tests
+        run: php artisan test
+        env:
+          DB_CONNECTION: mysql
+          DB_HOST: 127.0.0.1
+          DB_PORT: 3306
+          DB_DATABASE: testing
+          DB_USERNAME: root
+          DB_PASSWORD: ""
+
+
+  # ==========================================================
+  # 2. CONTINUOUS DEPLOYMENT
+  # ==========================================================
+  deploy:
+    name: Build & Deploy Backend
+
+    needs: test
+
+    runs-on: ubuntu-latest
+
+    if: >
+      github.ref == 'refs/heads/main' &&
+      github.event_name == 'push'
+
+    steps:
+
+      # --------------------------------------------------------
+      # Checkout
+      # --------------------------------------------------------
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      # --------------------------------------------------------
+      # Docker Buildx
+      # --------------------------------------------------------
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # --------------------------------------------------------
+      # Docker Hub Login
+      # --------------------------------------------------------
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_TOKEN }}
+
+      # --------------------------------------------------------
+      # Build & Push
+      # --------------------------------------------------------
+      - name: Build and Push Production Docker Image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ secrets.DOCKER_USERNAME }}/sicore-back:latest
+            ${{ secrets.DOCKER_USERNAME }}/sicore-back:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # --------------------------------------------------------
+      # Deploy VPS
+      # --------------------------------------------------------
+      - name: Deploy to Server via SSH
+        uses: appleboy/ssh-action@v1.0.3
+
+        with:
+          host: ${{ secrets.VPS_IP }}
+          username: ${{ secrets.VPS_USERNAME }}
+          key: ${{ secrets.VPS_KEY }}
+
+          script: |
+
+            echo "======================================"
+            echo "DEPLOIEMENT BACKEND SICORE"
+            echo "======================================"
+
+            # --------------------------------------------------
+            # Répertoire du projet
+            # --------------------------------------------------
+
+            cd /var/www/sicore-back
+
+            echo "Répertoire :"
+            pwd
+
+
+            # --------------------------------------------------
+            # Téléchargement de la nouvelle image
+            # --------------------------------------------------
+
+            echo "Pull de la nouvelle image Docker..."
+
+            docker compose -f docker-compose-backend.yml pull
+
+
+            # --------------------------------------------------
+            # Redémarrage des containers
+            # --------------------------------------------------
+
+            echo "Démarrage des containers..."
+
+            docker compose \
+              -f docker-compose-backend.yml \
+              up -d
+
+
+            # --------------------------------------------------
+            # Vérification des containers
+            # --------------------------------------------------
+
+            echo "État des containers :"
+
+            docker compose \
+              -f docker-compose-backend.yml \
+              ps
+
+
+            # --------------------------------------------------
+            # Attendre le démarrage de Laravel
+            # --------------------------------------------------
+
+            echo "Attente du démarrage du backend..."
+
+            sleep 10
+
+
+            # ==================================================
+            # MIGRATIONS
+            # ==================================================
+
+            echo "======================================"
+            echo "EXECUTION DES MIGRATIONS"
+            echo "======================================"
+
+            docker compose \
+              -f docker-compose-backend.yml \
+              exec -T app \
+              php artisan migrate --force
+
+
+            # ==================================================
+            # SEEDERS
+            # ==================================================
+
+            echo "======================================"
+            echo "EXECUTION DES SEEDERS"
+            echo "======================================"
+
+            docker compose \
+              -f docker-compose-backend.yml \
+              exec -T app \
+              php artisan db:seed --force
+
+
+            # ==================================================
+            # CACHE CONFIGURATION
+            # ==================================================
+
+            echo "======================================"
+            echo "CACHE CONFIGURATION"
+            echo "======================================"
+
+            docker compose \
+              -f docker-compose-backend.yml \
+              exec -T app \
+              php artisan config:cache
+
+
+            # ==================================================
+            # CACHE ROUTES
+            # ==================================================
+
+            echo "======================================"
+            echo "CACHE ROUTES"
+            echo "======================================"
+
+            docker compose \
+              -f docker-compose-backend.yml \
+              exec -T app \
+              php artisan route:cache
+
+
+            # ==================================================
+            # CACHE VUES
+            # ==================================================
+
+            echo "======================================"
+            echo "CACHE VUES"
+            echo "======================================"
+
+            docker compose \
+              -f docker-compose-backend.yml \
+              exec -T app \
+              php artisan view:cache
+
+
+            # ==================================================
+            # OPTIMISATION
+            # ==================================================
+
+            echo "======================================"
+            echo "OPTIMISATION LARAVEL"
+            echo "======================================"
+
+            docker compose \
+              -f docker-compose-backend.yml \
+              exec -T app \
+              php artisan optimize
+
+
+            # ==================================================
+            # NETTOYAGE DES ANCIENNES IMAGES
+            # ==================================================
+
+            echo "======================================"
+            echo "NETTOYAGE DOCKER"
+            echo "======================================"
+
+            docker image prune -f
+
+
+            # ==================================================
+            # VERIFICATION FINALE
+            # ==================================================
+
+            echo "======================================"
+            echo "DEPLOIEMENT TERMINE"
+            echo "======================================"
+
+            docker compose \
+              -f docker-compose-backend.yml \
+              ps
