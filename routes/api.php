@@ -16,17 +16,8 @@ Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:lo
     Route::post('send-otp', [AuthController::class, 'sendOtp']);
     Route::post('verify-otp', [AuthController::class, 'verifyOtp']);
     Route::post('reset-password-otp', [AuthController::class, 'resetPasswordWithOtp']);
-    /*
-    Ce qui équivaut à :
-        GET    /api/diplomes            -> index
-        POST   /api/diplomes            -> store
-        GET    /api/diplomes/{diplome}  -> show
-        PUT    /api/diplomes/{diplome}  -> update
-        PATCH  /api/diplomes/{diplome}  -> update
-        DELETE /api/diplomes/{diplome}  -> destroy
-    */
-Route::middleware(['auth:sanctum', 'role:admin,super_admin'])
-    ->apiResource('diplomes', DiplomeController::class);
+    
+
 
 Route::middleware(['auth:sanctum'])->group(function () {
 
@@ -43,5 +34,6 @@ Route::middleware(['auth:sanctum'])->group(function () {
 
     require __DIR__.'/modules/administration.php';
     require __DIR__.'/modules/parametrage.php';
+    require __DIR__.'/modules/indemnites.php';
 
 });

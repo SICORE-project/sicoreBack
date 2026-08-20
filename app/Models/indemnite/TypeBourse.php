@@ -1,0 +1,1 @@
+<?php namespace App\Models; use Illuminate\Database\Eloquent\Model; class TypeBourse extends Model {protected $table='types_bourses';protected $fillable=['nom','montant_mensuel','duree_mois','conditions','actif'];protected $casts=['actif'=>'boolean','montant_mensuel'=>'decimal:2'];}

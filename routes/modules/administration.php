@@ -128,6 +128,71 @@ Route::prefix('admin')->group(function () {
         Route::get('/{userId}/ia', [UserController::class, 'getUserIa'])
             ->middleware('permission:administration.users.read');
 
+        Route::get('/', [
+            UserController::class,
+            'index'
+        ])
+        ->middleware('permission:administration.users.read');
+
+
+        Route::get('/all', [
+            UserController::class,
+            'all'
+        ])
+        ->middleware('permission:administration.users.read');
+
+
+        Route::post('/', [
+            UserController::class,
+            'store'
+        ])
+        ->middleware('permission:administration.users.create');
+
+
+        Route::get('/check-email', [
+            UserController::class,
+            'checkEmail'
+        ])
+        ->middleware('permission:administration.users.create');
+
+
+        Route::get('/{id}', [
+            UserController::class,
+            'show'
+        ])
+        ->middleware('permission:administration.users.read');
+
+
+        Route::put('/{id}', [
+            UserController::class,
+            'update'
+        ])
+        ->middleware('permission:administration.users.update');
+
+
+        Route::delete('/{id}', [
+            UserController::class,
+            'destroy'
+        ])
+        ->middleware('permission:administration.users.delete');
+
+
+        Route::post('/{id}/assign-role', [
+            UserController::class,
+            'assignRole'
+        ])
+        ->middleware('permission:administration.users.update');
+
+
+        Route::post('/{id}/toggle-status', [
+            UserController::class,
+            'toggleStatus'
+        ])
+        ->middleware('permission:administration.users.update');
+
+    });
+
+});
         // ============================================================
         // ✅ GESTIONNAIRE IEF - ROUTES DE RATTACHEMENT
         // ============================================================
@@ -137,7 +202,6 @@ Route::prefix('admin')->group(function () {
             ->middleware('permission:administration.users.update');
         Route::get('/{userId}/ief', [UserController::class, 'getUserIef'])
             ->middleware('permission:administration.users.read');
-    });
 
     /*
     |--------------------------------------------------------------------------
@@ -182,7 +246,6 @@ Route::prefix('admin')->group(function () {
         Route::get('/{iefId}/gestionnaires', [UserController::class, 'getGestionnairesByIef'])
             ->middleware('permission:administration.users.read');
     });
-});
 
 // =====================================================
 // ADMINISTRATION - PERSONNEL

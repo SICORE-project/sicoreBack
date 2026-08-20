@@ -4,7 +4,6 @@ namespace Database\Seeders;
 
 use App\Models\Admin\Role;
 use App\Models\Admin\User;
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
 
@@ -36,11 +35,12 @@ class DatabaseSeeder extends Seeder
 
         // Appel des seeders pour les rôles et permissions
         $this->call([
-        RoleSeeder::class,
-        PermissionSeeder::class,
-        RolePermissionSeeder::class,
-        UserSeeder::class,
-    ]);
+            RoleSeeder::class,
+            PermissionSeeder::class,
+            RolePermissionSeeder::class,
+            UserSeeder::class,
+            InstitutFinancierSeeder::class,
+        ]);
 
     }
 
@@ -49,10 +49,10 @@ class DatabaseSeeder extends Seeder
      */
     private function createAdminUser(): void
     {
-        $adminRole = \App\Models\Admin\Role::where('slug', 'admin')->first();
+        $adminRole = Role::where('slug', 'admin')->first();
 
         if ($adminRole) {
-            \App\Models\Admin\User::firstOrCreate(
+            User::firstOrCreate(
                 ['email' => 'adminsicore@yopmail.com'],
                 [
                     'nom' => 'Admin',

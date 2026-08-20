@@ -2,7 +2,12 @@
 
 namespace App\Services\Administration;
 
+<<<<<<< HEAD
+use App\Models\admin\User;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+=======
 use App\Models\Admin\User;
+>>>>>>> module-parametrage
 use Illuminate\Support\Facades\Hash;
 use App\Models\Parametrage\Ia;
 use App\Models\Parametrage\Ief;
@@ -31,6 +36,17 @@ class UserService
     public function all()
     {
         return User::with('role')->get();
+    }
+
+    /**
+     * Liste paginée des utilisateurs.
+     */
+    public function paginate(int $perPage = 10): LengthAwarePaginator
+    {
+        return User::with('role')
+            ->orderBy('nom')
+            ->orderBy('prenom')
+            ->paginate($perPage);
     }
 
 
