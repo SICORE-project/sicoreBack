@@ -40,6 +40,7 @@ Route::prefix('parametrage')->group(function () {
         Route::get('/{id}/iefs', [IefController::class, 'byIa'])->middleware('permission:parametrage.ief.read');
         Route::put('/{id}', [IefController::class, 'update'])->middleware('permission:parametrage.ief.manage');
         Route::patch('/{id}/statut', [IefController::class, 'changeStatus'])->middleware('permission:parametrage.ief.manage');
+        Route::patch('/{id}/ia', [IefController::class, 'rattacherIa'])->middleware('permission:parametrage.ief.manage');
 });     
 
 });

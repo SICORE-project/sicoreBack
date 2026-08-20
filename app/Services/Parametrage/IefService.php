@@ -4,7 +4,8 @@ namespace App\Services\Parametrage;
 
 use App\Models\Parametrage\Ia;
 use App\Models\Parametrage\Ief;
-
+use Illuminate\Support\Facades\DB;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 class IefService
 {
     /**
@@ -263,6 +264,60 @@ public function changeStatus(int $id, bool $newStatus): Ief
     $ief->save();
 
     return $ief->fresh(['ia']);
+}
+
+public function rattacherIa(int $iefId, int $nouvelleIaId): array
+{
+    $ief = $this->findById($iefId);
+
+    $nouvelleIa = Ia::find($nouvelleIaId);
+
+    if (!$nouvelleIa) {
+        throw (new ModelNotFoundException())
+            ->setModel(Ia::class, [$nouvelleIaId]);
+    }
+
+    if (!$nouvelleIa->est_actif) {
+        throw new \DomainException(
+            'Impossible de transférer cette IEF vers une IA inactive.'
+        );
+    }
+
+    if ((int) $ief->ia_id === (int) $nouvelleIaId) {
+        throw new \DomainException(
+            'Cette IEF est déjà rattachée à l’IA sélectionnée.'
+        );
+    }
+
+    $ancienneIa = $ief->ia;
+
+    return DB::transaction(function () use (
+        $ief,
+        $ancienneIa,
+        $nouvelleIa,
+        $nouvelleIaId
+    ) {
+        $ief->lieuxServices()->update([
+            'ia_id' => $nouvelleIaId,
+        ]);
+
+        $ief->enseignants()->update([
+            'ia_id' => $nouvelleIaId,
+        ]);
+
+        $ief->users()->update([
+            'ia_id' => $nouvelleIaId,
+        ]);
+
+        $ief->ia_id = $nouvelleIaId;
+        $ief->save();
+
+        return [
+            'ief' => $ief->fresh(['ia']),
+            'ancienne_ia' => $ancienneIa,
+            'nouvelle_ia' => $nouvelleIa,
+        ];
+    });
 }
 
 }

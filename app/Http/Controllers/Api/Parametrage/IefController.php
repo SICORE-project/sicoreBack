@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Parametrage\Ief\StoreIefRequest;
 use App\Http\Requests\Parametrage\Ief\UpdateIefRequest;
 use App\Http\Requests\Parametrage\Ief\ChangeIefStatusRequest;
+use App\Http\Requests\Parametrage\Ief\RattacherIefIaRequest;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use App\Http\Resources\Parametrage\IefResource;
 use App\Services\Parametrage\IefService;
 
@@ -303,6 +305,84 @@ public function changeStatus(ChangeIefStatusRequest $request, int $id)
             ? 'IEF activée avec succès.'
             : 'IEF désactivée avec succès.',
         'data' => new IefResource($ief),
+    ]);
+}
+
+public function rattacherIa(RattacherIefIaRequest $request, int $id)
+{
+    $user = $request->user();
+
+    // Seuls super_admin et admin peuvent transférer une IEF
+    if (
+        !$user->hasRole('super_admin') &&
+        !$user->hasRole('admin')
+    ) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Vous n’êtes pas autorisé à transférer une IEF.',
+        ], 403);
+    }
+
+    try {
+        $resultat = $this->iefService->rattacherIa(
+            $id,
+            (int) $request->ia_id
+        );
+
+    } catch (ModelNotFoundException $e) {
+
+        return response()->json([
+            'success' => false,
+            'message' => $e->getModel() === \App\Models\Parametrage\Ia::class
+                ? 'L’IA de destination n’existe pas.'
+                : 'L’IEF demandée n’existe pas.',
+        ], 404);
+
+    } catch (\DomainException $e) {
+
+        return response()->json([
+            'success' => false,
+            'message' => $e->getMessage(),
+        ], 422);
+    }
+
+    $ief = $resultat['ief'];
+    $ancienneIa = $resultat['ancienne_ia'];
+    $nouvelleIa = $resultat['nouvelle_ia'];
+
+    Log::info('Transfert IEF vers IA', [
+        'action' => 'TRANSFER_IEF_IA',
+        'user_id' => $user->id,
+        'ief_id' => $ief->id,
+
+        'ancien_ia_id' => $ancienneIa?->id,
+        'nouvel_ia_id' => $nouvelleIa->id,
+
+        'ancienne_ia' => $ancienneIa?->libelle,
+        'nouvelle_ia' => $nouvelleIa->libelle,
+
+        'date_transfert' => now()->toDateTimeString(),
+        'ip' => $request->ip(),
+    ]);
+
+    return response()->json([
+        'success' => true,
+        'message' => 'IEF transférée vers la nouvelle IA avec succès.',
+        'data' => [
+            'ief' => new IefResource($ief),
+
+            'ancienne_ia' => $ancienneIa ? [
+                'id' => $ancienneIa->id,
+                'code' => $ancienneIa->code,
+                'libelle' => $ancienneIa->libelle,
+            ] : null,
+
+            'nouvelle_ia' => [
+                'id' => $nouvelleIa->id,
+                'code' => $nouvelleIa->code,
+                'libelle' => $nouvelleIa->libelle,
+            ],
+        ],
     ]);
 }
 }
