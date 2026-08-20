@@ -58,6 +58,8 @@ class StoreUserRequest extends FormRequest
                 'in:actif,inactif'
             ],
 
+            'ia_id' => 'nullable|exists:ias,id',
+
         ];
     }
 

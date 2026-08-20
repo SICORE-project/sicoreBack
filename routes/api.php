@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\DiplomeController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/health', fn () => response()->json(['status' => 'ok']));
@@ -15,6 +16,7 @@ Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:lo
     Route::post('send-otp', [AuthController::class, 'sendOtp']);
     Route::post('verify-otp', [AuthController::class, 'verifyOtp']);
     Route::post('reset-password-otp', [AuthController::class, 'resetPasswordWithOtp']);
+    
 
 
 Route::middleware(['auth:sanctum'])->group(function () {

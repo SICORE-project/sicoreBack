@@ -80,6 +80,7 @@ class RoleSeeder extends Seeder
                 'niveau' => 'consultation',
                 'est_actif' => true,
             ],
+            
         ];
 
         foreach ($roles as $role) {
