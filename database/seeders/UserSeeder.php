@@ -51,6 +51,18 @@ class UserSeeder extends Seeder
                 'must_change_password' => false,
                 'tentatives_connexion' => 0,
             ],
+            [
+                'nom' => 'ndiaye',
+                'prenom' => 'Diockel',
+                'email' => 'ndiayediockel1996@gmail.com',
+                'password' => Hash::make('Dio.770123877'),
+                'role_id' => $superAdminRole ? $superAdminRole->id : null,
+                'statut' => 'actif',
+                'fonction' => 'Super Administrateur',
+                'genre' => 'masculin',
+                'must_change_password' => false,
+                'tentatives_connexion' => 0,
+            ],
             // === Administrateur ===
             [
                 'nom' => 'Ndiaye',
