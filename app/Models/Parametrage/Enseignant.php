@@ -1,16 +1,12 @@
 <?php
 
-namespace App\Models\Personnel;
+namespace App\Models\Parametrage;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use App\Models\Admin\User;
-use App\Models\Parametrage\{
-    Corps, Grade, Echelon, Diplome, Discipline, Specialite, Categorie,
-    LieuService, LieuPaiement, Ief, Ia, Nationalite, SituationFamiliale,
-    Syndicat, InstitutFinancier, CentreFormation, StatutEnseignant
-};
+use App\Services\Administration\OrganizationalScope;
 
 class Enseignant extends Model
 {
@@ -48,6 +44,8 @@ class Enseignant extends Model
         'ief_id',
         'ia_id',
         'nationalite_id',
+        'statut_enseignant_id',   // FK déjà en base (statuts_enseignant), oubliée du fillable
+        'categorie_personnel',    // vacataire / contractuel / fonctionnaire — distinct de statuts_enseignant.categorie
         'statut',
         'date_statut',
         'date_recrutement',
@@ -159,6 +157,7 @@ class Enseignant extends Model
     {
         return $this->belongsTo(StatutEnseignant::class, 'statut_enseignant_id');
     }
+    
 
     // === RELATIONS MANY TO MANY ===
     public function syndicats()
@@ -231,6 +230,11 @@ class Enseignant extends Model
     public function scopeActif($query)
     {
         return $query->where('est_actif', true);
+    }
+
+    public function scopeVisibleTo($query, User $user)
+    {
+        return app(OrganizationalScope::class)->apply($query, $user);
     }
 
     public function scopeByIef($query, $iefId)

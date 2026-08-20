@@ -14,11 +14,14 @@ class UserService
     public function create(array $data): User
     {
 
+        $data['lieu_service_id'] = $data['structure_organisationnelle_id'] ?? null;
+        unset($data['structure_organisationnelle_id']);
+
         // Hash du mot de passe
         $data['password'] = Hash::make($data['password']);
 
 
-        return User::create($data);
+        return User::create($data)->load(['role', 'structureOrganisationnelle']);
     }
 
 
@@ -26,9 +29,17 @@ class UserService
     /**
      * Liste des utilisateurs
      */
-    public function all()
+    public function all(?string $structureType = null)
     {
-        return User::with('role')->get();
+        return User::with(['role', 'structureOrganisationnelle'])
+            ->when($structureType, function ($query, string $type) {
+                $query->whereHas('structureOrganisationnelle', function ($structureQuery) use ($type) {
+                    $structureQuery->whereRaw('UPPER(type) = ?', [mb_strtoupper($type)]);
+                });
+            })
+            ->orderBy('nom')
+            ->orderBy('prenom')
+            ->get();
     }
 
 
@@ -38,7 +49,7 @@ class UserService
      */
     public function find(int $id): User
     {
-        return User::with('role')
+        return User::with(['role', 'structureOrganisationnelle'])
             ->findOrFail($id);
     }
 
@@ -50,6 +61,11 @@ class UserService
     public function update(User $user, array $data): User
     {
 
+        if (array_key_exists('structure_organisationnelle_id', $data)) {
+            $data['lieu_service_id'] = $data['structure_organisationnelle_id'];
+            unset($data['structure_organisationnelle_id']);
+        }
+
         if(isset($data['password'])){
 
             $data['password'] = Hash::make(
@@ -60,6 +76,8 @@ class UserService
 
 
         $user->update($data);
+
+        $user->load(['role', 'structureOrganisationnelle']);
 
         return $user;
     }
