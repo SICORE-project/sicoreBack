@@ -455,6 +455,7 @@
             "time": "2024-02-05T11:56:58+00:00"
         },
         {
+<<<<<<< HEAD
             "name": "dompdf/dompdf",
             "version": "v3.1.6",
             "source": {
@@ -610,6 +611,8 @@
             "time": "2026-01-02T16:01:13+00:00"
         },
         {
+=======
+>>>>>>> origin/module-paie
             "name": "dragonmantank/cron-expression",
             "version": "v3.6.0",
             "source": {
@@ -2321,6 +2324,7 @@
             "time": "2026-03-08T20:05:35+00:00"
         },
         {
+<<<<<<< HEAD
             "name": "masterminds/html5",
             "version": "2.10.1",
             "source": {
@@ -2388,6 +2392,8 @@
             "time": "2026-06-23T18:43:15+00:00"
         },
         {
+=======
+>>>>>>> origin/module-paie
             "name": "monolog/monolog",
             "version": "3.10.0",
             "source": {
@@ -2898,6 +2904,7 @@
             "time": "2026-02-16T23:10:27+00:00"
         },
         {
+<<<<<<< HEAD
             "name": "phpoffice/math",
             "version": "0.3.0",
             "source": {
@@ -3058,6 +3065,8 @@
             "time": "2025-06-05T10:32:36+00:00"
         },
         {
+=======
+>>>>>>> origin/module-paie
             "name": "phpoption/phpoption",
             "version": "1.9.5",
             "source": {
@@ -3822,6 +3831,7 @@
             "time": "2026-06-18T03:57:49+00:00"
         },
         {
+<<<<<<< HEAD
             "name": "sabberworm/php-css-parser",
             "version": "v9.4.0",
             "source": {
@@ -3902,6 +3912,8 @@
             "time": "2026-06-18T15:10:53+00:00"
         },
         {
+=======
+>>>>>>> origin/module-paie
             "name": "symfony/clock",
             "version": "v7.4.8",
             "source": {
@@ -6411,6 +6423,7 @@
             "time": "2026-06-08T20:24:16+00:00"
         },
         {
+<<<<<<< HEAD
             "name": "thecodingmachine/safe",
             "version": "v3.4.0",
             "source": {
@@ -6554,6 +6567,8 @@
             "time": "2026-02-04T18:08:13+00:00"
         },
         {
+=======
+>>>>>>> origin/module-paie
             "name": "tijsverkoyen/css-to-inline-styles",
             "version": "v2.4.0",
             "source": {
@@ -9129,12 +9144,20 @@
     ],
     "aliases": [],
     "minimum-stability": "stable",
+<<<<<<< HEAD
     "stability-flags": {},
+=======
+    "stability-flags": [],
+>>>>>>> origin/module-paie
     "prefer-stable": true,
     "prefer-lowest": false,
     "platform": {
         "php": "^8.2"
     },
+<<<<<<< HEAD
     "platform-dev": {},
+=======
+    "platform-dev": [],
+>>>>>>> origin/module-paie
     "plugin-api-version": "2.6.0"
 }
