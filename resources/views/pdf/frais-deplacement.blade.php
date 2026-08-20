@@ -470,9 +470,22 @@
         </tbody>
     </table>
 
+    @php
+        $justificatifsParCommentaire = $mission->justificatifs->groupBy(fn ($j) => $j->commentaire ?? '');
+        $rectoPdf = $justificatifsParCommentaire->get('Recto', collect())->first();
+        $versoPdf = $justificatifsParCommentaire->get('Verso', collect())->first();
+    @endphp
 
+    <h2>Pièces jointes</h2>
 
-  
+    <table class="info-grid">
+        <tr>
+            <td class="info-label">Recto</td>
+            <td>{{ $rectoPdf->nom_original ?? 'Non déposé' }}</td>
+            <td class="info-label">Verso</td>
+            <td>{{ $versoPdf->nom_original ?? 'Non déposé' }}</td>
+        </tr>
+    </table>
 
 </body>
 </html>
