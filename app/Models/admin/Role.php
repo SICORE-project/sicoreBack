@@ -4,6 +4,8 @@ namespace App\Models\Admin;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use App\Models\Admin\User;       // <-- AJOUT : Indique où se trouve User
+use App\Models\Admin\Permission; // <-- AJOUT : Indique où se trouve Permission
 
 class Role extends Model
 {
@@ -29,11 +31,11 @@ class Role extends Model
     public function permissions()
     {
         return $this->belongsToMany(
-            Permission::class, 
+            Permission::class,
             'role_permission',
-            'role_id', 
+            'role_id',
             'permission_id'
-            );
+        );
     }
 
     public function getLibelleAttribute(): ?string
