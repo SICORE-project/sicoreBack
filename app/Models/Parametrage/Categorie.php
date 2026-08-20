@@ -9,27 +9,27 @@ class Categorie extends Model
 {
     use HasFactory;
 
+    protected $table = 'categories';
+
     protected $fillable = [
         'code',
         'libelle',
         'ordre',
         'description',
+        'corps_id',
         'est_actif',
     ];
 
     protected $casts = [
-        'est_actif' => 'boolean',
         'ordre' => 'integer',
+        'est_actif' => 'boolean',
     ];
 
-    // === RELATIONS ===
     public function corps()
     {
-        return $this->hasMany(Corps::class);
-    }
-
-    public function enseignants()
-    {
-        return $this->hasMany(Enseignant::class);
+        return $this->belongsTo(
+            CorpsEnseignant::class,
+            'corps_id'
+        );
     }
 }
