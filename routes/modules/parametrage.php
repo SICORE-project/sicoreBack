@@ -11,6 +11,9 @@ use App\Http\Controllers\Api\Parametrage\AnneeAcademiqueController;
 use App\Http\Controllers\Api\Parametrage\SyndicatController;
 use Illuminate\Support\Facades\Route;
 
+Route::get('parametrage/lieux-service', [LieuServiceController::class, 'catalogue'])
+    ->middleware('permission:parametrage.lieux_service.read');
+
 Route::prefix('parametrage/ia')->group(function () {
     Route::get('/', [IaController::class, 'index'])
         ->middleware('permission:parametrage.ia.read');

@@ -13,6 +13,57 @@ use Illuminate\Validation\Rule;
 
 class LieuServiceController extends Controller
 {
+    public function catalogue(Request $request)
+    {
+        $validated = $request->validate([
+            'search' => ['nullable', 'string', 'max:100'],
+            'ia_id' => ['nullable', 'integer'],
+            'ief_id' => ['nullable', 'integer'],
+            'type' => ['nullable', 'string', 'max:50'],
+            'est_actif' => ['nullable', 'boolean'],
+            'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],
+        ]);
+
+        $lieux = LieuService::query()
+            ->with(['ia:id,code,libelle', 'ief:id,ia_id,code,libelle'])
+            ->when($validated['search'] ?? null, function ($query, string $search) {
+                $query->where(function ($query) use ($search) {
+                    $query->where('code', 'like', "%{$search}%")
+                        ->orWhere('libelle', 'like', "%{$search}%");
+                });
+            })
+            ->when($validated['ia_id'] ?? null, fn ($query, int $iaId) => $query->where('ia_id', $iaId))
+            ->when($validated['ief_id'] ?? null, fn ($query, int $iefId) => $query->where('ief_id', $iefId))
+            ->when($validated['type'] ?? null, fn ($query, string $type) => $query->where('type', $type))
+            ->when(array_key_exists('est_actif', $validated), fn ($query) => $query->where('est_actif', $request->boolean('est_actif')))
+            ->orderBy('libelle')
+            ->paginate($validated['per_page'] ?? 15);
+
+        $lieux->getCollection()->transform(fn (LieuService $lieu) => [
+            ...$this->formatLieu($lieu),
+            'ia' => $lieu->ia?->only(['id', 'code', 'libelle']),
+            'ief' => $lieu->ief?->only(['id', 'ia_id', 'code', 'libelle']),
+            'hierarchie_coherente' => $lieu->hierarchie_coherente,
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'data' => $lieux->items(),
+            'links' => [
+                'first' => $lieux->url(1),
+                'last' => $lieux->url($lieux->lastPage()),
+                'prev' => $lieux->previousPageUrl(),
+                'next' => $lieux->nextPageUrl(),
+            ],
+            'meta' => [
+                'current_page' => $lieux->currentPage(),
+                'last_page' => $lieux->lastPage(),
+                'per_page' => $lieux->perPage(),
+                'total' => $lieux->total(),
+            ],
+        ]);
+    }
+
     public function iaOptions()
     {
         $ias = Ia::actif()

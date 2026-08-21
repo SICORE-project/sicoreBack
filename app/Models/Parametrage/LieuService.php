@@ -87,4 +87,10 @@ class LieuService extends Model
     {
         return $this->code.' - '.$this->libelle;
     }
+
+    public function getHierarchieCoherenteAttribute(): bool
+    {
+        return $this->ief_id === null
+            || ($this->ief !== null && (int) $this->ief->ia_id === (int) $this->ia_id);
+    }
 }
