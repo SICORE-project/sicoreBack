@@ -23,6 +23,7 @@ use App\Http\Controllers\Api\Indemnites\AccuseReceptionController;
 use App\Http\Controllers\Api\Indemnites\FraisDeplacementController;
 use App\Http\Controllers\Api\Indemnites\FraisDeplacementPdfController;
 use App\Http\Controllers\Api\Indemnites\IndemniteCorrectionController;
+use App\Http\Controllers\Api\Indemnites\IndemniteSurveillanceController;
 use App\Http\Controllers\Api\Indemnites\EtatPaieIndemnitesController;
 use App\Http\Controllers\Api\Indemnites\BoursesController;
 use App\Http\Controllers\Api\Indemnites\AidesEtudiantesController;
@@ -218,6 +219,16 @@ Route::get('frais-deplacement/{id}/download', [FraisDeplacementPdfController::cl
 
 Route::get('indemnite-correction/correcteurs-eligibles', [IndemniteCorrectionController::class, 'correcteursEligibles']);
 Route::post('indemnite-correction/calculer-groupe', [IndemniteCorrectionController::class, 'calculerGroupe']);
+
+
+/*
+|--------------------------------------------------------------------------
+| Indemnités de surveillance
+|--------------------------------------------------------------------------
+*/
+
+Route::get('indemnite-surveillance/surveillants-eligibles', [IndemniteSurveillanceController::class, 'surveillantsEligibles']);
+Route::post('indemnite-surveillance/calculer-groupe', [IndemniteSurveillanceController::class, 'calculerGroupe']);
 
 
 /*
