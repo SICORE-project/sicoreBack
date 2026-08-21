@@ -107,15 +107,15 @@ jobs:
       # --------------------------------------------------------
       # Tests
       # --------------------------------------------------------
-      # - name: Execute Tests
-      #   run: php artisan test
-      #   env:
-      #     DB_CONNECTION: mysql
-      #     DB_HOST: 127.0.0.1
-      #     DB_PORT: 3306
-      #     DB_DATABASE: testing
-      #     DB_USERNAME: root
-      #     DB_PASSWORD: ""
+      - name: Execute Tests
+        run: php artisan test
+        env:
+          DB_CONNECTION: mysql
+          DB_HOST: 127.0.0.1
+          DB_PORT: 3306
+          DB_DATABASE: testing
+          DB_USERNAME: root
+          DB_PASSWORD: ""
 
 
   # ==========================================================
@@ -129,7 +129,7 @@ jobs:
     runs-on: ubuntu-latest
 
     if: >
-      github.ref == 'refs/heads/main' &&
+      github.ref == 'refs/heads/deploy' &&
       github.event_name == 'push'
 
     steps:
@@ -269,49 +269,7 @@ jobs:
             # ==================================================
 
             echo "======================================"
-            echo "CACHE CONFIGURATION"
-            echo "======================================"
-
-            docker compose \
-              -f docker-compose-backend.yml \
-              exec -T app \
-              php artisan config:cache
-
-
-            # ==================================================
-            # CACHE ROUTES
-            # ==================================================
-
-            echo "======================================"
-            echo "CACHE ROUTES"
-            echo "======================================"
-
-            docker compose \
-              -f docker-compose-backend.yml \
-              exec -T app \
-              php artisan route:cache
-
-
-            # ==================================================
-            # CACHE VUES
-            # ==================================================
-
-            echo "======================================"
-            echo "CACHE VUES"
-            echo "======================================"
-
-            docker compose \
-              -f docker-compose-backend.yml \
-              exec -T app \
-              php artisan view:cache
-
-
-            # ==================================================
-            # OPTIMISATION
-            # ==================================================
-
-            echo "======================================"
-            echo "OPTIMISATION LARAVEL"
+            echo "NETTOYAGE ET MISE EN CACHE"
             echo "======================================"
 
             docker compose \
@@ -319,26 +277,4 @@ jobs:
               exec -T app \
               php artisan optimize
 
-
-            # ==================================================
-            # NETTOYAGE DES ANCIENNES IMAGES
-            # ==================================================
-
-            echo "======================================"
-            echo "NETTOYAGE DOCKER"
-            echo "======================================"
-
-            docker image prune -f
-
-
-            # ==================================================
-            # VERIFICATION FINALE
-            # ==================================================
-
-            echo "======================================"
-            echo "DEPLOIEMENT TERMINE"
-            echo "======================================"
-
-            docker compose \
-              -f docker-compose-backend.yml \
-              ps
+            echo "Déploiement terminé avec succès !"
