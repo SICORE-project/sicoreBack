@@ -1,98 +1,134 @@
-name: CI/CD Pipeline Backend Laravel
+name: CI/CD Backend
 
 on:
   push:
-    branches: ["deploy"]
-
+    branches:
+      - deploy
   pull_request:
-    branches: ["deploy"]
+    branches:
+      - deploy
+
+permissions:
+  contents: read
 
 jobs:
-
-  # ==========================================================
-  # 1. CONTINUOUS DEPLOYMENT (DÉPLOIEMENT DIRECT)
-  # ==========================================================
-  deploy:
-    name: Build & Deploy Backend
+  ci:
+    name: Tests Laravel API
     runs-on: ubuntu-latest
 
-    if: >
-      github.ref == 'refs/heads/deploy' &&
-      github.event_name == 'push'
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_DATABASE: sicore_test
+          MYSQL_USER: sicore_user
+          MYSQL_PASSWORD: sicore_password
+          MYSQL_ROOT_PASSWORD: root_password
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -proot_password"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
 
     steps:
-
-      # --------------------------------------------------------
-      # Checkout
-      # --------------------------------------------------------
-      - name: Checkout Code
+      - name: Recuperer le code
         uses: actions/checkout@v4
 
-      # --------------------------------------------------------
-      # Docker Buildx
-      # --------------------------------------------------------
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      # --------------------------------------------------------
-      # Docker Hub Login
-      # --------------------------------------------------------
-      - name: Log in to Docker Hub
-        uses: docker/login-action@v3
+      - name: Installer PHP
+        uses: shivammathur/setup-php@v2
         with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_TOKEN }}
+          php-version: '8.2'
+          extensions: mbstring, dom, fileinfo, pdo, sqlite, pdo_sqlite, pdo_mysql
+          coverage: none
 
-      # --------------------------------------------------------
-      # Build & Push
-      # --------------------------------------------------------
-      - name: Build and Push Production Docker Image
-        uses: docker/build-push-action@v5
+      - name: Installer Node
+        uses: actions/setup-node@v4
         with:
-          context: .
-          push: true
-          tags: |
-            ${{ secrets.DOCKER_USERNAME }}/sicore-back:latest
-            ${{ secrets.DOCKER_USERNAME }}/sicore-back:${{ github.sha }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          node-version: '22'
 
-      # --------------------------------------------------------
-      # Deploy VPS
-      # --------------------------------------------------------
-      - name: Deploy to Server via SSH
-        uses: appleboy/ssh-action@v1.0.3
+      - name: Verifier composer.json
+        run: composer validate --no-check-publish --strict
+
+      - name: Mettre en cache Composer
+        uses: actions/cache@v4
+        with:
+          path: ~/.composer/cache/files
+          key: composer-${{ runner.os }}-${{ hashFiles('composer.lock', 'composer.json') }}
+          restore-keys: composer-${{ runner.os }}-
+
+      - name: Installer les dependances PHP
+        run: |
+          # composer.lock n'est pas encore present dans ce depot.
+          # Quand il sera versionne, composer install sera utilise automatiquement.
+          if [ -f composer.lock ]; then
+            composer install --no-interaction --prefer-dist --no-progress
+          else
+            composer update --no-interaction --prefer-dist --no-progress
+          fi
+
+      - name: Installer les dependances Node
+        run: |
+          # npm install est utilise car package-lock.json n'est pas present.
+          npm install
+
+      - name: Compiler les assets
+        run: npm run build
+
+      - name: Preparer Laravel pour les tests
+        run: |
+          cp .env.example .env
+          php artisan key:generate --ansi
+          mkdir -p database
+          touch database/database.sqlite
+
+      - name: Lancer les tests
+        run: composer test
+
+  docker:
+    name: Build image Docker
+    runs-on: ubuntu-latest
+    needs: ci
+
+    steps:
+      - name: Recuperer le code
+        uses: actions/checkout@v4
+
+      - name: Construire l'image backend
+        run: docker build -t sicore-backend:ci .
+
+  deploy:
+    name: Deploy VPS
+    runs-on: ubuntu-latest
+    needs:
+      - ci
+      - docker
+    if: github.event_name == 'push' && github.ref == 'refs/heads/deploy'
+    env:
+      DEPLOY_ENABLED: ${{ secrets.VPS_IP != '' && secrets.VPS_USERNAME != '' && secrets.VPS_KEY != '' && secrets.DEPLOY_PATH != '' }}
+
+    steps:
+      - name: Ignorer le deploy si les secrets manquent
+        if: env.DEPLOY_ENABLED != 'true'
+        run: echo "Deploy ignore. Configurer VPS_IP, VPS_USERNAME, VPS_KEY et DEPLOY_PATH pour activer le CD."
+
+      - name: Deployer sur le VPS via SSH
+        if: env.DEPLOY_ENABLED == 'true'
+        uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.VPS_IP }}
           username: ${{ secrets.VPS_USERNAME }}
           key: ${{ secrets.VPS_KEY }}
+          port: ${{ secrets.VPS_PORT || 22 }}
+          script_stop: true
           script: |
-            echo "======================================"
-            echo "DEPLOIEMENT BACKEND SICORE"
-            echo "======================================"
-
-            cd /var/www/sicore-back
-            echo "Répertoire :"
-            pwd
-
-            echo "Pull de la nouvelle image Docker..."
-            docker compose -f docker-compose-backend.yml pull
-
-            echo "Démarrage des containers..."
-            docker compose -f docker-compose-backend.yml up -d
-
-            echo "État des containers :"
-            docker compose -f docker-compose-backend.yml ps
-
-            echo "Attente du démarrage du backend..."
-            sleep 10
-
-            echo "======================================"
-            echo "EXECUTION DES MIGRATIONS"
-            echo "======================================"
-            docker compose -f docker-compose-backend.yml exec -T app php artisan migrate --force
-
-            echo "======================================"
-            echo "EXECUTION DES SEEDERS"
-            echo "======================================"
-            docker compose -f docker-compose-backend.yml exec -T app php artisan db:seed --force
+            cd "${{ secrets.DEPLOY_PATH }}"
+            git pull --ff-only origin deploy
+            composer install --no-dev --no-interaction --prefer-dist --optimize-autoloader
+            npm install
+            npm run build
+            php artisan migrate --force
+            php artisan config:cache
+            php artisan route:cache
+            php artisan view:cache
