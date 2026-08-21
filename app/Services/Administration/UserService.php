@@ -2,12 +2,10 @@
 
 namespace App\Services\Administration;
 
-<<<<<<< HEAD
+
 use App\Models\admin\User;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
-=======
-use App\Models\Admin\User;
->>>>>>> module-parametrage
+
 use Illuminate\Support\Facades\Hash;
 use App\Models\Parametrage\Ia;
 use App\Models\Parametrage\Ief;
@@ -27,8 +25,6 @@ class UserService
 
         return User::create($data);
     }
-
-
 
     /**
      * Liste des utilisateurs
@@ -60,8 +56,6 @@ class UserService
             ->findOrFail($id);
     }
 
-
-
     /**
      * Mise à jour utilisateur
      */
@@ -76,13 +70,10 @@ class UserService
 
         }
 
-
         $user->update($data);
 
         return $user;
     }
-
-
 
     /**
      * Suppression utilisateur
