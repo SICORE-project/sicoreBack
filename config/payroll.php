@@ -21,15 +21,18 @@ return [
     'api_token_expiration' => (int) env('SANCTUM_TOKEN_EXPIRATION', 120),
 
     'read_roles' => [
-        'Administrateur',
-        'Gestionnaire Paie',
-        'Auditeur',
+        'super_admin',
+        'admin',
+        'gestionnaire_paie',
+        'auditeur',
     ],
     'write_roles' => [
-        'Administrateur',
-        'Gestionnaire Paie',
+        'super_admin',
+        'admin',
+        'gestionnaire_paie',
     ],
     'close_roles' => [
-        'Administrateur',
+        'super_admin',
+        'admin',
     ],
 ];

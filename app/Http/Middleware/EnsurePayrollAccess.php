@@ -11,7 +11,7 @@ class EnsurePayrollAccess
     public function handle(Request $request, Closure $next, string $level = 'read'): Response
     {
         $user = $request->user()?->loadMissing('role');
-        $role = $user?->role?->libelle;
+        $role = $user?->role?->slug;
         $roles = (array) config("payroll.{$level}_roles", []);
         $ability = "payroll:{$level}";
 
