@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\Parametrage\IaController;
 use App\Http\Controllers\Api\Parametrage\IefController;
+use App\Http\Controllers\Api\Parametrage\SpecialiteController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -41,6 +42,14 @@ Route::prefix('parametrage')->group(function () {
         Route::put('/{id}', [IefController::class, 'update'])->middleware('permission:parametrage.ief.manage');
         Route::patch('/{id}/statut', [IefController::class, 'changeStatus'])->middleware('permission:parametrage.ief.manage');
         Route::patch('/{id}/ia', [IefController::class, 'rattacherIa'])->middleware('permission:parametrage.ief.manage');
-});     
+});    
+ // ============================================================
+    // ROUTES  SPECIALITES 
+    // ============================================================
+ Route::prefix('specialites')->group(function () {
+    
+    Route::post('/', [SpecialiteController::class, 'store'])->middleware('permission:parametrage.specialites.manage');
+});
+
 
 });
