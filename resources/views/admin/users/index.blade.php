@@ -38,7 +38,14 @@
                 <label data-password-field class="grid gap-2 text-sm font-medium sm:col-span-2">Mot de passe<input name="password" type="password" minlength="8" class="rounded-lg border border-slate-300 px-3 py-2.5"><span class="text-xs font-normal text-slate-500">8 caractères minimum.</span></label>
                 <label class="grid gap-2 text-sm font-medium">Rôle<select name="role_id" required class="rounded-lg border border-slate-300 bg-white px-3 py-2.5"></select></label>
                 <label class="grid gap-2 text-sm font-medium">Statut<select name="statut" required class="rounded-lg border border-slate-300 bg-white px-3 py-2.5"><option value="actif">Actif</option><option value="inactif">Inactif</option></select></label>
-                <label data-structure-field class="grid gap-2 text-sm font-medium sm:col-span-2">Structure principale<select name="structure_organisationnelle_id" class="rounded-lg border border-slate-300 bg-white px-3 py-2.5"></select><span data-structure-hint class="text-xs font-normal text-slate-500">Obligatoire pour un compte métier.</span></label>
+                <div class="sm:col-span-2 mt-2">
+                    <h3 class="mb-4 text-2xl font-bold">Accès organisationnel</h3>
+                    <p class="mb-5 text-sm text-slate-500">Choisissez une structure nationale ou une IA et son IEF.</p>
+                    <div class="grid gap-5 sm:grid-cols-2">
+                        <label class="grid gap-2 text-sm font-medium">Périmètre<select name="perimetre" data-perimetre-select class="rounded-lg border border-slate-300 bg-white px-3 py-2.5"><option value="national">National</option><option value="regional">Régional</option></select></label>
+                        <label data-structure-field class="grid gap-2 text-sm font-medium">Structure nationale<select name="structure_organisationnelle_id" class="rounded-lg border border-slate-300 bg-white px-3 py-2.5"></select><span data-structure-hint class="text-xs font-normal text-slate-500">Obligatoire pour un compte métier.</span></label>
+                    </div>
+                </div>
             </div>
             <div data-errors class="mt-5 hidden rounded-lg bg-red-50 p-4 text-sm text-red-700"></div>
             <div class="mt-7 flex justify-end gap-3"><button type="button" data-action="close" class="rounded-lg border border-slate-300 px-5 py-2.5 font-semibold">Annuler</button><button data-submit type="submit" class="rounded-lg bg-indigo-600 px-5 py-2.5 font-semibold text-white disabled:cursor-wait disabled:opacity-60">Enregistrer</button></div>

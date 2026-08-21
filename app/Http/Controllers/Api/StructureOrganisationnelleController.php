@@ -19,7 +19,7 @@ class StructureOrganisationnelleController extends Controller
             'success' => true,
             'data' => $lieux->map(fn (LieuService $lieu) => $this->formatLieu($lieu))->values(),
             'perimetres' => [
-                'national' => $lieux->where('perimetre', 'national')
+                'national' => $lieux->filter(fn (LieuService $lieu) => $this->normalizedPerimetre($lieu) === 'national')
                     ->map(fn (LieuService $lieu) => $this->formatLieu($lieu))->values(),
                 'regional' => $this->regionalHierarchy($lieux),
             ],
@@ -29,7 +29,7 @@ class StructureOrganisationnelleController extends Controller
     public function national(Request $request, OrganizationalScope $scope)
     {
         $data = $this->visibleLieux($request, $scope)
-            ->where('perimetre', 'national')
+            ->filter(fn (LieuService $lieu) => $this->normalizedPerimetre($lieu) === 'national')
             ->map(fn (LieuService $lieu) => $this->formatLieu($lieu))->values();
 
         return response()->json(['success' => true, 'data' => $data]);
@@ -55,7 +55,7 @@ class StructureOrganisationnelleController extends Controller
     public function iefs(Request $request, int $ia, OrganizationalScope $scope)
     {
         $data = $this->visibleLieux($request, $scope)
-            ->where('perimetre', 'regional')
+            ->filter(fn (LieuService $lieu) => $this->normalizedPerimetre($lieu) === 'regional')
             ->where('type', 'IEF')
             ->where('ia_id', $ia)
             ->map(fn (LieuService $lieu) => $this->formatLieu($lieu))->values();
@@ -78,7 +78,7 @@ class StructureOrganisationnelleController extends Controller
     {
         $regions = Region::query()->get(['id', 'code', 'nom']);
 
-        return $lieux->where('perimetre', 'regional')
+        return $lieux->filter(fn (LieuService $lieu) => $this->normalizedPerimetre($lieu) === 'regional')
             ->whereNotNull('ia_id')
             ->groupBy('ia_id')
             ->map(function (Collection $services) use ($regions): array {
@@ -122,9 +122,23 @@ class StructureOrganisationnelleController extends Controller
             'code' => $lieu->code,
             'libelle' => $lieu->libelle,
             'type' => $lieu->type,
-            'perimetre' => $lieu->perimetre,
+            'perimetre' => $lieu->perimetre ?? $this->inferPerimetreFromType($lieu->type),
             'ia_id' => $lieu->ia_id,
             'ief_id' => $lieu->ief_id,
         ];
+    }
+
+    private function inferPerimetreFromType(?string $type): string
+    {
+        if (in_array(strtoupper((string) $type), ['DRH', 'DAGE', 'DECPC'], true)) {
+            return 'national';
+        }
+
+        return 'regional';
+    }
+
+    private function normalizedPerimetre(LieuService $lieu): string
+    {
+        return $lieu->perimetre ?? $this->inferPerimetreFromType($lieu->type);
     }
 }
