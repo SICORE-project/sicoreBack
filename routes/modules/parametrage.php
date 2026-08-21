@@ -51,6 +51,10 @@ Route::prefix('parametrage')->group(function () {
         Route::get('/', [SpecialiteController::class, 'index'])->middleware('permission:parametrage.specialites.read');
         Route::post('/', [SpecialiteController::class, 'store'])->middleware('permission:parametrage.specialites.manage');
         Route::put('/{id}', [SpecialiteController::class, 'update'])->middleware('permission:parametrage.specialites.manage');
+        Route::patch('/{id}/statut', [SpecialiteController::class, 'changeStatus'])->middleware('permission:parametrage.specialites.manage');
+        Route::get('/actives', [SpecialiteController::class, 'actives'])->middleware('permission:parametrage.specialites.read');
+
+
 });
 
 

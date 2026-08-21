@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\Parametrage;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Parametrage\Specialite\StoreSpecialiteRequest;
 use App\Http\Requests\Parametrage\Specialite\UpdateSpecialiteRequest;
+use App\Http\Requests\Parametrage\Specialite\UpdateSpecialiteStatusRequest;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use App\Http\Resources\Parametrage\SpecialiteResource;
 use App\Services\Parametrage\SpecialiteService;
@@ -108,4 +109,54 @@ public function update(UpdateSpecialiteRequest $request, int $id): JsonResponse
         ], 404);
     }
 }
+public function changeStatus( UpdateSpecialiteStatusRequest $request, int $id): JsonResponse {
+    try {
+        $specialite = $this->specialiteService->findById($id);
+
+        $ancienStatut = $specialite->est_actif;
+
+        $specialite = $this->specialiteService->changeStatus(
+            $id,
+            $request->boolean('est_actif')
+        );
+
+        Log::info('Changement statut spécialité', [
+            'action' => $specialite->est_actif
+                ? 'ACTIVATE_SPECIALITE'
+                : 'DEACTIVATE_SPECIALITE',
+
+            'user_id' => auth()->id(),
+            'specialite_id' => $specialite->id,
+            'ancien_statut' => $ancienStatut,
+            'nouveau_statut' => $specialite->est_actif,
+            'ip' => $request->ip(),
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => $specialite->est_actif
+                ? 'Spécialité activée avec succès.'
+                : 'Spécialité désactivée avec succès.',
+            'data' => new SpecialiteResource($specialite),
+        ]);
+
+    } catch (ModelNotFoundException $e) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Spécialité introuvable.',
+        ], 404);
+    }
+}
+
+public function actives(): JsonResponse
+{
+    $specialites = $this->specialiteService->getActives();
+
+    return response()->json([
+        'success' => true,
+        'message' => 'Liste des spécialités actives récupérée avec succès.',
+        'data' => SpecialiteResource::collection($specialites),
+    ]);
+}
+
 }

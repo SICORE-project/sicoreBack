@@ -25,4 +25,9 @@ class Specialite extends Model
     {
         return $this->hasMany(Enseignant::class);
     }
+
+    public function scopeActif($query)
+{
+    return $query->where('est_actif', true);
+}
 }
