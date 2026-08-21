@@ -24,6 +24,7 @@ class AuthApiTest extends TestCase {
         Schema::dropIfExists('personal_access_tokens');
         Schema::dropIfExists('users');
         Schema::dropIfExists('lieu_de_services');
+        Schema::dropIfExists('ias');
         Schema::dropIfExists('regions');
         Schema::dropIfExists('roles');
         Schema::dropIfExists('role_permission');
@@ -33,6 +34,14 @@ class AuthApiTest extends TestCase {
             $t->id();
             $t->string('code')->nullable();
             $t->string('nom');
+            $t->timestamps();
+        });
+
+        Schema::create('ias', function (Blueprint $t) {
+            $t->id();
+            $t->string('code');
+            $t->string('libelle');
+            $t->unsignedBigInteger('region_id')->nullable();
             $t->timestamps();
         });
 
@@ -368,9 +377,12 @@ class AuthApiTest extends TestCase {
             'password' => bcrypt('secret123'), 'role_id' => 40,
         ]);
 
+        \DB::table('regions')->insert(['id' => 1, 'code' => 'DCK', 'nom' => 'Dakar', 'created_at' => now(), 'updated_at' => now()]);
+        \DB::table('ias')->insert(['id' => 10, 'code' => 'IA-10', 'libelle' => 'IA Dakar', 'region_id' => 1, 'created_at' => now(), 'updated_at' => now()]);
+
         LieuService::create(['code' => 'DRH', 'type' => 'DRH', 'libelle' => 'DRH', 'est_actif' => true]);
-        LieuService::create(['code' => 'IA-legacy', 'type' => 'IA', 'libelle' => 'IA Legacy', 'est_actif' => true]);
-        LieuService::create(['code' => 'IEF-legacy', 'type' => 'IEF', 'libelle' => 'IEF Legacy', 'est_actif' => true]);
+        LieuService::create(['code' => 'IA-legacy', 'type' => 'IA', 'libelle' => 'IA Legacy', 'ia_id' => 10, 'est_actif' => true]);
+        LieuService::create(['code' => 'IEF-legacy', 'type' => 'IEF', 'libelle' => 'IEF Legacy', 'ia_id' => 10, 'ief_id' => 20, 'est_actif' => true]);
 
         $request = Request::create('/api/admin/structures-organisationnelles', 'GET');
         $request->setUserResolver(fn () => $user);
@@ -378,10 +390,11 @@ class AuthApiTest extends TestCase {
         $controller = new \App\Http\Controllers\Api\StructureOrganisationnelleController();
         $response = $controller->index($request, app(OrganizationalScope::class));
         $payload = $response->getData(true);
-        var_export($payload);
 
+        $this->assertNotEmpty($payload['perimetres']['national']);
+        $this->assertNotEmpty($payload['perimetres']['regional']);
         $this->assertSame('national', $payload['perimetres']['national'][0]['perimetre']);
-        $this->assertSame('regional', $payload['perimetres']['regional'][0]['perimetre']);
+        $this->assertSame('regional', $payload['perimetres']['regional'][0]['ias'][0]['iefs'][0]['perimetre']);
     }
 
     public function test_liste_utilisateurs_retourne_un_tableau_directement_exploitable(): void
