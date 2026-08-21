@@ -47,8 +47,10 @@ Route::prefix('parametrage')->group(function () {
     // ROUTES  SPECIALITES 
     // ============================================================
  Route::prefix('specialites')->group(function () {
-    
+
+     Route::get('/', [SpecialiteController::class, 'index'])->middleware('permission:parametrage.specialites.read');
     Route::post('/', [SpecialiteController::class, 'store'])->middleware('permission:parametrage.specialites.manage');
+
 });
 
 

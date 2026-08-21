@@ -18,4 +18,6 @@ class SpecialiteResource extends JsonResource
             'updated_at' => $this->updated_at,
         ];
     }
+
+    
 }
