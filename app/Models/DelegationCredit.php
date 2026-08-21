@@ -10,6 +10,7 @@ class DelegationCredit extends Model
 
     protected $fillable = [
         'annee_academique',
+        'periode_paie',
         'reference',
         'objet',
         'structure_id',
@@ -57,5 +58,11 @@ class DelegationCredit extends Model
     public function engagements()
     {
         return $this->hasMany(Engagement::class);
+    }
+
+    // Une delegation se ventile en N lignes (ecran FINPRONET "Ventilations")
+    public function ventilations()
+    {
+        return $this->hasMany(VentilationDelegation::class);
     }
 }

@@ -27,10 +27,11 @@ class DelegationCreditController extends Controller
 
         $delegation = DelegationCredit::create([
             'annee_academique'   => $validated['annee_academique'],
+            'periode_paie'       => $validated['periode_paie'] ?? null,
             'reference'          => $validated['reference'],
             'objet'              => $validated['objet'],
-            'structure_id'       => $validated['structure_id'],
-            'service_id'         => $validated['service_id'],
+            'structure_id'       => $validated['structure_id'] ?? null,
+            'service_id'         => $validated['service_id'] ?? null,
             'montant_initial'    => $montantInitial,
             'montant_disponible' => $validated['montant_disponible'],
             'montant_engage'     => 0,

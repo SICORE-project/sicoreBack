@@ -16,6 +16,7 @@ use App\Http\Controllers\EtatCreditsController;
 use App\Http\Controllers\BulletinSalaireController;
 use App\Http\Controllers\StructureController;
 use App\Http\Controllers\ServiceController;
+use App\Http\Controllers\VentilationDelegationController;
 use Illuminate\Support\Facades\Route;
 
 
@@ -45,6 +46,16 @@ Route::get('delegation-credits/{id}/etat', [DelegationCreditController::class, '
     Route::get('delegation-credits/{id}/bulletins-disponibles', [DelegationCreditController::class, 'bulletinsDisponibles']);
     Route::post('delegation-credits/{id}/associer-bulletin', [DelegationCreditController::class, 'associerBulletin']);
     Route::get('delegation-credits/{id}/associations', [DelegationCreditController::class, 'historiqueAssociations']);
+
+    // --- Ventilations d'une délégation (écran FINPRONET frmDetailDelegation.aspx) ---
+    // nomenclature must precede ventilations/{id} so it is not captured as an id
+    Route::get('ventilations/nomenclature', [VentilationDelegationController::class, 'nomenclature']);
+    Route::get('delegation-credits/{id}/ventilations', [VentilationDelegationController::class, 'index']);
+    Route::post('delegation-credits/{id}/ventilations', [VentilationDelegationController::class, 'store']);
+    Route::get('ventilations/{id}', [VentilationDelegationController::class, 'show']);
+    Route::put('ventilations/{id}', [VentilationDelegationController::class, 'update']);
+    Route::delete('ventilations/{id}', [VentilationDelegationController::class, 'destroy']);
+
     Route::apiResource('users', UserController::class);
     Route::apiResource('indemnites', IndemnitesController::class);
     Route::apiResource('type-indemnites', TypeIndemnitesController::class);

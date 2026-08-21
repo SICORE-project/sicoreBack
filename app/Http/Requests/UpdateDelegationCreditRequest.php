@@ -17,6 +17,7 @@ class UpdateDelegationCreditRequest extends FormRequest
             'reference' => 'sometimes|string|max:50|unique:delegation_credits,reference,' . $this->route('delegation_credit'),
             'objet' => 'sometimes|string|max:255',
             'annee_academique' => 'sometimes|string|max:20',
+            'periode_paie' => 'nullable|string|max:50',
             'montant_initial' => 'sometimes|numeric|min:0',
             'montant_disponible' => 'sometimes|numeric|min:0',
             'date_delegation' => 'sometimes|date',

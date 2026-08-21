@@ -17,13 +17,14 @@ class StoreDelegationCreditRequest extends FormRequest
             'reference' => 'required|string|max:50|unique:delegation_credits,reference',
             'objet' => 'required|string|max:255',
             'annee_academique' => 'required|string|max:20',
+            'periode_paie' => 'nullable|string|max:50',
             'montant_initial' => 'nullable|numeric|min:0',
             'montant_disponible' => 'required|numeric|min:0',
             'date_delegation' => 'required|date',
             'date_fin' => 'nullable|date|after_or_equal:date_delegation',
             'statut' => 'nullable|string|in:En attente,Validée,Rejetée',
-            'structure_id' => 'required|exists:structures,id',
-            'service_id' => 'required|exists:services,id',
+            'structure_id' => 'nullable|exists:structures,id',
+            'service_id' => 'nullable|exists:services,id',
         ];
     }
 

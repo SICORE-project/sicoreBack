@@ -14,6 +14,7 @@ class DelegationCreditResource extends JsonResource
             'reference' => $this->reference,
             'objet' => $this->objet,
             'annee_academique' => $this->annee_academique,
+            'periode_paie' => $this->periode_paie,
             'montant_initial' => (float) $this->montant_initial,
             'montant_disponible' => (float) $this->montant_disponible,
             'montant_engage' => (float) $this->montant_engage,
@@ -32,6 +33,13 @@ class DelegationCreditResource extends JsonResource
                 'id' => $this->service->id,
                 'nom' => $this->service->nom,
             ]),
+            'ventilations' => VentilationDelegationResource::collection(
+                $this->whenLoaded('ventilations')
+            ),
+            'total_ventile' => $this->whenLoaded(
+                'ventilations',
+                fn () => (float) $this->ventilations->sum('montant')
+            ),
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
         ];
