@@ -2,10 +2,8 @@
 
 namespace App\Services\Administration;
 
-
 use App\Models\admin\User;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
-
 use Illuminate\Support\Facades\Hash;
 use App\Models\Parametrage\Ia;
 use App\Models\Parametrage\Ief;
