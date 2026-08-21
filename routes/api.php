@@ -18,6 +18,7 @@ use App\Http\Controllers\StructureController;
 use App\Http\Controllers\ServiceController;
 use App\Http\Controllers\VentilationDelegationController;
 use App\Http\Controllers\EditionDelegationController;
+use App\Http\Controllers\ProjectionDelegationController;
 use Illuminate\Support\Facades\Route;
 
 
@@ -60,6 +61,10 @@ Route::get('delegation-credits/{id}/etat', [DelegationCreditController::class, '
     // --- Édition des délégations de crédits (écran FINPRONET frmEditDetailDelegation.aspx) ---
     Route::get('edition-delegations/filtres', [EditionDelegationController::class, 'filtres']);
     Route::get('edition-delegations', [EditionDelegationController::class, 'index']);
+
+    // --- Mes projections (écran FINPRONET frmEditExpressionDel.aspx) ---
+    Route::get('projections-delegation/filtres', [ProjectionDelegationController::class, 'filtres']);
+    Route::get('projections-delegation', [ProjectionDelegationController::class, 'index']);
 
     Route::apiResource('users', UserController::class);
     Route::apiResource('indemnites', IndemnitesController::class);
