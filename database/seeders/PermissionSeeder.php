@@ -2,8 +2,8 @@
 
 namespace Database\Seeders;
 
-use Illuminate\Database\Seeder;
 use App\Models\Admin\Permission;
+use Illuminate\Database\Seeder;
 
 class PermissionSeeder extends Seeder
 {
@@ -19,6 +19,9 @@ class PermissionSeeder extends Seeder
             ['nom' => 'Gérer les rôles', 'slug' => 'administration.roles.manage', 'groupe' => 'administration', 'module' => 'roles', 'action' => 'manage'],
             ['nom' => 'Consulter les permissions', 'slug' => 'administration.permissions.read', 'groupe' => 'administration', 'module' => 'permissions', 'action' => 'read'],
             ['nom' => 'Gérer les permissions', 'slug' => 'administration.permissions.manage', 'groupe' => 'administration', 'module' => 'permissions', 'action' => 'manage'],
+            ['nom' => 'Accès Gestionnaire IA','slug' => 'gestionnaire.ia.access','groupe' => 'administration','module' => 'gestionnaires','action' =>'access'],
+
+
 
             // === PARAMÉTRAGE ===
             ['nom' => 'Consulter les IA', 'slug' => 'parametrage.ia.read', 'groupe' => 'parametrage', 'module' => 'ia', 'action' => 'read'],
@@ -39,6 +42,8 @@ class PermissionSeeder extends Seeder
             ['nom' => 'Gérer les disciplines', 'slug' => 'parametrage.disciplines.manage', 'groupe' => 'parametrage', 'module' => 'disciplines', 'action' => 'manage'],
             ['nom' => 'Consulter les syndicats', 'slug' => 'parametrage.syndicats.read', 'groupe' => 'parametrage', 'module' => 'syndicats', 'action' => 'read'],
             ['nom' => 'Gérer les syndicats', 'slug' => 'parametrage.syndicats.manage', 'groupe' => 'parametrage', 'module' => 'syndicats', 'action' => 'manage'],
+            ['nom' => 'Consulter les institutions financières', 'slug' => 'parametrage.institutions_financieres.read', 'groupe' => 'parametrage', 'module' => 'institutions_financieres', 'action' => 'read'],
+            ['nom' => 'Gérer les institutions financières', 'slug' => 'parametrage.institutions_financieres.manage', 'groupe' => 'parametrage', 'module' => 'institutions_financieres', 'action' => 'manage'],
 
             // === ENSEIGNANTS ===
             ['nom' => 'Consulter les enseignants', 'slug' => 'enseignants.read', 'groupe' => 'personnel', 'module' => 'enseignants', 'action' => 'read'],
@@ -48,6 +53,7 @@ class PermissionSeeder extends Seeder
             ['nom' => 'Valider un enseignant', 'slug' => 'enseignants.validate', 'groupe' => 'personnel', 'module' => 'enseignants', 'action' => 'validate'],
             ['nom' => 'Rechercher un enseignant', 'slug' => 'enseignants.search', 'groupe' => 'personnel', 'module' => 'enseignants', 'action' => 'search'],
             ['nom' => 'Exporter les enseignants', 'slug' => 'enseignants.export', 'groupe' => 'personnel', 'module' => 'enseignants', 'action' => 'export'],
+            ['nom' => 'Gérer les comptes bancaires des enseignants', 'slug' => 'enseignants.comptes_bancaires.manage', 'groupe' => 'personnel', 'module' => 'comptes_bancaires', 'action' => 'manage'],
 
             // === PAIE ===
             ['nom' => 'Consulter les bulletins de paie', 'slug' => 'paie.bulletins.read', 'groupe' => 'paie', 'module' => 'bulletins', 'action' => 'read'],

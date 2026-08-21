@@ -58,6 +58,17 @@ class StoreUserRequest extends FormRequest
                 'in:actif,inactif'
             ],
 
+            'ia_id' => 'nullable|exists:ias,id',
+
+        ];
+    }
+
+    public function messages(): array
+    {
+        return [
+            'email.required' => 'L’adresse e-mail est obligatoire.',
+            'email.email' => 'L’adresse e-mail doit être valide.',
+            'email.unique' => 'Cette adresse e-mail est déjà utilisée.',
         ];
     }
 }

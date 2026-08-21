@@ -12,6 +12,7 @@ class LieuService extends Model
 {
     use HasFactory, SoftDeletes;
 
+    protected $table = 'lieu_de_services';
     protected $fillable = [
         'code',
         'libelle',
@@ -83,5 +84,11 @@ class LieuService extends Model
     public function getNomCompletAttribute()
     {
         return $this->code . ' - ' . $this->libelle;
+    }
+
+    public function getHierarchieCoherenteAttribute(): bool
+    {
+        return $this->ief_id === null
+            || ($this->ief !== null && (int) $this->ief->ia_id === (int) $this->ia_id);
     }
 }
