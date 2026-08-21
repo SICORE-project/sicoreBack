@@ -4,6 +4,8 @@ namespace App\Http\Controllers\Api\Parametrage;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Parametrage\Specialite\StoreSpecialiteRequest;
+use App\Http\Requests\Parametrage\Specialite\UpdateSpecialiteRequest;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use App\Http\Resources\Parametrage\SpecialiteResource;
 use App\Services\Parametrage\SpecialiteService;
 use Illuminate\Http\JsonResponse;
@@ -60,5 +62,50 @@ class SpecialiteController extends Controller
             'total' => $specialites->total(),
         ],
     ]);
+}
+
+public function update(UpdateSpecialiteRequest $request, int $id): JsonResponse
+{
+    try {
+        $specialite = $this->specialiteService->findById($id);
+
+        $anciennesValeurs = $specialite->only([
+            'code',
+            'libelle',
+            'est_actif',
+        ]);
+
+        $specialite = $this->specialiteService->update(
+            $id,
+            $request->validated()
+        );
+
+        $nouvellesValeurs = $specialite->only([
+            'code',
+            'libelle',
+            'est_actif',
+        ]);
+
+        Log::info('Modification spécialité', [
+            'action' => 'UPDATE_SPECIALITE',
+            'user_id' => auth()->id(),
+            'specialite_id' => $specialite->id,
+            'anciennes_valeurs' => $anciennesValeurs,
+            'nouvelles_valeurs' => $nouvellesValeurs,
+            'ip' => $request->ip(),
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Spécialité mise à jour avec succès.',
+            'data' => new SpecialiteResource($specialite),
+        ]);
+
+    } catch (ModelNotFoundException $e) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Spécialité introuvable.',
+        ], 404);
+    }
 }
 }

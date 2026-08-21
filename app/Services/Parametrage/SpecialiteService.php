@@ -55,5 +55,17 @@ class SpecialiteService
             ->withQueryString();
     }
 
-    
+    public function findById(int $id): Specialite
+{
+    return Specialite::findOrFail($id);
+}
+
+public function update(int $id, array $data): Specialite
+{
+    $specialite = $this->findById($id);
+
+    $specialite->update($data);
+
+    return $specialite->refresh();
+}
 }
