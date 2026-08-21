@@ -22,12 +22,12 @@ return [
 
     'read_roles' => [
         'Administrateur',
-        'Gestionnaire de paie',
+        'Gestionnaire Paie',
         'Auditeur',
     ],
     'write_roles' => [
         'Administrateur',
-        'Gestionnaire de paie',
+        'Gestionnaire Paie',
     ],
     'close_roles' => [
         'Administrateur',
