@@ -12,6 +12,7 @@ use App\Http\Controllers\Api\Parametrage\AnneeAcademiqueController;
 use App\Http\Controllers\Api\Parametrage\SyndicatController;
 use App\Http\Controllers\Api\Parametrage\SpecialiteController;
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\Api\Parametrage\AnneeAcademiqueController;
 
 Route::get('parametrage/lieux-service', [LieuServiceController::class, 'catalogue'])
     ->middleware('permission:parametrage.lieux_service.read');
@@ -188,6 +189,7 @@ Route::patch(
     'annees-academiques/{id}/close',
     [AnneeAcademiqueController::class, 'close']
 );
+<<<<<<< HEAD
 // Routes for the Syndicat resource.
 Route::prefix('syndicats')->group(function () {
     Route::get('/', [SyndicatController::class, 'index']);
@@ -230,3 +232,5 @@ Route::patch('parametrage/institutions-financieres/{institution}/statut', [Insti
 Route::post('enseignants/{enseignant}/comptes-bancaires', [CompteBancaireEnseignantController::class, 'store'])
     ->whereNumber('enseignant')
     ->middleware('permission:enseignants.comptes_bancaires.manage');
+=======
+>>>>>>> 4bcd550 (feat: gestion des années académiques)
