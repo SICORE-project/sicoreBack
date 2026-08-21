@@ -15,6 +15,7 @@ if (root) {
         errors: root.querySelector('[data-errors]'), structure: root.querySelector('[data-structure-field]'),
         structureHint: root.querySelector('[data-structure-hint]'),
         structureTypeFilter: root.querySelector('[data-structure-type-filter]'),
+        perimetre: root.querySelector('[data-perimetre-select]'),
         password: root.querySelector('[data-password-field]'), submit: root.querySelector('[data-submit]'),
     };
     let users = [];
@@ -33,9 +34,23 @@ if (root) {
         return role && role.niveau !== 'systeme';
     };
     const selectedRole = () => roles.find(item => String(item.id) === elements.form.role_id.value);
-    const allowedStructures = role => role?.niveau === 'admin_metier'
-        ? structures.filter(structure => structure.type.toUpperCase() === 'DAGE')
-        : structures;
+    const normalizePerimetre = value => {
+        const normalized = String(value ?? '').trim().toLowerCase();
+        if (normalized === 'regional') return 'regional';
+        if (normalized === 'national') return 'national';
+
+        const type = String(value ?? '').trim().toUpperCase();
+        return ['DRH', 'DAGE', 'DECPC'].includes(type) ? 'national' : 'regional';
+    };
+    const allowedStructures = role => {
+        const scoped = role?.niveau === 'admin_metier'
+            ? structures.filter(structure => ['DRH', 'DAGE', 'DECPC'].includes(String(structure.type).toUpperCase()))
+            : structures;
+
+        const selectedPerimetre = normalizePerimetre(elements.form.perimetre.value || 'national');
+
+        return scoped.filter(structure => normalizePerimetre(structure.perimetre ?? structure.type) === selectedPerimetre);
+    };
     const updateStructureRequirement = (preferredStructureId = null) => {
         const role = selectedRole();
         const required = roleIsBusiness();
@@ -51,7 +66,7 @@ if (root) {
             ? String(previousValue)
             : '';
         elements.structureHint.textContent = role?.niveau === 'admin_metier'
-            ? 'Un administrateur métier doit obligatoirement être rattaché à la DAGE.'
+            ? 'Un administrateur métier doit obligatoirement être rattaché à une structure nationale (DRH, DAGE ou DECPC).'
             : 'Obligatoire pour un compte métier.';
     };
     const render = () => {
@@ -90,6 +105,7 @@ if (root) {
         elements.form.email.value = user?.email || '';
         elements.form.role_id.value = user?.role?.id || '';
         elements.form.statut.value = user?.statut || 'actif';
+        elements.form.perimetre.value = user?.structure_organisationnelle ? normalizePerimetre(user.structure_organisationnelle.perimetre || user.structure_organisationnelle.type) : 'national';
         elements.form.structure_organisationnelle_id.value = user?.structure_organisationnelle?.id || '';
         elements.title.textContent = user ? 'Modifier l’utilisateur' : 'Nouvel utilisateur';
         elements.password.classList.toggle('hidden', Boolean(user));
@@ -126,6 +142,7 @@ if (root) {
     root.querySelector('[data-action="new"]').addEventListener('click', () => openForm());
     root.querySelectorAll('[data-action="close"]').forEach(button => button.addEventListener('click', () => elements.dialog.close()));
     elements.form.role_id.addEventListener('change', updateStructureRequirement);
+    elements.form.perimetre.addEventListener('change', () => updateStructureRequirement());
     elements.structureTypeFilter.addEventListener('change', () => load(false));
     elements.rows.addEventListener('click', event => {
         const button = event.target.closest('[data-edit]');

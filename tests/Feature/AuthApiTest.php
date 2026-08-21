@@ -24,9 +24,17 @@ class AuthApiTest extends TestCase {
         Schema::dropIfExists('personal_access_tokens');
         Schema::dropIfExists('users');
         Schema::dropIfExists('lieu_de_services');
+        Schema::dropIfExists('regions');
         Schema::dropIfExists('roles');
         Schema::dropIfExists('role_permission');
         Schema::dropIfExists('permissions');
+
+        Schema::create('regions', function (Blueprint $t) {
+            $t->id();
+            $t->string('code')->nullable();
+            $t->string('nom');
+            $t->timestamps();
+        });
 
         Schema::create('roles', function (Blueprint $t) {
             $t->id();
@@ -204,14 +212,14 @@ class AuthApiTest extends TestCase {
         $this->assertTrue(Validator::make($data, $request->rules())->fails());
     }
 
-    public function test_admin_metier_est_refuse_hors_dage(): void
+    public function test_admin_metier_est_refuse_hors_structure_nationale(): void
     {
         \DB::table('roles')->insert([
             'id' => 20, 'libelle' => 'Administrateur metier', 'niveau' => 'admin_metier',
             'created_at' => now(), 'updated_at' => now(),
         ]);
 
-        foreach (['IA', 'IEF', 'DRH', 'DECPC'] as $type) {
+        foreach (['IA', 'IEF'] as $type) {
             $structureId = \DB::table('lieu_de_services')->insertGetId([
                 'type' => $type, 'libelle' => $type, 'est_actif' => true,
                 'created_at' => now(), 'updated_at' => now(),
@@ -231,24 +239,27 @@ class AuthApiTest extends TestCase {
         }
     }
 
-    public function test_admin_metier_est_accepte_pour_la_dage(): void
+    public function test_admin_metier_est_accepte_pour_une_structure_nationale(): void
     {
         \DB::table('roles')->insert([
             'id' => 20, 'libelle' => 'Administrateur metier', 'niveau' => 'admin_metier',
             'created_at' => now(), 'updated_at' => now(),
         ]);
-        $structureId = \DB::table('lieu_de_services')->insertGetId([
-            'type' => 'DAGE', 'libelle' => 'DAGE', 'est_actif' => true,
-            'created_at' => now(), 'updated_at' => now(),
-        ]);
-        $data = [
-            'nom' => 'Ndiaye', 'prenom' => 'Awa', 'email' => 'dage@example.com',
-            'password' => 'password123', 'role_id' => 20, 'statut' => 'actif',
-            'structure_organisationnelle_id' => $structureId,
-        ];
-        $request = StoreUserRequest::create('/api/admin/users', 'POST', $data);
 
-        $this->assertFalse(Validator::make($data, $request->rules())->fails());
+        foreach (['DRH', 'DAGE', 'DECPC'] as $type) {
+            $structureId = \DB::table('lieu_de_services')->insertGetId([
+                'type' => $type, 'libelle' => $type, 'est_actif' => true,
+                'created_at' => now(), 'updated_at' => now(),
+            ]);
+            $data = [
+                'nom' => 'Ndiaye', 'prenom' => 'Awa', 'email' => strtolower($type).'@example.com',
+                'password' => 'password123', 'role_id' => 20, 'statut' => 'actif',
+                'structure_organisationnelle_id' => $structureId,
+            ];
+            $request = StoreUserRequest::create('/api/admin/users', 'POST', $data);
+
+            $this->assertFalse(Validator::make($data, $request->rules())->fails(), "Le type {$type} devrait etre accepte.");
+        }
     }
 
     public function test_modification_role_ou_structure_verifie_la_matrice(): void
@@ -343,6 +354,34 @@ class AuthApiTest extends TestCase {
 
         $user->update(['lieu_service_id' => null]);
         $this->assertSame(0, $scope->apply(LieuService::query(), $user->fresh())->count());
+    }
+
+    public function test_structure_sans_perimetre_herite_du_type_national_ou_regional(): void
+    {
+        \DB::table('roles')->insert([
+            'id' => 40, 'libelle' => 'Super Administrateur', 'niveau' => 'systeme',
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+
+        $user = User::create([
+            'nom' => 'Sarr', 'prenom' => 'Amina', 'email' => 'legacy-structure@example.com',
+            'password' => bcrypt('secret123'), 'role_id' => 40,
+        ]);
+
+        LieuService::create(['code' => 'DRH', 'type' => 'DRH', 'libelle' => 'DRH', 'est_actif' => true]);
+        LieuService::create(['code' => 'IA-legacy', 'type' => 'IA', 'libelle' => 'IA Legacy', 'est_actif' => true]);
+        LieuService::create(['code' => 'IEF-legacy', 'type' => 'IEF', 'libelle' => 'IEF Legacy', 'est_actif' => true]);
+
+        $request = Request::create('/api/admin/structures-organisationnelles', 'GET');
+        $request->setUserResolver(fn () => $user);
+
+        $controller = new \App\Http\Controllers\Api\StructureOrganisationnelleController();
+        $response = $controller->index($request, app(OrganizationalScope::class));
+        $payload = $response->getData(true);
+        var_export($payload);
+
+        $this->assertSame('national', $payload['perimetres']['national'][0]['perimetre']);
+        $this->assertSame('regional', $payload['perimetres']['regional'][0]['perimetre']);
     }
 
     public function test_liste_utilisateurs_retourne_un_tableau_directement_exploitable(): void
