@@ -4,8 +4,15 @@ use App\Http\Controllers\Api\Parametrage\CorpsController;
 use \App\Http\Controllers\Api\Parametrage\SyndicatController;
 use App\Http\Controllers\Api\Parametrage\CompteBancaireEnseignantController;
 use App\Http\Controllers\Api\Parametrage\InstitutFinancierController;
+<<<<<<< HEAD
 use App\Http\Controllers\Api\Parametrage\DiplomeController;
+=======
+use App\Http\Controllers\Api\Parametrage\LieuServiceController;
+>>>>>>> e72345b (Travail en cours LieuService dev-Amina-para)
 use Illuminate\Support\Facades\Route;
+
+Route::get('parametrage/lieux-service', [LieuServiceController::class, 'index'])
+    ->middleware('permission:parametrage.lieux_service.read');
 
 Route::get('parametrage/institutions-financieres', [InstitutFinancierController::class, 'index'])
     ->middleware('permission:parametrage.institutions_financieres.read');
