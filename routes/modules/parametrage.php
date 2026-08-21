@@ -1,6 +1,11 @@
 <?php
-use App\Http\Controllers\Api\Parametrage\CorpsController;
+
 use App\Http\Controllers\Api\Parametrage\CategorieController;
+use App\Http\Controllers\Api\Parametrage\CorpsController;
+use App\Http\Controllers\Api\Parametrage\LieuServiceController;
+
+Route::post('lieux-service', [LieuServiceController::class, 'store'])
+    ->middleware('permission:parametrage.lieux_service.manage');
 
 Route::prefix('corps')->group(function () {
 
@@ -18,15 +23,14 @@ Route::prefix('corps')->group(function () {
 
     Route::patch('/{id}/activate', [
         CorpsController::class,
-        'activate'
+        'activate',
     ]);
 
     Route::patch('/{id}/deactivate', [
         CorpsController::class,
-        'deactivate'
+        'deactivate',
     ]);
 });
-
 
 Route::apiResource('categories', CategorieController::class);
 
