@@ -13,9 +13,14 @@ use App\Models\Parametrage\Ief;
 use App\Models\Parametrage\Ia;
 use App\Models\Personnel\Enseignant;
 
+
+
+
 class User extends Authenticatable
 {
     use HasFactory, Notifiable, SoftDeletes, HasApiTokens;
+
+    use SoftDeletes; // Le trait doit être présent ici
 
     protected $fillable = [
         'nom',
