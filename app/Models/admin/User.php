@@ -7,7 +7,7 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Laravel\Sanctum\HasApiTokens;
-use App\Models\admin\Role;
+use App\Models\Admin\Role;
 use App\Models\Parametrage\LieuService;
 use App\Models\Parametrage\Ief;
 use App\Models\Parametrage\Ia;
@@ -63,9 +63,9 @@ class User extends Authenticatable
         'password' => 'hashed',
     ];
     }
-    
+
     // === RELATIONS ===
-   
+
 
     public function enseignant()
     {
