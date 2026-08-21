@@ -17,6 +17,7 @@ use App\Http\Controllers\BulletinSalaireController;
 use App\Http\Controllers\StructureController;
 use App\Http\Controllers\ServiceController;
 use App\Http\Controllers\VentilationDelegationController;
+use App\Http\Controllers\EditionDelegationController;
 use Illuminate\Support\Facades\Route;
 
 
@@ -55,6 +56,10 @@ Route::get('delegation-credits/{id}/etat', [DelegationCreditController::class, '
     Route::get('ventilations/{id}', [VentilationDelegationController::class, 'show']);
     Route::put('ventilations/{id}', [VentilationDelegationController::class, 'update']);
     Route::delete('ventilations/{id}', [VentilationDelegationController::class, 'destroy']);
+
+    // --- Édition des délégations de crédits (écran FINPRONET frmEditDetailDelegation.aspx) ---
+    Route::get('edition-delegations/filtres', [EditionDelegationController::class, 'filtres']);
+    Route::get('edition-delegations', [EditionDelegationController::class, 'index']);
 
     Route::apiResource('users', UserController::class);
     Route::apiResource('indemnites', IndemnitesController::class);
