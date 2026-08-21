@@ -4,7 +4,7 @@ namespace App\Models\Paie;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use App\Models\Parametrage\Corps;
+use App\Models\Parametrage\CorpsEnseignant;
 
 class RubriquePaie extends Model
 {
@@ -40,7 +40,7 @@ class RubriquePaie extends Model
     // === RELATIONS ===
     public function corps()
     {
-        return $this->belongsToMany(Corps::class, 'rubrique_par_corps')
+        return $this->belongsToMany(CorpsEnseignant::class, 'rubrique_par_corps')
                     ->withPivot('taux_personnalise', 'montant_personnalise', 'est_applicable', 'formule_personnalisee', 'est_actif')
                     ->withTimestamps();
     }
