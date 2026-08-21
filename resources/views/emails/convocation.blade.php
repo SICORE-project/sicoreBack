@@ -119,12 +119,6 @@
                         <td>{{ $convocation->heure_debut }}</td>
                     </tr>
                 @endif
-                @if (! empty($convocation->lieu_examen))
-                    <tr>
-                        <td class="info-label">Lieu d'examen</td>
-                        <td>{{ $convocation->lieu_examen }}</td>
-                    </tr>
-                @endif
                 @if (! empty($convocation->lieu_affectation))
                     <tr>
                         <td class="info-label">Lieu d'affectation</td>

@@ -22,9 +22,11 @@ class ConvocationCentre extends Model
         'chef_centre_id',
         'chef_centre_telephone',
         'chef_centre_provenance',
+        'chef_centre_categorie_personnel',
         'president_jury_id',
         'president_jury_telephone',
         'president_jury_provenance',
+        'president_jury_categorie_personnel',
     ];
 
     public function convocation(): BelongsTo

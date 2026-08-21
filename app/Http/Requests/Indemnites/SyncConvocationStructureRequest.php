@@ -37,7 +37,6 @@ class SyncConvocationStructureRequest extends FormRequest
             'heure_debut' => ['nullable', 'date_format:H:i'],
             'objet' => ['sometimes', 'string', 'max:255'],
             'session' => ['nullable', 'string', 'max:150'],
-            'lieu_examen' => ['nullable', 'string', 'max:255'],
             'ordre_de_mission' => ['nullable', 'boolean'],
             'lieu_affectation' => ['nullable', 'string', 'max:255'],
             'statut' => ['nullable', 'in:brouillon,emise,envoyee,cloturee'],
@@ -51,9 +50,11 @@ class SyncConvocationStructureRequest extends FormRequest
             'centres.*.chef_centre_id' => ['nullable', 'integer', 'exists:enseignants,id'],
             'centres.*.chef_centre_telephone' => ['nullable', 'string', 'max:30'],
             'centres.*.chef_centre_provenance' => ['nullable', 'string', 'max:255'],
+            'centres.*.chef_centre_categorie_personnel' => ['nullable', 'in:fonctionnaire,contractuel,vacataire'],
             'centres.*.president_jury_id' => ['nullable', 'integer', 'exists:enseignants,id'],
             'centres.*.president_jury_telephone' => ['nullable', 'string', 'max:30'],
             'centres.*.president_jury_provenance' => ['nullable', 'string', 'max:255'],
+            'centres.*.president_jury_categorie_personnel' => ['nullable', 'in:fonctionnaire,contractuel,vacataire'],
 
             // Metiers de CE centre (un centre peut en couvrir plusieurs,
             // chacun avec ses propres membres — cf. modele papier

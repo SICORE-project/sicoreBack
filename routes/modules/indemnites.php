@@ -22,6 +22,7 @@ use App\Http\Controllers\Api\Indemnites\PieceJustificativesController;
 use App\Http\Controllers\Api\Indemnites\AccuseReceptionController;
 use App\Http\Controllers\Api\Indemnites\FraisDeplacementController;
 use App\Http\Controllers\Api\Indemnites\FraisDeplacementPdfController;
+use App\Http\Controllers\Api\Indemnites\IndemniteCorrectionController;
 use App\Http\Controllers\Api\Indemnites\EtatPaieIndemnitesController;
 use App\Http\Controllers\Api\Indemnites\BoursesController;
 use App\Http\Controllers\Api\Indemnites\AidesEtudiantesController;
@@ -207,6 +208,16 @@ Route::post('frais-deplacement/{id}/cloturer', [FraisDeplacementController::clas
 // pouvoir télécharger la fiche si possible").
 Route::get('frais-deplacement/{id}/pdf', [FraisDeplacementPdfController::class, 'generer']);
 Route::get('frais-deplacement/{id}/download', [FraisDeplacementPdfController::class, 'download']);
+
+
+/*
+|--------------------------------------------------------------------------
+| Indemnités de correction
+|--------------------------------------------------------------------------
+*/
+
+Route::get('indemnite-correction/correcteurs-eligibles', [IndemniteCorrectionController::class, 'correcteursEligibles']);
+Route::post('indemnite-correction/calculer-groupe', [IndemniteCorrectionController::class, 'calculerGroupe']);
 
 
 /*

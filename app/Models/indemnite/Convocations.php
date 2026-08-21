@@ -23,7 +23,6 @@ class Convocations extends Model
         'heure_debut',
         'objet',
         'session',
-        'lieu_examen',
         'ordre_de_mission',
         'lieu_affectation',
         'fichier_chemin',
@@ -110,6 +109,16 @@ class Convocations extends Model
                 ->delete();
 
             DB::table('convocation_enseignant')
+                ->where('convocation_id', $convocation->id)
+                ->delete();
+
+            // indemnites_correction est en MyISAM comme le reste de ces
+            // tables (cascadeOnDelete() declare en migration mais ignore
+            // silencieusement par ce moteur) — meme nettoyage manuel que
+            // pour convocation_centre_metiers/convocation_enseignant
+            // ci-dessus, sans quoi supprimer une convocation laisserait des
+            // indemnites de correction orphelines.
+            DB::table('indemnites_correction')
                 ->where('convocation_id', $convocation->id)
                 ->delete();
 

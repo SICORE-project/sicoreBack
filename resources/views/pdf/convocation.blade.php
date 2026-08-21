@@ -104,10 +104,10 @@
             <td>{{ $convocation->heure_debut ?? '—' }}</td>
         </tr>
         <tr>
-            <td class="info-label">Lieu d'examen</td>
-            <td>{{ $convocation->lieu_examen ?? '—' }}</td>
             <td class="info-label">Lieu d'affectation</td>
             <td>{{ $convocation->lieu_affectation ?? '—' }}</td>
+            <td class="info-label">Ordre de mission</td>
+            <td>{{ $convocation->ordre_de_mission ? 'Oui' : 'Non' }}</td>
         </tr>
     </table>
 

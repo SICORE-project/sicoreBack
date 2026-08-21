@@ -112,18 +112,6 @@ class FraisDeplacementController extends Controller
             return $this->error('Convocation introuvable.', 404);
         }
 
-        $membres = $convocation->enseignants->keyBy('id');
-
-        foreach ($convocation->centres as $centre) {
-            if ($centre->chefCentre) {
-                $membres->put($centre->chefCentre->id, $centre->chefCentre);
-            }
-
-            if ($centre->presidentJury) {
-                $membres->put($centre->presidentJury->id, $centre->presidentJury);
-            }
-        }
-
         $typesRequis = array_keys(piece_justificatives::TYPES);
 
         // Types présents (hors pièces rejetées) par bénéficiaire, pour cette
@@ -144,27 +132,41 @@ class FraisDeplacementController extends Controller
             ->get(['id', 'beneficiaire_id', 'statut', 'montant_calcule', 'lieu_service', 'indice_agent', 'salaire_global_annuel'])
             ->keyBy('beneficiaire_id');
 
-        $beneficiaires = $membres->map(function ($enseignant) use ($convocation, $typesRequis, $typesParEnseignant, $missionsExistantes) {
+        $construireLigne = function ($enseignant, ?string $nomCentre, ?int $centreId) use ($convocation, $typesRequis, $typesParEnseignant, $missionsExistantes) {
             $typesPresents = $typesParEnseignant->get($enseignant->id, []);
             $complet = count(array_intersect($typesRequis, $typesPresents)) === count($typesRequis);
             $mission = $missionsExistantes->get($enseignant->id);
 
             // Mêmes règles que store()/update() (calcul des frais de
-            // déplacement) — voir centreAffectationEnseignant()/
-            // provenanceEnseignant() : "lieu d'affectation" = le centre où
-            // il est envoyé POUR CET EXAMEN, "provenance" = où il exerce
-            // HABITUELLEMENT. Le ÷4 du barème s'applique quand les deux
-            // coïncident.
-            $lieuAffectation = $this->centreAffectationEnseignant($convocation, $enseignant);
+            // déplacement) — voir lieuAffectation()/provenanceEnseignant() :
+            // "lieu d'affectation" est commun à toute la convocation,
+            // "provenance" varie par personne. Le ÷4 du barème s'applique
+            // quand les deux coïncident.
+            $lieuAffectation = $this->lieuAffectation($convocation);
             $provenance = $this->provenanceEnseignant($convocation, $enseignant, null);
+
+            // Voir categoriePersonnelEnseignant() : catégorie dédiée du
+            // centre (chef de centre/président de jury) > pivot (membre
+            // ordinaire) > profil permanent de l'enseignant.
+            $categoriePersonnel = $this->categoriePersonnelEnseignant($convocation, $enseignant);
 
             return [
                 'id' => $enseignant->id,
                 'nom' => $enseignant->nom,
                 'prenom' => $enseignant->prenom,
                 'matricule' => $enseignant->matricule,
-                'categorie_personnel' => $enseignant->categorie_personnel,
+                'categorie_personnel' => $categoriePersonnel,
                 'indice' => $enseignant->indice,
+                // 'centre'/'centre_id' : indispensables pour que le front
+                // (FraisDeplacementController::construireLignes()) puisse
+                // filtrer par centre — avant leur ajout, une convocation à
+                // plusieurs centres renvoyait TOUS ses membres en bloc,
+                // faisant apparaître les membres d'un AUTRE centre dès
+                // qu'on filtrait sur un centre précis (même bug déjà
+                // corrigé sur Pièces justificatives — voir
+                // PiecesJustificativesController::construireMembres()).
+                'centre' => $nomCentre,
+                'centre_id' => $centreId,
                 'lieu_affectation' => $lieuAffectation,
                 'provenance' => $provenance,
                 'dossier_complet' => $complet,
@@ -184,7 +186,50 @@ class FraisDeplacementController extends Controller
                 'fiche_indice_agent' => $mission?->indice_agent,
                 'fiche_salaire_annuel' => $mission?->salaire_global_annuel,
             ];
-        })->values();
+        };
+
+        $beneficiaires = collect();
+
+        if ($convocation->centres->isEmpty()) {
+            // Convocation sans centre du tout (donnée incomplète) : les
+            // membres du pivot restent quand même visibles, sans lieu
+            // d'affectation par centre précis.
+            foreach ($convocation->enseignants as $enseignant) {
+                $beneficiaires->push($construireLigne($enseignant, null, null));
+            }
+        } else {
+            $plusieursCentres = $convocation->centres->count() > 1;
+
+            foreach ($convocation->centres as $centre) {
+                if ($centre->chefCentre) {
+                    $beneficiaires->push($construireLigne($centre->chefCentre, $centre->centre, $centre->id));
+                }
+
+                if ($centre->presidentJury) {
+                    $beneficiaires->push($construireLigne($centre->presidentJury, $centre->centre, $centre->id));
+                }
+
+                foreach ($convocation->enseignants as $enseignant) {
+                    $pivotCentreId = $enseignant->pivot->centre_id ?? null;
+
+                    if ($pivotCentreId && (int) $pivotCentreId !== (int) $centre->id) {
+                        continue;
+                    }
+
+                    // Convocation à plusieurs centres mais membre sans
+                    // centre_id explicite sur son pivot (ancien format) :
+                    // rattachement ambigu, on ne peut pas savoir à quel
+                    // centre l'affecter — ignoré ici plutôt que dupliqué
+                    // sur chaque centre (même règle que
+                    // PiecesJustificativesController::construireMembres()).
+                    if (! $pivotCentreId && $plusieursCentres) {
+                        continue;
+                    }
+
+                    $beneficiaires->push($construireLigne($enseignant, $centre->centre, $centre->id));
+                }
+            }
+        }
 
         return $this->success('Bénéficiaires de la convocation.', [
             'complets' => $beneficiaires->where('dossier_complet', true)->values(),
@@ -210,13 +255,15 @@ class FraisDeplacementController extends Controller
             return $this->error("Le dossier de pièces justificatives de ce bénéficiaire n'est pas complet pour cette convocation.", 422);
         }
 
-        // Type TOUJOURS re-dérivé depuis la fiche de l'enseignant (source de
-        // vérité), jamais depuis ce que le front a soumis — cf. demande
-        // utilisatrice ("qu'on doit récupérer puisqu'on sait déjà c'est
-        // quoi"). Indice : idem s'il est déjà connu ; sinon on accepte la
-        // saisie du formulaire ET on la mémorise sur l'enseignant, pour ne
-        // plus avoir à la ressaisir la prochaine fois.
-        $statutAgent = $enseignant->categorie_personnel ?? $request->validated('statut_agent');
+        // Type TOUJOURS re-dérivé (source de vérité : catégorie saisie pour
+        // CETTE convocation sur le pivot, sinon profil permanent de
+        // l'enseignant — voir categoriePersonnelEnseignant()), jamais
+        // depuis ce que le front a soumis — cf. demande utilisatrice
+        // ("qu'on doit récupérer puisqu'on sait déjà c'est quoi"). Indice :
+        // idem s'il est déjà connu ; sinon on accepte la saisie du
+        // formulaire ET on la mémorise sur l'enseignant, pour ne plus avoir
+        // à la ressaisir la prochaine fois.
+        $statutAgent = $this->categoriePersonnelEnseignant($convocation, $enseignant) ?? $request->validated('statut_agent');
         $indiceAgent = null;
 
         if ($statutAgent === 'fonctionnaire') {
@@ -231,12 +278,12 @@ class FraisDeplacementController extends Controller
             return $this->error("La convocation n'a pas de période d'examen définie (date début/fin) : impossible de calculer le montant du déplacement.", 422);
         }
 
-        // "Lieu d'affectation" = le centre auquel il est rattaché POUR CET
-        // EXAMEN ; "provenance" = où il exerce HABITUELLEMENT — voir
-        // centreAffectationEnseignant()/provenanceEnseignant(). Le ÷4
-        // s'applique quand les deux coïncident (l'examen a lieu là où il
-        // travaille déjà, pas de vrai déplacement).
-        $lieuAffectation = $this->centreAffectationEnseignant($convocation, $enseignant);
+        // "Lieu d'affectation" = commun à toute la convocation ; "provenance"
+        // = où il exerce HABITUELLEMENT, propre à chaque personne — voir
+        // lieuAffectation()/provenanceEnseignant(). Le ÷4 s'applique quand
+        // les deux coïncident (l'examen a lieu là où il travaille déjà, pas
+        // de vrai déplacement).
+        $lieuAffectation = $this->lieuAffectation($convocation);
         $provenance = $this->provenanceEnseignant($convocation, $enseignant, $request->validated('lieu_service'));
 
         $groupeInfo = $this->determinerGroupe($statutAgent, $indiceAgent, $request->validated('montant_saisi'));
@@ -422,12 +469,9 @@ class FraisDeplacementController extends Controller
             $provenance = $this->provenanceEnseignant($convocation, $beneficiaire, null);
         }
 
-        // "Lieu d'affectation" (centre de CETTE convocation) : toujours
-        // recalculé, jamais soumis par le front — voir
-        // centreAffectationEnseignant().
-        $lieuAffectation = ($convocation && $beneficiaire)
-            ? $this->centreAffectationEnseignant($convocation, $beneficiaire)
-            : null;
+        // "Lieu d'affectation" (commun à toute la convocation) : toujours
+        // recalculé, jamais soumis par le front — voir lieuAffectation().
+        $lieuAffectation = $convocation ? $this->lieuAffectation($convocation) : null;
 
         if ($mission->statut_agent === 'fonctionnaire') {
             $indiceAgent = $request->validated('indice_agent') ?? $indiceAgent;
@@ -765,32 +809,16 @@ class FraisDeplacementController extends Controller
     }
 
     /**
-     * Centre auquel un bénéficiaire est rattaché POUR CETTE CONVOCATION —
-     * "lieu d'affectation" au sens métier précisé par l'utilisatrice : "où
-     * on l'a affecté pour l'examen" (pas où il travaille habituellement,
-     * voir provenanceEnseignant() ci-dessous). Le centre dont il est chef/
-     * président du jury prime ; sinon le centre_id de sa ligne pivot pour
-     * un membre du jury ordinaire. Repli sur le lieu d'examen global de la
-     * convocation si l'affectation à un centre précis est introuvable
-     * (convocation à un seul centre, ou donnée manquante).
+     * "Lieu d'affectation" au sens métier précisé par l'utilisatrice : "où
+     * on l'a affecté pour l'examen" — un seul lieu pour TOUTE la
+     * convocation ("ça concerne tous les membres et président de jury et
+     * de centre, ils sont dans le même lieu d'affectation"), pas un lieu
+     * différent par centre/par personne — voir provenanceEnseignant()
+     * pour ce qui, lui, varie réellement par personne.
      */
-    private function centreAffectationEnseignant(ConvocationModel $convocation, \App\Models\Parametrage\Enseignant $enseignant): ?string
+    private function lieuAffectation(ConvocationModel $convocation): ?string
     {
-        $centre = $this->centreDeResponsabilite($convocation, $enseignant);
-
-        if ($centre) {
-            return $centre->centre;
-        }
-
-        $centreId = $convocation->enseignants()
-            ->where('enseignant_id', $enseignant->id)
-            ->first()?->pivot?->centre_id;
-
-        if ($centreId) {
-            return ConvocationCentre::find($centreId)?->centre;
-        }
-
-        return $convocation->lieu_examen;
+        return $convocation->lieu_affectation;
     }
 
     /**
@@ -840,6 +868,36 @@ class FraisDeplacementController extends Controller
                     ->orWhere('president_jury_id', $enseignant->id);
             })
             ->first();
+    }
+
+    /**
+     * Catégorie (fonctionnaire/contractuel/vacataire) saisie POUR CETTE
+     * convocation, dans l'ordre de priorité : catégorie dédiée du centre
+     * pour un chef de centre/président de jury (migration
+     * add_categorie_personnel_to_convocation_centres_table) > pivot
+     * convocation_enseignant.categorie_personnel pour un membre du jury
+     * ordinaire (tableau Membres du jury du Word, ou saisie manuelle) >
+     * profil permanent de l'enseignant, qui peut différer ou être vide —
+     * même priorité que provenanceEnseignant(), pour ne pas calculer le
+     * barème sur une catégorie différente de celle affichée à l'écran.
+     */
+    private function categoriePersonnelEnseignant(ConvocationModel $convocation, \App\Models\Parametrage\Enseignant $enseignant): ?string
+    {
+        $centre = $this->centreDeResponsabilite($convocation, $enseignant);
+
+        if ($centre) {
+            $categorieCentre = $centre->chef_centre_id === $enseignant->id
+                ? $centre->chef_centre_categorie_personnel
+                : $centre->president_jury_categorie_personnel;
+
+            return $categorieCentre ?: $enseignant->categorie_personnel;
+        }
+
+        $categoriePivot = $convocation->enseignants()
+            ->where('enseignant_id', $enseignant->id)
+            ->first()?->pivot?->categorie_personnel;
+
+        return $categoriePivot ?: $enseignant->categorie_personnel;
     }
 
     /**

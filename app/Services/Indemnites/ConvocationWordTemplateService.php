@@ -24,9 +24,7 @@ class ConvocationWordTemplateService
         'Date début (jj/mm/aaaa)' => 'date_debut',
         'Date fin (jj/mm/aaaa)' => 'date_fin',
         'Heure début (hh:mm)' => 'heure_debut',
-        "Lieu d'examen" => 'lieu_examen',
         "Lieu d'affectation" => 'lieu_affectation',
-        'Ordre de mission (Oui/Non)' => 'ordre_de_mission',
     ];
 
     private const CHAMPS_CENTRE = [
@@ -40,10 +38,12 @@ class ConvocationWordTemplateService
         // pour l'ajustement ÷4 — même principe que la colonne "Provenance"
         // du tableau Membres du jury ci-dessous).
         'Provenance du chef de centre' => 'chef_centre_provenance',
+        'Catégorie de personnel du chef de centre (Fonctionnaire, Contractuelle, Vacataire)' => 'chef_centre_categorie_personnel',
 
         'Président du jury (nom complet)' => 'president_jury',
         'Téléphone du président du jury' => 'president_jury_telephone',
         'Provenance du président du jury' => 'president_jury_provenance',
+        'Catégorie de personnel du président du jury (Fonctionnaire, Contractuelle, Vacataire)' => 'president_jury_categorie_personnel',
     ];
 
     private const CHAMPS_MEMBRE = [
@@ -78,15 +78,6 @@ class ConvocationWordTemplateService
         $phpWord = new PhpWord();
         $section = $phpWord->addSection();
 
-        $section->addTitle('Modèle de convocation', 1);
-        $section->addText(
-            "Remplissez une ligne du tableau « Informations générales » (une seule convocation par document). Ajoutez une ligne par centre d'examen dans le deuxième tableau et une ligne par membre du jury dans le troisième — vous pouvez insérer des lignes supplémentaires si besoin. La colonne « Centre de rattachement » du tableau des membres doit reprendre exactement le nom saisi dans la colonne « Centre d'examen » du tableau des centres."
-        );
-        $section->addText(
-            "Il n'y a plus de type de convocation unique à choisir à l'import : chaque personne a désormais son propre type, déduit automatiquement de son rôle. Dans le tableau « Centres d'examen », le chef de centre et le président du jury donnent respectivement les types « Chef de centre » et « Président de jury ». Dans le tableau « Membres du jury », la colonne « Fonction » (Correction ou Surveillant) donne le type de chaque membre."
-        );
-
-        $section->addTextBreak();
         $section->addText('Informations générales', ['bold' => true]);
         $this->ajouterTableau($section, array_keys(self::CHAMPS_INFOS), 10);
 
@@ -310,14 +301,6 @@ class ConvocationWordTemplateService
             }
         }
 
-        if (isset($donnees['ordre_de_mission'])) {
-            $donnees['ordre_de_mission'] = in_array(
-                Str::lower(trim($donnees['ordre_de_mission'])),
-                ['oui', '1', 'true', 'o'],
-                true
-            );
-        }
-
         // Le tableau "Informations générales" indique la casse exacte
         // attendue ("brouillon, emise, envoyee, cloturee") mais un
         // utilisateur qui remplit le document tape naturellement "Émise" /
@@ -384,6 +367,26 @@ class ConvocationWordTemplateService
             $presidentJuryId = $enseignant?->id;
         }
 
+        $chefCentreCategorie = null;
+
+        if (! empty($ligne['chef_centre_categorie_personnel'])) {
+            $chefCentreCategorie = $this->normaliserCategoriePersonnel($ligne['chef_centre_categorie_personnel']);
+
+            if (! $chefCentreCategorie) {
+                $avertissements[] = "catégorie de personnel « {$ligne['chef_centre_categorie_personnel']} » (chef de centre « {$ligne['centre']} ») non reconnue — valeurs attendues : Fonctionnaire, Contractuelle, Vacataire.";
+            }
+        }
+
+        $presidentJuryCategorie = null;
+
+        if (! empty($ligne['president_jury_categorie_personnel'])) {
+            $presidentJuryCategorie = $this->normaliserCategoriePersonnel($ligne['president_jury_categorie_personnel']);
+
+            if (! $presidentJuryCategorie) {
+                $avertissements[] = "catégorie de personnel « {$ligne['president_jury_categorie_personnel']} » (président du jury « {$ligne['centre']} ») non reconnue — valeurs attendues : Fonctionnaire, Contractuelle, Vacataire.";
+            }
+        }
+
         return [
             'centre' => $ligne['centre'],
             'jury' => $ligne['jury'] ?: null,
@@ -391,9 +394,11 @@ class ConvocationWordTemplateService
             'chef_centre_id' => $chefCentreId,
             'chef_centre_telephone' => $ligne['chef_centre_telephone'] ?: null,
             'chef_centre_provenance' => $ligne['chef_centre_provenance'] ?: null,
+            'chef_centre_categorie_personnel' => $chefCentreCategorie,
             'president_jury_id' => $presidentJuryId,
             'president_jury_telephone' => $ligne['president_jury_telephone'] ?: null,
             'president_jury_provenance' => $ligne['president_jury_provenance'] ?: null,
+            'president_jury_categorie_personnel' => $presidentJuryCategorie,
         ];
     }
 
