@@ -10,6 +10,7 @@ use App\Http\Controllers\Api\Parametrage\IefController;
 use App\Http\Controllers\Api\Parametrage\LieuServiceController;
 use App\Http\Controllers\Api\Parametrage\AnneeAcademiqueController;
 use App\Http\Controllers\Api\Parametrage\SyndicatController;
+use App\Http\Controllers\Api\Parametrage\SpecialiteController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('parametrage/lieux-service', [LieuServiceController::class, 'catalogue'])
@@ -144,6 +145,9 @@ Route::prefix('corps')->group(function () {
 | Gestion du référentiel des catégories et de leur état d'activation.
 */
 Route::apiResource('categories', CategorieController::class);
+
+Route::post('specialites', [SpecialiteController::class, 'store'])
+    ->middleware('permission:parametrage.specialites.manage');
 Route::patch(
     'categories/{id}/activate',
     [CategorieController::class, 'activate']
