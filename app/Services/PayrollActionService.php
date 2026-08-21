@@ -9,9 +9,12 @@ use App\Models\PayrollPayslip;
 use App\Models\PayrollPeriod;
 use App\Models\PayrollRun;
 use App\Models\User;
+use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpKernel\Exception\ConflictHttpException;
 
@@ -218,7 +221,7 @@ class PayrollActionService
      * navigateur : un utilisateur ne peut donc pas transformer une retenue en
      * gain. Chaque ligne créée reste reliée au même lot d'application.
      *
-     * @return array<string, int|string>
+     * @return array<string, mixed>
      */
     public function applyCollectiveTabaski(
         array $data,
@@ -238,94 +241,121 @@ class PayrollActionService
             $request,
             $key
         ): array {
-            $period = $this->mutablePeriod((int) $data['payroll_period_id']);
-            $expectedAcademicYear = $this->academicYearForPeriod($period);
-            if ($data['academic_year'] !== $expectedAcademicYear) {
+            $academicYear = DB::table('annee_academiques')
+                ->where('id', (int) $data['annee_academique_id'])
+                ->first();
+            $corps = DB::table('corps_enseignant')
+                ->where('id', (int) $data['corps_id'])
+                ->whereIn('code', ['VAC', 'PC'])
+                ->first();
+
+            if (! $academicYear || ! $corps) {
                 throw ValidationException::withMessages([
-                    'academic_year' => sprintf(
-                        'Le mois %s appartient à l’année académique %s.',
-                        $period->label,
-                        $expectedAcademicYear
-                    ),
+                    'corps_id' => 'Le corps ou l’année académique sélectionné(e) n’est plus disponible.',
                 ]);
             }
 
-            $teachers = Enseignant::query()
-                ->where('actif', true)
-                ->where('type_engagement', $data['type_engagement'])
-                ->whereHas('etablissement.ief', function ($query) use ($data): void {
-                    $query
-                        ->where('iefs.id', (int) $data['ief_id'])
-                        ->where('iefs.ia_id', (int) $data['ia_id']);
-                })
+            $iaIds = collect($data['ia_ids'])->map(fn (mixed $id): int => (int) $id)->unique()->sort()->values();
+            $months = $code === 'TABASKI_RETENUE'
+                ? collect($data['months'])->map(fn (mixed $month): int => (int) $month)->values()
+                : collect([(int) $data['month']]);
+            $periods = $this->periodsForAcademicMonths($academicYear, $months, $code === 'TABASKI_RETENUE' ? 'months' : 'month');
+
+            $activeColumn = Schema::hasColumn('enseignants', 'actif') ? 'actif' : 'est_actif';
+            $corpsColumn = Schema::hasColumn('enseignants', 'corps_id') ? 'corps_id' : 'corps_enseignant_id';
+            $teachersQuery = Enseignant::query()
+                ->with('user')
+                ->where($activeColumn, true)
+                ->where($corpsColumn, (int) $corps->id)
+                ->where(function ($query) use ($iaIds): void {
+                    if (Schema::hasColumn('enseignants', 'ia_id')) {
+                        $query->whereIn('ia_id', $iaIds->all());
+                    }
+
+                    if (Schema::hasTable('etablissements')) {
+                        $method = Schema::hasColumn('enseignants', 'ia_id') ? 'orWhereHas' : 'whereHas';
+                        $query->{$method}('etablissement.ief', fn ($iefQuery) => $iefQuery->whereIn('iefs.ia_id', $iaIds->all()));
+                    }
+                });
+
+            if (Schema::hasTable('etablissements')) {
+                $teachersQuery->with('etablissement.ief');
+            }
+
+            $teachers = $teachersQuery
                 ->orderBy('id')
                 ->lockForUpdate()
                 ->get();
 
             if ($teachers->isEmpty()) {
                 throw ValidationException::withMessages([
-                    'type_engagement' => 'Aucun enseignant actif de ce corps ne correspond à l’IA et à l’IEF sélectionnées.',
+                    'corps_id' => 'Aucun enseignant actif de ce corps ne correspond aux IA sélectionnées.',
                 ]);
             }
 
             $applicationReference = sprintf(
-                '%s-%s-%s-IA%d-IEF%d',
+                '%s-AY%d-%s-IA%s-M%s',
                 $code,
-                str_replace('-', '', $period->code),
-                strtoupper((string) $data['type_engagement']),
-                (int) $data['ia_id'],
-                (int) $data['ief_id']
+                (int) $academicYear->id,
+                strtoupper((string) $corps->code),
+                substr(hash('sha256', $iaIds->implode(',')), 0, 10),
+                $months->map(fn (int $month): string => str_pad((string) $month, 2, '0', STR_PAD_LEFT))->implode('-')
             );
             $created = 0;
             $updated = 0;
 
-            foreach ($teachers as $teacher) {
-                $element = PayrollElement::query()
-                    ->where('payroll_period_id', $period->id)
-                    ->where('enseignant_id', $teacher->id)
-                    ->where('code', $code)
-                    ->lockForUpdate()
-                    ->first();
-                $element ? $updated++ : $created++;
+            foreach ($periods as $period) {
+                foreach ($teachers as $teacher) {
+                    $element = PayrollElement::query()
+                        ->where('payroll_period_id', $period->id)
+                        ->where('enseignant_id', $teacher->id)
+                        ->where('code', $code)
+                        ->lockForUpdate()
+                        ->first();
+                    $element ? $updated++ : $created++;
 
-                PayrollElement::query()->updateOrCreate(
-                    [
-                        'payroll_period_id' => $period->id,
-                        'enseignant_id' => $teacher->id,
-                        'code' => $code,
-                    ],
-                    [
-                        'label' => $label,
-                        'category' => $category,
-                        'source' => 'manual',
-                        'amount' => round((float) $data['amount'], 2),
-                        'academic_year' => $data['academic_year'],
-                        'application_scope' => 'collective',
-                        'application_reference' => $applicationReference,
-                        'application_ia_id' => (int) $data['ia_id'],
-                        'application_ief_id' => (int) $data['ief_id'],
-                        'applied_at' => now(),
-                        'applied_by' => $actor->id,
-                        'is_exempt' => false,
-                        'exemption_reason' => null,
-                        // L'opération collective validée est intégrée au calcul du mois.
-                        'status' => 'validated',
-                        'created_by' => $actor->id,
-                        'validated_by' => $actor->id,
-                        'validated_at' => now(),
-                        'version' => ($element?->version ?? 0) + 1,
-                    ]
-                );
+                    PayrollElement::query()->updateOrCreate(
+                        [
+                            'payroll_period_id' => $period->id,
+                            'enseignant_id' => $teacher->id,
+                            'code' => $code,
+                        ],
+                        [
+                            'label' => $label,
+                            'category' => $category,
+                            'source' => 'manual',
+                            'amount' => round((float) $data['amount'], 2),
+                            'academic_year' => $academicYear->libelle,
+                            'annee_academique_id' => (int) $academicYear->id,
+                            'application_scope' => 'collective',
+                            'application_reference' => $applicationReference,
+                            'application_corps_id' => (int) $corps->id,
+                            'application_ia_id' => $this->teacherIaId($teacher),
+                            'application_ief_id' => $this->teacherIefId($teacher),
+                            'applied_at' => now(),
+                            'applied_by' => $actor->id,
+                            'is_exempt' => false,
+                            'exemption_reason' => null,
+                            // Le montant saisi est conservé tel quel pour chaque mois choisi.
+                            'status' => 'validated',
+                            'created_by' => $actor->id,
+                            'validated_by' => $actor->id,
+                            'validated_at' => now(),
+                            'version' => ($element?->version ?? 0) + 1,
+                        ]
+                    );
+                }
             }
 
             $summary = [
                 'application_reference' => $applicationReference,
-                'payroll_period_id' => $period->id,
-                'period' => $period->label,
-                'academic_year' => $data['academic_year'],
-                'type_engagement' => $data['type_engagement'],
-                'ia_id' => (int) $data['ia_id'],
-                'ief_id' => (int) $data['ief_id'],
+                'payroll_period_ids' => $periods->pluck('id')->all(),
+                'months' => $months->all(),
+                'academic_year' => $academicYear->libelle,
+                'annee_academique_id' => (int) $academicYear->id,
+                'corps_id' => (int) $corps->id,
+                'corps_code' => (string) $corps->code,
+                'ia_ids' => $iaIds->all(),
                 'amount' => round((float) $data['amount'], 2),
                 'affected_teachers' => $teachers->count(),
                 'created_elements' => $created,
@@ -333,7 +363,7 @@ class PayrollActionService
             ];
             $this->audit->log(
                 'tabaski.collective_applied',
-                $period,
+                $periods->first(),
                 null,
                 $summary,
                 $actor,
@@ -545,13 +575,62 @@ class PayrollActionService
         return $period;
     }
 
-    private function academicYearForPeriod(PayrollPeriod $period): string
+    /** @return Collection<int, PayrollPeriod> */
+    private function periodsForAcademicMonths(object $academicYear, Collection $months, string $field): Collection
     {
-        $year = (int) $period->start_date->format('Y');
-        $month = (int) $period->start_date->format('n');
-        $startYear = $month >= 10 ? $year : $year - 1;
+        $wanted = $months->map(fn (mixed $month): int => (int) $month)->unique()->values();
+        $codesByMonth = collect();
+        $cursor = CarbonImmutable::parse($academicYear->date_debut)->startOfMonth();
+        $end = CarbonImmutable::parse($academicYear->date_fin)->endOfMonth();
 
-        return $startYear.'-'.($startYear + 1);
+        while ($cursor->lessThanOrEqualTo($end)) {
+            if ($wanted->contains($cursor->month) && ! $codesByMonth->has($cursor->month)) {
+                $codesByMonth->put($cursor->month, $cursor->format('Y-m'));
+            }
+            $cursor = $cursor->addMonth();
+        }
+
+        if ($codesByMonth->count() !== $wanted->count()) {
+            throw ValidationException::withMessages([
+                $field => 'Un ou plusieurs mois ne font pas partie de l’année académique sélectionnée.',
+            ]);
+        }
+
+        $periodsByCode = PayrollPeriod::query()
+            ->whereIn('code', $codesByMonth->values()->all())
+            ->get()
+            ->keyBy('code');
+        $missing = $codesByMonth->values()->reject(fn (string $code): bool => $periodsByCode->has($code));
+
+        if ($missing->isNotEmpty()) {
+            throw ValidationException::withMessages([
+                $field => 'Créez d’abord les périodes de paie suivantes : '.$missing->implode(', ').'.',
+            ]);
+        }
+
+        return $wanted->map(function (int $month) use ($codesByMonth, $periodsByCode): PayrollPeriod {
+            return $this->mutablePeriod((int) $periodsByCode->get($codesByMonth->get($month))->id);
+        })->values();
+    }
+
+    private function teacherIaId(Enseignant $teacher): ?int
+    {
+        $id = $teacher->getAttribute('ia_id');
+        if ($id === null && $teacher->relationLoaded('etablissement')) {
+            $id = $teacher->etablissement?->ief?->ia_id;
+        }
+
+        return $id === null ? null : (int) $id;
+    }
+
+    private function teacherIefId(Enseignant $teacher): ?int
+    {
+        $id = $teacher->getAttribute('ief_id');
+        if ($id === null && $teacher->relationLoaded('etablissement')) {
+            $id = $teacher->etablissement?->ief_id;
+        }
+
+        return $id === null ? null : (int) $id;
     }
 
     private function assertVersion(?Model $model, ?int $expectedVersion): void

@@ -11,6 +11,8 @@ use App\Models\PayrollPayslip;
 use App\Models\PayrollPeriod;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
 
 class PayrollPageService
@@ -61,9 +63,14 @@ class PayrollPageService
             throw ValidationException::withMessages(['period_id' => 'Période de paie inconnue.']);
         }
 
+        $teacherRelations = ['user'];
+        if (Schema::hasTable('etablissements')) {
+            $teacherRelations[] = 'etablissement.ief.ia';
+        }
+        $activeColumn = Schema::hasColumn('enseignants', 'actif') ? 'actif' : 'est_actif';
         $teachers = Enseignant::query()
-            ->with(['user', 'etablissement.ief.ia'])
-            ->where('actif', true)
+            ->with($teacherRelations)
+            ->where($activeColumn, true)
             ->orderBy('matricule')
             ->get();
         $academicInspections = ias::query()
@@ -71,6 +78,13 @@ class PayrollPageService
             ->get();
         $educationInspections = iefs::query()
             ->orderBy('libelle')
+            ->get();
+        $teachingCorps = DB::table('corps_enseignant')
+            ->whereIn('code', ['VAC', 'PC'])
+            ->orderByRaw("CASE code WHEN 'VAC' THEN 1 WHEN 'PC' THEN 2 ELSE 3 END")
+            ->get();
+        $academicYears = DB::table('annee_academiques')
+            ->orderByDesc('date_debut')
             ->get();
 
         $report = $this->report($slug, $period, $teachers);
@@ -94,17 +108,31 @@ class PayrollPageService
                 'code' => $inspection->code,
                 'ia_id' => $inspection->ia_id,
             ])->values(),
+            'teaching_corps' => $teachingCorps->map(fn (object $corps): array => [
+                'id' => $corps->id,
+                'value' => $corps->id,
+                'code' => $corps->code,
+                'label' => $corps->code.' — '.$corps->libelle,
+            ])->values(),
+            'academic_years' => $academicYears->map(fn (object $year): array => [
+                'id' => $year->id,
+                'value' => $year->id,
+                'label' => $year->libelle,
+                'start_date' => $year->date_debut,
+                'end_date' => $year->date_fin,
+            ])->values(),
+            'payroll_months' => $this->payrollMonths(),
             'teachers' => $teachers->map(fn (Enseignant $teacher): array => [
                 'id' => $teacher->id,
                 'value' => $teacher->id,
                 'label' => ($teacher->matricule ?: 'Sans matricule').' — '.$this->teacherName($teacher),
                 'matricule' => $teacher->matricule,
                 'name' => $this->teacherName($teacher),
-                'establishment' => $teacher->etablissement?->libelle,
-                'ief_id' => $teacher->etablissement?->ief_id,
-                'ief_label' => $teacher->etablissement?->ief?->libelle,
-                'ia_id' => $teacher->etablissement?->ief?->ia_id,
-                'ia_label' => $teacher->etablissement?->ief?->ia?->libelle,
+                'establishment' => $this->teacherEstablishmentLabel($teacher),
+                'ief_id' => $this->teacherIefId($teacher),
+                'ief_label' => $this->teacherIefLabel($teacher, $educationInspections),
+                'ia_id' => $this->teacherIaId($teacher),
+                'ia_label' => $this->teacherIaLabel($teacher, $academicInspections),
                 'type_engagement' => $teacher->type_engagement,
                 'payroll_diploma_level' => $teacher->payroll_diploma_level,
                 'payroll_category_level' => $teacher->payroll_category_level,
@@ -236,14 +264,8 @@ class PayrollPageService
                 'rows' => $items->map(fn (PayrollElement $item): array => [
                     $this->teacherName($item->enseignant),
                     $item->enseignant->matricule ?: '—',
-                    match ($item->enseignant->type_engagement) {
-                        'contractuel' => 'PC — Professeur contractuel',
-                        'vacataire' => 'Vacataire',
-                        default => $item->enseignant->corps?->libelle ?? 'Non renseigné',
-                    },
-                    ($item->enseignant->etablissement?->ief?->ia?->libelle ?? 'IA non renseignée')
-                        .' / '
-                        .($item->enseignant->etablissement?->ief?->libelle ?? 'IEF non renseignée'),
+                    $this->tabaskiCorpsLabel($item),
+                    $this->tabaskiHierarchyLabel($item),
                     $item->academic_year ?: 'Non renseignée',
                     $period?->label ?? '—',
                     $this->money($item->amount),
@@ -647,8 +669,6 @@ class PayrollPageService
         return PayrollElement::query()
             ->with([
                 'enseignant.user',
-                'enseignant.corps',
-                'enseignant.etablissement.ief.ia',
             ])
             ->where('payroll_period_id', $period->id)
             ->latest('updated_at')
@@ -725,8 +745,8 @@ class PayrollPageService
                 $teacher = $teachersByMatricule->get($this->normalizeMatricule((string) $cell));
                 if ($teacher) {
                     return [
-                        'ia_id' => $teacher->etablissement?->ief?->ia_id,
-                        'ief_id' => $teacher->etablissement?->ief_id,
+                        'ia_id' => $this->teacherIaId($teacher),
+                        'ief_id' => $this->teacherIefId($teacher),
                         'matricule' => $teacher->matricule,
                     ];
                 }
@@ -874,10 +894,86 @@ class PayrollPageService
     {
         $user = $teacher->user;
         if (! $user) {
-            return 'Enseignant #'.$teacher->id;
+            $directName = trim((string) $teacher->prenom.' '.(string) $teacher->nom);
+
+            return $directName !== '' ? $directName : 'Enseignant #'.$teacher->id;
         }
 
         return trim($user->prenom.' '.$user->nom);
+    }
+
+    /** @return array<int, array{value: int, label: string}> */
+    private function payrollMonths(): array
+    {
+        return collect([
+            1 => 'Janvier',
+            2 => 'Février',
+            3 => 'Mars',
+            4 => 'Avril',
+            5 => 'Mai',
+            6 => 'Juin',
+            7 => 'Juillet',
+            8 => 'Août',
+            9 => 'Septembre',
+            10 => 'Octobre',
+            11 => 'Novembre',
+            12 => 'Décembre',
+        ])->map(fn (string $label, int $value): array => compact('value', 'label'))->values()->all();
+    }
+
+    private function teacherEstablishmentLabel(Enseignant $teacher): ?string
+    {
+        return $teacher->relationLoaded('etablissement') ? $teacher->etablissement?->libelle : null;
+    }
+
+    private function teacherIefId(Enseignant $teacher): ?int
+    {
+        $id = $teacher->getAttribute('ief_id');
+        if ($id === null && $teacher->relationLoaded('etablissement')) {
+            $id = $teacher->etablissement?->ief_id;
+        }
+
+        return $id === null ? null : (int) $id;
+    }
+
+    private function teacherIaId(Enseignant $teacher): ?int
+    {
+        $id = $teacher->getAttribute('ia_id');
+        if ($id === null && $teacher->relationLoaded('etablissement')) {
+            $id = $teacher->etablissement?->ief?->ia_id;
+        }
+
+        return $id === null ? null : (int) $id;
+    }
+
+    private function teacherIefLabel(Enseignant $teacher, Collection $inspections): ?string
+    {
+        return $inspections->firstWhere('id', $this->teacherIefId($teacher))?->libelle;
+    }
+
+    private function teacherIaLabel(Enseignant $teacher, Collection $inspections): ?string
+    {
+        return $inspections->firstWhere('id', $this->teacherIaId($teacher))?->libelle;
+    }
+
+    private function tabaskiCorpsLabel(PayrollElement $element): string
+    {
+        $corpsId = $element->application_corps_id ?? $element->enseignant->getAttribute('corps_id');
+        $corps = $corpsId
+            ? DB::table('corps_enseignant')->where('id', (int) $corpsId)->first(['code', 'libelle'])
+            : null;
+
+        return $corps ? $corps->code.' — '.$corps->libelle : 'Non renseigné';
+    }
+
+    private function tabaskiHierarchyLabel(PayrollElement $element): string
+    {
+        $iaId = $element->application_ia_id ?? $this->teacherIaId($element->enseignant);
+        $iefId = $element->application_ief_id ?? $this->teacherIefId($element->enseignant);
+        $ia = $iaId ? DB::table('ias')->where('id', (int) $iaId)->value('libelle') : null;
+        $ief = $iefId ? DB::table('iefs')->where('id', (int) $iefId)->value('libelle') : null;
+
+        return ($ia ?: 'IA non renseignée').' / '.($ief ?: 'IEF non renseignée');
     }
 
     private function categoryLabel(string $category): string

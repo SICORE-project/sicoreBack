@@ -9,6 +9,8 @@ use App\Models\PayrollPayslip;
 use App\Models\PayrollPeriod;
 use App\Models\roles;
 use App\Models\User;
+use Carbon\CarbonImmutable;
+use Database\Seeders\GestionPaieSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Laravel\Sanctum\Sanctum;
@@ -84,6 +86,7 @@ class PayrollApiTest extends TestCase
     public function test_page_de_paie_est_alimentee_par_api(): void
     {
         $period = $this->period();
+        $this->seed(GestionPaieSeeder::class);
         PayrollAttendance::query()->create([
             'payroll_period_id' => $period->id,
             'enseignant_id' => $this->teacher->id,
@@ -96,6 +99,10 @@ class PayrollApiTest extends TestCase
         $this->getJson('/api/payroll/pages/paie-etats-presence?period_id='.$period->id)
             ->assertOk()
             ->assertJsonPath('data.period.code', '2026-07')
+            ->assertJsonPath('data.teaching_corps.0.code', 'VAC')
+            ->assertJsonPath('data.teaching_corps.1.code', 'PC')
+            ->assertJsonPath('data.academic_years.0.label', '2025-2026')
+            ->assertJsonCount(12, 'data.payroll_months')
             ->assertJsonPath('data.academic_inspections.0.label', 'IA Test')
             ->assertJsonPath('data.education_inspections.0.ia_id', $this->iaId)
             ->assertJsonPath('data.teachers.0.ief_id', $this->iefId)
@@ -415,36 +422,63 @@ class PayrollApiTest extends TestCase
         $this->assertNotContains('IPRES_SALARIE', $codes);
     }
 
-    public function test_tabaski_collective_cible_corps_ia_ief_et_mois_sans_matricule(): void
+    public function test_tabaski_collective_cible_corps_plusieurs_ia_et_mois_sans_matricule(): void
     {
+        $categoryId = DB::table('categories')->insertGetId([
+            'code' => 'TEST-PAIE',
+            'libelle' => 'Paie test',
+            'ordre' => 1,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        $corpsId = DB::table('corps_enseignant')->insertGetId([
+            'code' => 'PC',
+            'libelle' => 'Professeurs contractuels',
+            'categorie_id' => $categoryId,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        $academicYearId = DB::table('annee_academiques')->insertGetId([
+            'libelle' => '2025-2026',
+            'date_debut' => '2025-10-01',
+            'date_fin' => '2026-09-30',
+            'en cours' => true,
+            'est_cloturee' => false,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
         $period = $this->period();
-        $this->postAction('configure-teacher-payroll', [
-            ...$this->teacherHierarchyPayload(),
-            'type_engagement' => 'contractuel',
-            'payroll_diploma_level' => 'BAC_BT',
-            'payroll_category_level' => 1,
-            'impr_monthly_amount' => 11767,
-            'trimf_monthly_amount' => 500,
-            'ipm_monthly_amount' => 4500,
-            'union_checkoff_monthly_amount' => 1000,
-        ], 'configure-collective-first')->assertOk();
+        foreach (['2025-10', '2025-11', '2025-12', '2026-01', '2026-02', '2026-03', '2026-04', '2026-05', '2026-06'] as $code) {
+            PayrollPeriod::query()->create([
+                'code' => $code,
+                'label' => $code,
+                'start_date' => $code.'-01',
+                'end_date' => CarbonImmutable::parse($code.'-01')->endOfMonth()->toDateString(),
+                'status' => PayrollPeriod::STATUS_OPEN,
+            ]);
+        }
 
+        $this->teacher->update([
+            'corps_id' => $corpsId,
+            'ia_id' => $this->iaId,
+            'ief_id' => $this->iefId,
+            'type_engagement' => 'contractuel',
+            'payroll_profile_configured_at' => now(),
+        ]);
         $second = Enseignant::query()->create([
             'matricule' => 'TEST-002',
+            'nom' => 'FALL',
+            'prenom' => 'Awa',
+            'corps_id' => $corpsId,
+            'ia_id' => $this->iaId,
+            'ief_id' => $this->iefId,
             'type_engagement' => 'contractuel',
-            'payroll_diploma_level' => 'BAC_BT',
-            'payroll_category_level' => 1,
-            'diplome' => 'BAC / BT',
             'salaire_base' => 152773,
             'nombre_parts' => 1,
-            'impr_monthly_amount' => 11767,
-            'trimf_monthly_amount' => 500,
-            'ipm_monthly_amount' => 4500,
-            'union_checkoff_monthly_amount' => 1000,
             'actif' => true,
+            'est_actif' => true,
             'etablissement_id' => $this->teacher->etablissement_id,
             'payroll_profile_configured_at' => now(),
-            'payroll_profile_configured_by' => $this->admin->id,
         ]);
         User::query()->create([
             'nom' => 'FALL',
@@ -455,94 +489,60 @@ class PayrollApiTest extends TestCase
             'enseignant_id' => $second->id,
         ]);
 
-        $this->postAction('apply-tabaski-advance', [
-            'type_engagement' => 'contractuel',
-            'ia_id' => $this->iaId,
-            'ief_id' => $this->iefId,
-            'academic_year' => '2026-2027',
-            'payroll_period_id' => $period->id,
-            'amount' => 25000,
-        ], 'collective-tabaski-wrong-year')
-            ->assertUnprocessable()
-            ->assertJsonValidationErrors('academic_year');
-        $this->assertDatabaseCount('payroll_elements', 0);
-
-        $this->postAction('apply-tabaski-advance', [
-            'type_engagement' => 'contractuel',
-            'ia_id' => $this->iaId,
-            'ief_id' => $this->iefId,
-            'academic_year' => '2025-2026',
-            'payroll_period_id' => $period->id,
-            'amount' => 25000,
-        ], 'collective-tabaski-advance')
+        $basePayload = [
+            'corps_id' => $corpsId,
+            'ia_ids' => [$this->iaId],
+            'annee_academique_id' => $academicYearId,
+            'amount' => 100000,
+        ];
+        $this->postAction('apply-tabaski-advance', [...$basePayload, 'month' => 7], 'tabaski-advance')
             ->assertOk()
             ->assertJsonPath('data.affected_teachers', 2)
             ->assertJsonPath('data.created_elements', 2)
             ->assertJsonPath('data.academic_year', '2025-2026');
 
-        $this->assertDatabaseCount('payroll_elements', 2);
         $this->assertDatabaseHas('payroll_elements', [
             'payroll_period_id' => $period->id,
             'enseignant_id' => $this->teacher->id,
             'code' => 'TABASKI_AVANCE',
-            'category' => 'earning',
-            'amount' => 25000,
-            'academic_year' => '2025-2026',
-            'application_scope' => 'collective',
+            'amount' => 100000,
+            'annee_academique_id' => $academicYearId,
+            'application_corps_id' => $corpsId,
             'application_ia_id' => $this->iaId,
-            'application_ief_id' => $this->iefId,
             'status' => 'validated',
-        ]);
-        $this->assertDatabaseHas('payroll_elements', [
-            'payroll_period_id' => $period->id,
-            'enseignant_id' => $second->id,
-            'code' => 'TABASKI_AVANCE',
-            'amount' => 25000,
-        ]);
-        $this->assertDatabaseHas('payroll_audit_logs', [
-            'action' => 'tabaski.collective_applied',
-            'auditable_type' => 'PayrollPeriod',
-            'auditable_id' => $period->id,
         ]);
 
         $this->postAction('apply-tabaski-deduction', [
-            'type_engagement' => 'contractuel',
-            'ia_id' => $this->iaId,
-            'ief_id' => $this->iefId,
-            'academic_year' => '2025-2026',
-            'payroll_period_id' => $period->id,
-            'amount' => 10000,
-        ], 'collective-tabaski-deduction')
-            ->assertOk()
-            ->assertJsonPath('data.affected_teachers', 2)
-            ->assertJsonPath('data.created_elements', 2);
-        $this->assertDatabaseHas('payroll_elements', [
-            'payroll_period_id' => $period->id,
-            'enseignant_id' => $second->id,
-            'code' => 'TABASKI_RETENUE',
-            'category' => 'deduction',
-            'amount' => 10000,
-            'academic_year' => '2025-2026',
-            'application_scope' => 'collective',
-        ]);
+            ...$basePayload,
+            'months' => [10, 11, 12, 1, 2, 3, 4, 5, 6],
+        ], 'tabaski-nine-months')
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('months');
 
-        $this->postAction('calculate-payroll', [
-            'payroll_period_id' => $period->id,
-        ], 'calculate-collective-tabaski')
+        $this->postAction('apply-tabaski-deduction', [
+            ...$basePayload,
+            'months' => [10, 11, 12, 1, 2, 3, 4, 5, 6, 7],
+        ], 'tabaski-ten-months')
             ->assertOk()
-            ->assertJsonPath('data.employee_count', 2);
+            ->assertJsonPath('data.created_elements', 20)
+            ->assertJsonCount(10, 'data.payroll_period_ids');
 
-        $this->assertSame(2, PayrollPayslip::query()
-            ->where('payroll_period_id', $period->id)
-            ->whereHas('lines', fn ($query) => $query
-                ->where('code', 'TABASKI_AVANCE')
-                ->where('amount', 25000))
-            ->count());
-        $this->assertSame(2, PayrollPayslip::query()
-            ->where('payroll_period_id', $period->id)
-            ->whereHas('lines', fn ($query) => $query
-                ->where('code', 'TABASKI_RETENUE')
-                ->where('amount', 10000))
+        $this->assertSame(20, PayrollElement::query()->where('code', 'TABASKI_RETENUE')->count());
+        $this->assertSame(1, PayrollElement::query()
+            ->where('code', 'TABASKI_RETENUE')
+            ->distinct('application_reference')
+            ->count('application_reference'));
+    }
+
+    public function test_gestion_paie_seeder_est_idempotent(): void
+    {
+        $this->seed(GestionPaieSeeder::class);
+        $this->seed(GestionPaieSeeder::class);
+
+        $this->assertSame(2, DB::table('corps_enseignant')->whereIn('code', ['VAC', 'PC'])->count());
+        $this->assertSame(1, DB::table('annee_academiques')->where('libelle', '2025-2026')->count());
+        $this->assertSame(12, PayrollPeriod::query()
+            ->whereBetween('code', ['2025-10', '2026-09'])
             ->count());
     }
 

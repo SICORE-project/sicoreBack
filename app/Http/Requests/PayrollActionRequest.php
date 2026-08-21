@@ -92,19 +92,8 @@ class PayrollActionRequest extends FormRequest
                 'amount' => ['required', 'numeric', 'gt:0', 'max:999999999999.99'],
                 'expected_version' => ['nullable', 'integer', 'min:1'],
             ],
-            'apply-tabaski-advance',
-            'apply-tabaski-deduction' => [
-                'type_engagement' => ['required', Rule::in(['contractuel', 'vacataire'])],
-                'ia_id' => ['required', 'integer', 'exists:ias,id'],
-                'ief_id' => [
-                    'required',
-                    'integer',
-                    Rule::exists('iefs', 'id')->where('ia_id', (int) $this->input('ia_id')),
-                ],
-                'academic_year' => ['required', 'string', 'regex:/^\d{4}-\d{4}$/'],
-                'payroll_period_id' => ['required', 'integer', 'exists:payroll_periods,id'],
-                'amount' => ['required', 'numeric', 'gt:0', 'max:999999999999.99'],
-            ],
+            'apply-tabaski-advance' => $this->tabaskiRules(false),
+            'apply-tabaski-deduction' => $this->tabaskiRules(true),
             'exempt-element' => [
                 'payroll_element_id' => ['required', 'integer', 'exists:payroll_elements,id'],
                 'reason' => ['required', 'string', 'min:10', 'max:1000'],
@@ -145,9 +134,42 @@ class PayrollActionRequest extends FormRequest
             'payroll_category_level.required_if' => 'La catégorie de paie est obligatoire pour un professeur contractuel.',
             'impr_monthly_amount.required' => 'Le montant IMPR validé est obligatoire.',
             'trimf_monthly_amount.required' => 'Le montant TRIMF validé est obligatoire.',
-            'type_engagement.required' => 'Sélectionnez le corps d’enseignement concerné.',
-            'academic_year.required' => 'Sélectionnez l’année académique.',
-            'academic_year.regex' => 'L’année académique doit respecter le format 2025-2026.',
+            'corps_id.required' => 'Sélectionnez le corps d’enseignement concerné.',
+            'ia_ids.required' => 'Sélectionnez au moins une Inspection académique (IA).',
+            'ia_ids.min' => 'Sélectionnez au moins une Inspection académique (IA).',
+            'annee_academique_id.required' => 'Sélectionnez l’année académique.',
+            'month.required' => 'Sélectionnez le mois de l’avance Tabaski.',
+            'months.required' => 'Sélectionnez les dix mois de retenue Tabaski.',
+            'months.size' => 'La retenue Tabaski doit porter sur exactement 10 mois distincts.',
+            'months.*.distinct' => 'Chaque mois de retenue doit être sélectionné une seule fois.',
+            'amount.gt' => 'Le montant doit être strictement supérieur à zéro.',
         ];
+    }
+
+    /** @return array<string, mixed> */
+    private function tabaskiRules(bool $deduction): array
+    {
+        $rules = [
+            'corps_id' => [
+                'required',
+                'integer',
+                Rule::exists('corps_enseignant', 'id')->where(
+                    fn ($query) => $query->whereIn('code', ['VAC', 'PC'])
+                ),
+            ],
+            'ia_ids' => ['required', 'array', 'min:1'],
+            'ia_ids.*' => ['required', 'integer', 'distinct', 'exists:ias,id'],
+            'annee_academique_id' => ['required', 'integer', 'exists:annee_academiques,id'],
+            'amount' => ['required', 'numeric', 'gt:0', 'max:999999999999.99'],
+        ];
+
+        if ($deduction) {
+            $rules['months'] = ['required', 'array', 'size:10'];
+            $rules['months.*'] = ['required', 'integer', 'distinct', 'between:1,12'];
+        } else {
+            $rules['month'] = ['required', 'integer', 'between:1,12'];
+        }
+
+        return $rules;
     }
 }
