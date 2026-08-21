@@ -67,5 +67,25 @@ public function update(int $id, array $data): Specialite
     $specialite->update($data);
 
     return $specialite->refresh();
+
+}
+
+public function changeStatus(int $id, bool $estActif): Specialite
+{
+    $specialite = $this->findById($id);
+
+    $specialite->update([
+        'est_actif' => $estActif,
+    ]);
+
+    return $specialite->refresh();
+}
+
+public function getActives()
+{
+    return Specialite::query()
+        ->where('est_actif', true)
+        ->orderBy('libelle')
+        ->get();
 }
 }

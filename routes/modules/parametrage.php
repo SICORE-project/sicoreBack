@@ -153,6 +153,11 @@ Route::get('specialites', [SpecialiteController::class, 'index'])
 Route::put('specialites/{id}', [SpecialiteController::class, 'update'])
     ->whereNumber('id')
     ->middleware('permission:parametrage.specialites.manage');
+Route::patch('specialites/{id}/statut', [SpecialiteController::class, 'changeStatus'])
+    ->whereNumber('id')
+    ->middleware('permission:parametrage.specialites.manage');
+Route::get('specialites/actives', [SpecialiteController::class, 'actives'])
+    ->middleware('permission:parametrage.specialites.read');
 Route::patch(
     'categories/{id}/activate',
     [CategorieController::class, 'activate']
