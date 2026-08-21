@@ -1,30 +1,35 @@
 <?php
+
 namespace Tests\Feature;
 
-use App\Models\admin\User;
+use App\Http\Controllers\Api\StructureOrganisationnelleController;
+use App\Http\Controllers\Api\UserController;
+use App\Http\Middleware\PermissionMiddleware;
 use App\Http\Requests\Administration\StoreUserRequest;
 use App\Http\Requests\Administration\UpdateUserRequest;
-use App\Http\Controllers\Api\UserController;
+use App\Models\admin\User;
+use App\Models\Parametrage\LieuService;
+use App\Services\Administration\OrganizationalScope;
 use App\Services\Administration\UserService;
-use Illuminate\Http\Request;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Http\Request;
 use Illuminate\Routing\Route;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
-use App\Models\Parametrage\LieuService;
-use App\Services\Administration\OrganizationalScope;
 use Laravel\Sanctum\PersonalAccessToken;
 use Tests\TestCase;
 
-class AuthApiTest extends TestCase {
-
-    protected function setUp():void {
+class AuthApiTest extends TestCase
+{
+    protected function setUp(): void
+    {
         parent::setUp();
         Schema::dropIfExists('personal_access_tokens');
         Schema::dropIfExists('users');
         Schema::dropIfExists('lieu_de_services');
         Schema::dropIfExists('ias');
+        Schema::dropIfExists('iefs');
         Schema::dropIfExists('regions');
         Schema::dropIfExists('roles');
         Schema::dropIfExists('role_permission');
@@ -43,6 +48,16 @@ class AuthApiTest extends TestCase {
             $t->string('libelle');
             $t->unsignedBigInteger('region_id')->nullable();
             $t->timestamps();
+            $t->softDeletes();
+        });
+
+        Schema::create('iefs', function (Blueprint $t) {
+            $t->id();
+            $t->string('code');
+            $t->string('libelle');
+            $t->unsignedBigInteger('ia_id');
+            $t->timestamps();
+            $t->softDeletes();
         });
 
         Schema::create('roles', function (Blueprint $t) {
@@ -85,7 +100,7 @@ class AuthApiTest extends TestCase {
             $t->id();
             $t->string('code')->nullable();
             $t->string('type');
-            $t->string('perimetre')->default('regional');
+            $t->string('perimetre')->nullable();
             $t->string('libelle');
             $t->unsignedBigInteger('ia_id')->nullable();
             $t->unsignedBigInteger('ief_id')->nullable();
@@ -106,29 +121,32 @@ class AuthApiTest extends TestCase {
         });
     }
 
-    private function user(?int $role=1):User {
-        if($role) {
+    private function user(?int $role = 1): User
+    {
+        if ($role) {
             \DB::table('roles')->insertOrIgnore([
                 'id' => $role,
                 'libelle' => 'Administrateur',
                 'created_at' => now(),
-                'updated_at' => now()
+                'updated_at' => now(),
             ]);
         }
+
         return User::create([
             'nom' => 'Diaw',
             'prenom' => 'Baye',
             'email' => 'bdiaw@example.com',
             'password' => bcrypt('secret123'),
-            'role_id' => $role
+            'role_id' => $role,
         ]);
     }
 
-    public function test_login_valide_me_et_logout():void {
+    public function test_login_valide_me_et_logout(): void
+    {
         $this->user();
         $response = $this->postJson('/api/login', [
             'email' => 'bdiaw@example.com',
-            'password' => 'secret123'
+            'password' => 'secret123',
         ])->assertOk()->assertJsonPath('user.role.libelle', 'Administrateur');
 
         // Vérifie les 2 clés possibles pour le token
@@ -141,26 +159,29 @@ class AuthApiTest extends TestCase {
         $this->assertDatabaseCount('personal_access_tokens', 0);
     }
 
-    public function test_login_invalide_reste_generique():void {
+    public function test_login_invalide_reste_generique(): void
+    {
         $this->user();
         $this->postJson('/api/login', [
             'email' => 'bdiaw@example.com',
-            'password' => 'faux'
+            'password' => 'faux',
         ])->assertStatus(422)
-          ->assertJsonValidationErrors(['login'])
-          ->assertJsonPath('message', 'Identifiants incorrects');
+            ->assertJsonValidationErrors(['login'])
+            ->assertJsonPath('message', 'Identifiants incorrects');
     }
 
-    public function test_compte_sans_role_est_refuse():void {
+    public function test_compte_sans_role_est_refuse(): void
+    {
         $this->user(null);
         $this->postJson('/api/login', [
             'email' => 'bdiaw@example.com',
-            'password' => 'secret123'
+            'password' => 'secret123',
         ])->assertForbidden()
-          ->assertJsonPath('message', 'Aucun rôle associé à cet utilisateur');  // ← MODIFIÉ
+            ->assertJsonPath('message', 'Aucun rôle associé à cet utilisateur');  // ← MODIFIÉ
     }
 
-    public function test_token_expire_est_refuse():void {
+    public function test_token_expire_est_refuse(): void
+    {
         $u = $this->user();
         $plain = $u->createToken('test')->plainTextToken;
         $id = strtok($plain, '|');
@@ -168,7 +189,8 @@ class AuthApiTest extends TestCase {
         $this->withToken($plain)->getJson('/api/me')->assertUnauthorized();
     }
 
-    public function test_token_expire_invalide_reste_generique():void {
+    public function test_token_expire_invalide_reste_generique(): void
+    {
         $u = $this->user();
         $plain = $u->createToken('test')->plainTextToken;
         $id = strtok($plain, '|');
@@ -387,7 +409,7 @@ class AuthApiTest extends TestCase {
         $request = Request::create('/api/admin/structures-organisationnelles', 'GET');
         $request->setUserResolver(fn () => $user);
 
-        $controller = new \App\Http\Controllers\Api\StructureOrganisationnelleController();
+        $controller = new StructureOrganisationnelleController;
         $response = $controller->index($request, app(OrganizationalScope::class));
         $payload = $response->getData(true);
 
@@ -436,12 +458,76 @@ class AuthApiTest extends TestCase {
         $this->assertSame('IEF', $payload['data'][0]['structure_organisationnelle']['type']);
     }
 
+    public function test_un_lieu_de_service_est_cree_avec_une_ia_et_une_ief_coherentes(): void
+    {
+        \DB::table('ias')->insert([
+            'id' => 10, 'code' => 'IA-10', 'libelle' => 'IA Dakar',
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+        \DB::table('iefs')->insert([
+            'id' => 20, 'code' => 'IEF-20', 'libelle' => 'IEF Dakar', 'ia_id' => 10,
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+
+        $response = $this->actingAs($this->user())
+            ->withoutMiddleware(PermissionMiddleware::class)
+            ->postJson('/api/lieux-service', [
+                'code' => ' ls-001 ',
+                'libelle' => ' École élémentaire ',
+                'ia_id' => 10,
+                'ief_id' => 20,
+            ]);
+
+        $response->assertCreated()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.code', 'LS-001')
+            ->assertJsonPath('data.ia_id', 10)
+            ->assertJsonPath('data.ief_id', 20);
+
+        $this->assertDatabaseHas('lieu_de_services', [
+            'code' => 'LS-001',
+            'libelle' => 'École élémentaire',
+            'ia_id' => 10,
+            'ief_id' => 20,
+            'type' => 'IEF',
+            'perimetre' => 'regional',
+            'est_actif' => true,
+        ]);
+    }
+
+    public function test_une_ief_rattachee_a_une_autre_ia_est_refusee(): void
+    {
+        foreach ([10, 11] as $iaId) {
+            \DB::table('ias')->insert([
+                'id' => $iaId, 'code' => "IA-{$iaId}", 'libelle' => "IA {$iaId}",
+                'created_at' => now(), 'updated_at' => now(),
+            ]);
+        }
+        \DB::table('iefs')->insert([
+            'id' => 20, 'code' => 'IEF-20', 'libelle' => 'IEF Dakar', 'ia_id' => 11,
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+
+        $this->actingAs($this->user())
+            ->withoutMiddleware(PermissionMiddleware::class)
+            ->postJson('/api/lieux-service', [
+                'code' => 'LS-002',
+                'libelle' => 'École test',
+                'ia_id' => 10,
+                'ief_id' => 20,
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('ief_id');
+
+        $this->assertDatabaseMissing('lieu_de_services', ['code' => 'LS-002']);
+    }
+
     private function updateRequest(int $userId, array $data): UpdateUserRequest
     {
         $request = UpdateUserRequest::create("/api/admin/users/{$userId}", 'PUT', $data);
         $request->setRouteResolver(function () use ($userId) {
             $route = new Route('PUT', '/api/admin/users/{id}', []);
-            $route->bind(\Illuminate\Http\Request::create("/api/admin/users/{$userId}", 'PUT'));
+            $route->bind(Request::create("/api/admin/users/{$userId}", 'PUT'));
 
             return $route;
         });
