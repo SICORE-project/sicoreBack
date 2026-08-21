@@ -43,6 +43,10 @@ class DatabaseSeeder extends Seeder
         GestionPaieSeeder::class,
     ]);
 
+        if (app()->environment(['local', 'testing'])) {
+            $this->call(GestionPaieTestSeeder::class);
+        }
+
     }
 
     /**

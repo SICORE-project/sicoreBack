@@ -8,7 +8,7 @@ use App\Models\PayrollElement;
 use App\Models\PayrollPayslip;
 use App\Models\PayrollPeriod;
 use App\Models\roles;
-use App\Models\User;
+use App\Models\Admin\User;
 use Carbon\CarbonImmutable;
 use Database\Seeders\GestionPaieSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;

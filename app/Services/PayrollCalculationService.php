@@ -3,9 +3,9 @@
 namespace App\Services;
 
 use App\Models\Enseignant;
+use App\Models\Admin\User;
 use App\Models\PayrollPeriod;
 use App\Models\PayrollRun;
-use App\Models\User;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Symfony\Component\HttpKernel\Exception\ConflictHttpException;

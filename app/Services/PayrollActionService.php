@@ -8,7 +8,7 @@ use App\Models\PayrollElement;
 use App\Models\PayrollPayslip;
 use App\Models\PayrollPeriod;
 use App\Models\PayrollRun;
-use App\Models\User;
+use App\Models\Admin\User;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
@@ -377,10 +377,12 @@ class PayrollActionService
 
     private function teacherForHierarchy(array $data): Enseignant
     {
-        $teacher = Enseignant::query()
-            ->with('etablissement.ief')
-            ->where('actif', true)
-            ->findOrFail($data['enseignant_id']);
+        $query = Enseignant::query()->where('actif', true);
+        if (Schema::hasTable('etablissements')) {
+            $query->with('etablissement.ief');
+        }
+
+        $teacher = $query->findOrFail($data['enseignant_id']);
         $this->assertTeacherHierarchy($teacher, $data);
 
         return $teacher;
@@ -388,14 +390,14 @@ class PayrollActionService
 
     private function assertTeacherHierarchy(Enseignant $teacher, array $data): void
     {
-        $teacher->loadMissing('etablissement.ief');
-        $inspection = $teacher->etablissement?->ief;
+        if (Schema::hasTable('etablissements')) {
+            $teacher->loadMissing('etablissement.ief');
+        }
 
         if (
-            ! $inspection
-            || mb_strtoupper(trim((string) $teacher->matricule)) !== mb_strtoupper(trim((string) $data['matricule']))
-            || (int) $inspection->id !== (int) $data['ief_id']
-            || (int) $inspection->ia_id !== (int) $data['ia_id']
+            mb_strtoupper(trim((string) $teacher->matricule)) !== mb_strtoupper(trim((string) $data['matricule']))
+            || $this->teacherIefId($teacher) !== (int) $data['ief_id']
+            || $this->teacherIaId($teacher) !== (int) $data['ia_id']
         ) {
             throw ValidationException::withMessages([
                 'enseignant_id' => 'Ce matricule ne correspond pas à l’IA et à l’IEF sélectionnées.',

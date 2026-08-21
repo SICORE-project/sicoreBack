@@ -3,7 +3,7 @@
 namespace App\Services;
 
 use App\Models\PayrollAuditLog;
-use App\Models\User;
+use App\Models\Admin\User;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
 
