@@ -5,7 +5,7 @@ namespace App\Http\Requests\Parametrage;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
-class UpdateCorpsEnseignantRequest extends FormRequest
+class UpdateCategorieRequest extends FormRequest
 {
     public function authorize(): bool
     {
@@ -14,11 +14,7 @@ class UpdateCorpsEnseignantRequest extends FormRequest
 
     public function rules(): array
     {
-        $id = $this->route('corps');
-
-        if (!$id) {
-            $id = $this->route('id');
-        }
+        $categorieId = $this->route('category');
 
         return [
             'code' => [
@@ -26,7 +22,8 @@ class UpdateCorpsEnseignantRequest extends FormRequest
                 'required',
                 'string',
                 'max:50',
-                Rule::unique('corps_enseignant', 'code')->ignore($id),
+                Rule::unique('categories', 'code')
+                    ->ignore($categorieId),
             ],
 
             'libelle' => [
@@ -36,11 +33,22 @@ class UpdateCorpsEnseignantRequest extends FormRequest
                 'max:255',
             ],
 
-            
+            'ordre' => [
+                'nullable',
+                'integer',
+                'min:0',
+            ],
 
             'description' => [
                 'nullable',
                 'string',
+            ],
+
+            'corps_id' => [
+                'sometimes',
+                'required',
+                'integer',
+                'exists:corps_enseignant,id',
             ],
         ];
     }
@@ -51,8 +59,9 @@ class UpdateCorpsEnseignantRequest extends FormRequest
             'code.required' => 'Le code est obligatoire.',
             'code.unique' => 'Ce code existe déjà.',
             'libelle.required' => 'Le libellé est obligatoire.',
-            
-            'categorie_id.exists' => 'La catégorie sélectionnée est invalide.',
+            'ordre.integer' => 'L’ordre doit être un entier.',
+            'corps_id.required' => 'Le corps enseignant est obligatoire.',
+            'corps_id.exists' => 'Le corps enseignant sélectionné est invalide.',
         ];
     }
 }

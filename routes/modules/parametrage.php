@@ -1,6 +1,7 @@
 <?php
-
 use App\Http\Controllers\Api\Parametrage\CorpsController;
+use App\Http\Controllers\Api\Parametrage\CategorieController;
+use App\Http\Controllers\Api\Parametrage\AnneeAcademiqueController;
 use \App\Http\Controllers\Api\Parametrage\SyndicatController;
 use App\Http\Controllers\Api\Parametrage\CompteBancaireEnseignantController;
 use App\Http\Controllers\Api\Parametrage\InstitutFinancierController;
@@ -59,6 +60,40 @@ Route::prefix('corps')->group(function () {
     ]);
 });
 
+
+Route::apiResource('categories', CategorieController::class);
+
+Route::patch(
+    'categories/{id}/activate',
+    [CategorieController::class, 'activate']
+);
+
+Route::patch(
+    'categories/{id}/deactivate',
+    [CategorieController::class, 'deactivate']
+);
+
+
+Route::apiResource(
+    'annees-academiques',
+    AnneeAcademiqueController::class
+);
+
+Route::patch(
+    'annees-academiques/{id}/activate',
+    [AnneeAcademiqueController::class, 'activate']
+);
+
+Route::patch(
+    'annees-academiques/{id}/deactivate',
+    [AnneeAcademiqueController::class, 'deactivate']
+);
+
+Route::patch(
+    'annees-academiques/{id}/close',
+    [AnneeAcademiqueController::class, 'close']
+);
+
 // Routes for the Syndicat resource.
 Route::prefix('syndicats')->group(function () {
     Route::get('/', [SyndicatController::class, 'index']);
@@ -83,3 +118,4 @@ Route::prefix('syndicats')->group(function () {
         'deactivate'
     ]);
 });
+
