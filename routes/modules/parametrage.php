@@ -148,6 +148,8 @@ Route::apiResource('categories', CategorieController::class);
 
 Route::post('specialites', [SpecialiteController::class, 'store'])
     ->middleware('permission:parametrage.specialites.manage');
+Route::get('specialites', [SpecialiteController::class, 'index'])
+    ->middleware('permission:parametrage.specialites.read');
 Route::patch(
     'categories/{id}/activate',
     [CategorieController::class, 'activate']

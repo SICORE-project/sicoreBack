@@ -8,6 +8,7 @@ use App\Http\Resources\Parametrage\SpecialiteResource;
 use App\Services\Parametrage\SpecialiteService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Http\Request;
 
 class SpecialiteController extends Controller
 {
@@ -36,4 +37,28 @@ class SpecialiteController extends Controller
             'data' => new SpecialiteResource($specialite),
         ], 201);
     }
+
+    public function index(Request $request): JsonResponse
+    {
+    $specialites = $this->specialiteService->getAll(
+        $request->only([
+            'search',
+            'est_actif',
+            'sort_by',
+            'sort_direction',
+        ])
+    );
+
+    return response()->json([
+        'success' => true,
+        'message' => 'Liste des spécialités récupérée avec succès.',
+        'data' => SpecialiteResource::collection($specialites),
+        'pagination' => [
+            'current_page' => $specialites->currentPage(),
+            'last_page' => $specialites->lastPage(),
+            'per_page' => $specialites->perPage(),
+            'total' => $specialites->total(),
+        ],
+    ]);
+}
 }
