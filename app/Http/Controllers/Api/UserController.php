@@ -9,6 +9,8 @@ use App\Http\Resources\UserResource;
 use App\Services\Administration\UserService;
 use App\Models\Admin\User;
 use Illuminate\Http\Request;
+use App\Models\Parametrage\Ia;
+use App\Models\Parametrage\Ief;
 
 class UserController extends Controller
 {
@@ -21,15 +23,15 @@ class UserController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index()
+    public function index(Request $request)
     {
-        $users = $this->userService->all();
+        $perPage = min(100, max(1, $request->integer('per_page', 10)));
+        $users = $this->userService->paginate($perPage);
 
-        return response()->json([
+        return UserResource::collection($users)->additional([
             'success' => true,
             'message' => 'Liste des utilisateurs',
-            'data' => UserResource::collection($users)
-        ], 200);
+        ]);
     }
 
     /**
@@ -47,6 +49,23 @@ class UserController extends Controller
     }
 
     /**
+     * Vérifier la disponibilité d'une adresse avant la soumission du formulaire.
+     */
+    public function checkEmail(Request $request)
+    {
+        $data = $request->validate([
+            'email' => ['required', 'email'],
+        ]);
+
+        $available = ! User::where('email', $data['email'])->exists();
+
+        return response()->json([
+            'available' => $available,
+            'message' => $available ? null : 'Cette adresse e-mail est déjà utilisée.',
+        ]);
+    }
+
+    /**
      * Display the specified resource.
      */
     public function show(string $id)
@@ -59,7 +78,7 @@ class UserController extends Controller
             'data' => new UserResource($user)
         ], 200);
     }
- public function assignRole(Request $request, string $id)
+public function assignRole(Request $request, string $id)
 {
     $user = $this->userService->find($id);
 
@@ -103,4 +122,97 @@ class UserController extends Controller
             'message' => 'Utilisateur supprimé avec succès.'
         ], 200);
     }
+<<<<<<< HEAD
 }
+=======
+
+/**
+ * Rattacher un utilisateur à une IA
+ * POST /api/admin/users/{userId}/assign-ia/{iaId}
+ */
+public function assignUserToIa($userId, $iaId)
+{
+    try {
+        // ✅ Appel au service
+        $user = $this->userService->assignUserToIa($userId, $iaId);
+        
+        return response()->json([
+            'success' => true,
+            'message' => 'Gestionnaire rattaché à l\'IA avec succès',
+            'data' => new UserResource($user)
+        ], 200);
+        
+    } catch (\Exception $e) {
+        return response()->json([
+            'success' => false,
+            'message' => $e->getMessage()
+        ], 400);
+    }
+}
+/**
+ * Rattacher un utilisateur à une IEF
+ * POST /api/admin/users/{userId}/assign-ief/{iefId}
+ */
+    public function assignUserToIef(int $userId, int $iefId): User
+    {
+        $user = User::findOrFail($userId);
+        $ief = Ief::findOrFail($iefId);
+
+        if (!$user->hasRole('gestionnaire_ief')) {
+            throw new \Exception("Cet utilisateur n'a pas le rôle Gestionnaire IEF.");
+        }
+
+        if ($user->ief_id) {
+            throw new \Exception("Cet utilisateur est déjà rattaché à une IEF.");
+        }
+
+        $user->ief_id = $iefId;
+        $user->save();
+
+        return $user->load(['ief', 'role']);
+    }
+
+    public function revokeUserFromIef(int $userId): User
+    {
+        $user = User::findOrFail($userId);
+
+        if (!$user->ief_id) {
+            throw new \Exception("Cet utilisateur n'est rattaché à aucune IEF.");
+        }
+
+        $user->ief_id = null;
+        $user->save();
+
+        return $user->load('role');
+    }
+
+    public function getUserIef(int $userId)
+    {
+        $user = User::with('ief')->findOrFail($userId);
+        return $user->ief;
+    }
+
+    public function getGestionnairesIef()
+    {
+        return User::whereHas('role', function($query) {
+            $query->where('slug', 'gestionnaire_ief');
+        })->with(['ief', 'role'])->get();
+    }
+
+    public function getAvailableGestionnairesIef()
+    {
+        return User::whereHas('role', function($query) {
+            $query->where('slug', 'gestionnaire_ief');
+        })->whereNull('ief_id')->with('role')->get();
+    }
+
+    public function getGestionnairesByIef(int $iefId)
+    {
+        return User::whereHas('role', function($query) {
+            $query->where('slug', 'gestionnaire_ief');
+        })->where('ief_id', $iefId)->with(['ief', 'role'])->get();
+    }
+
+
+}
+>>>>>>> module-parametrage

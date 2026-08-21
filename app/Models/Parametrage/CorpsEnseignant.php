@@ -2,6 +2,8 @@
 
 namespace App\Models\Parametrage;
 
+use App\Models\Paie\RubriquePaie;
+use App\Models\Personnel\Enseignant;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 

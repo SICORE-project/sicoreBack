@@ -1,6 +1,6 @@
 <?php
 namespace Tests\Feature;
-use App\Models\admin\User; use Illuminate\Database\Schema\Blueprint; use Illuminate\Support\Facades\Hash; use Illuminate\Support\Facades\Schema; use Laravel\Sanctum\PersonalAccessToken; use Tests\TestCase;
+use App\Models\Admin\User; use Illuminate\Database\Schema\Blueprint; use Illuminate\Support\Facades\Hash; use Illuminate\Support\Facades\Schema; use Laravel\Sanctum\PersonalAccessToken; use Tests\TestCase;
 class AuthApiTest extends TestCase {
  protected function setUp():void{parent::setUp();Schema::dropIfExists('personal_access_tokens');Schema::dropIfExists('users');Schema::dropIfExists('roles');
   Schema::create('roles',fn(Blueprint $t)=>[$t->id(),$t->string('libelle'),$t->timestamps()]);

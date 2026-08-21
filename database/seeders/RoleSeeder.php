@@ -21,49 +21,49 @@ class RoleSeeder extends Seeder
                 'nom' => 'Administrateur',
                 'slug' => 'admin',
                 'description' => 'Gestion de l\'application et des utilisateurs',
-                'niveau' => 'admin_metier',
+                'niveau' => 'admin',
                 'est_actif' => true,
             ],
             // [
             //     'nom' => 'Paramétreur',
             //     'slug' => 'parametreur',
             //     'description' => 'Gestion des paramètres de l\'application',
-            //     'niveau' => 'admin_metier',
+            //     'niveau' => 'admin',
             //     'est_actif' => true,
             // ],
             [
                 'nom' => 'Gestionnaire IA',
                 'slug' => 'gestionnaire_ia',
                 'description' => 'Gestion des IEF et enseignants de l\'IA',
-                'niveau' => 'gestionnaire',
+                'niveau' => 'gestion',
                 'est_actif' => true,
             ],
             [
                 'nom' => 'Gestionnaire IEF',
                 'slug' => 'gestionnaire_ief',
                 'description' => 'Gestion des enseignants de l\'IEF',
-                'niveau' => 'gestionnaire',
+                'niveau' => 'gestion',
                 'est_actif' => true,
             ],
             [
                 'nom' => 'DRH',
                 'slug' => 'drh',
                 'description' => 'Gestion des ressources humaines',
-                'niveau' => 'gestionnaire',
+                'niveau' => 'gestion',
                 'est_actif' => true,
             ],
             [
                 'nom' => 'Gestionnaire Paie',
                 'slug' => 'gestionnaire_paie',
                 'description' => 'Gestion de la paie des enseignants',
-                'niveau' => 'gestionnaire',
+                'niveau' => 'gestion',
                 'est_actif' => true,
             ],
             [
                 'nom' => 'Gestionnaire Budget',
                 'slug' => 'gestionnaire_budget',
                 'description' => 'Gestion du budget et des engagements',
-                'niveau' => 'gestionnaire',
+                'niveau' => 'gestion',
                 'est_actif' => true,
             ],
             [
@@ -77,9 +77,10 @@ class RoleSeeder extends Seeder
                 'nom' => 'Enseignant',
                 'slug' => 'enseignant',
                 'description' => 'Enseignement et gestion des cours',
-                'niveau' => 'enseignant',
+                'niveau' => 'consultation',
                 'est_actif' => true,
             ],
+            
         ];
 
         foreach ($roles as $role) {
