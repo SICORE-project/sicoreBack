@@ -150,6 +150,9 @@ Route::post('specialites', [SpecialiteController::class, 'store'])
     ->middleware('permission:parametrage.specialites.manage');
 Route::get('specialites', [SpecialiteController::class, 'index'])
     ->middleware('permission:parametrage.specialites.read');
+Route::put('specialites/{id}', [SpecialiteController::class, 'update'])
+    ->whereNumber('id')
+    ->middleware('permission:parametrage.specialites.manage');
 Route::patch(
     'categories/{id}/activate',
     [CategorieController::class, 'activate']
