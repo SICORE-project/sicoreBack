@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\Parametrage\CategorieController;
 use App\Http\Controllers\Api\Parametrage\CorpsController;
 use App\Http\Controllers\Api\Parametrage\LieuServiceController;
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\Api\Parametrage\AnneeAcademiqueController;
 
 /*
 |--------------------------------------------------------------------------
@@ -82,4 +83,25 @@ Route::patch(
 Route::patch(
     'categories/{id}/deactivate',
     [CategorieController::class, 'deactivate']
+);
+
+
+Route::apiResource(
+    'annees-academiques',
+    AnneeAcademiqueController::class
+);
+
+Route::patch(
+    'annees-academiques/{id}/activate',
+    [AnneeAcademiqueController::class, 'activate']
+);
+
+Route::patch(
+    'annees-academiques/{id}/deactivate',
+    [AnneeAcademiqueController::class, 'deactivate']
+);
+
+Route::patch(
+    'annees-academiques/{id}/close',
+    [AnneeAcademiqueController::class, 'close']
 );
