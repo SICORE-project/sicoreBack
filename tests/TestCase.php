@@ -7,7 +7,7 @@ use Illuminate\Support\Facades\Schema;
 
 abstract class TestCase extends BaseTestCase
 {
-    use CreatesApplication;
+        // On retire la ligne "use CreatesApplication;" si elle n'existe pas dans votre projet Laravel standard
 
     /**
      * S'exécute automatiquement avant chaque test
@@ -16,7 +16,7 @@ abstract class TestCase extends BaseTestCase
     {
         parent::setUp();
 
-        // 1. Désactive les contraintes MySQL pour permettre à RefreshDatabase de vider 'users'
+        // Désactive les contraintes MySQL pour permettre à RefreshDatabase de vider 'users'
         Schema::disableForeignKeyConstraints();
     }
 
@@ -25,7 +25,7 @@ abstract class TestCase extends BaseTestCase
      */
     protected function tearDown(): void
     {
-        // 2. Réactive proprement les contraintes pour ne pas fausser vos requêtes d'application
+        // Réactive proprement les contraintes pour la suite
         Schema::enableForeignKeyConstraints();
 
         parent::tearDown();
