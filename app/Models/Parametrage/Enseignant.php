@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use App\Models\Admin\User;
+use App\Services\Administration\OrganizationalScope;
 
 class Enseignant extends Model
 {
@@ -229,6 +230,11 @@ class Enseignant extends Model
     public function scopeActif($query)
     {
         return $query->where('est_actif', true);
+    }
+
+    public function scopeVisibleTo($query, User $user)
+    {
+        return app(OrganizationalScope::class)->apply($query, $user);
     }
 
     public function scopeByIef($query, $iefId)

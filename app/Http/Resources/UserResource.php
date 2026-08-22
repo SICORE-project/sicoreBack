@@ -32,6 +32,12 @@ class UserResource extends JsonResource
                 'slug' => $this->role?->slug,
             ],
 
+            'structure_organisationnelle' => $this->structureOrganisationnelle ? [
+                'id' => $this->structureOrganisationnelle->id,
+                'type' => $this->structureOrganisationnelle->type,
+                'libelle' => $this->structureOrganisationnelle->libelle,
+            ] : null,
+
             'created_at' => $this->created_at?->format('d/m/Y H:i'),
 
             'updated_at' => $this->updated_at?->format('d/m/Y H:i'),

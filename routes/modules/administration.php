@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\Api\Admin\RoleController;
 use App\Http\Controllers\Api\Admin\PermissionController;
 use App\Http\Controllers\Api\Admin\RolePermissionController;
+use App\Http\Controllers\Api\StructureOrganisationnelleController;
 
 
 /*
@@ -14,6 +15,17 @@ use App\Http\Controllers\Api\Admin\RolePermissionController;
 */
 
 Route::prefix('admin')->group(function () {
+
+    Route::prefix('structures-organisationnelles')
+        ->middleware('permission:administration.users.read')
+        ->group(function () {
+            Route::get('/', [StructureOrganisationnelleController::class, 'index']);
+            Route::get('/national', [StructureOrganisationnelleController::class, 'national']);
+            Route::get('/regions', [StructureOrganisationnelleController::class, 'regions']);
+            Route::get('/regions/{region}/ias', [StructureOrganisationnelleController::class, 'ias']);
+            Route::get('/ias/{ia}/iefs', [StructureOrganisationnelleController::class, 'iefs'])
+                ->whereNumber('ia');
+        });
 
 
     /*
@@ -303,6 +315,13 @@ Route::prefix('admin')->group(function () {
         Route::post('/{id}/assign-role', [
             UserController::class,
             'assignRole'
+        ])
+        ->middleware('permission:administration.users.update');
+
+
+        Route::post('/{id}/assign-structure', [
+            UserController::class,
+            'assignStructure'
         ])
         ->middleware('permission:administration.users.update');
 

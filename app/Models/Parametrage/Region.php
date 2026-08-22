@@ -25,6 +25,11 @@ class Region extends Model
     ];
 
     // === RELATIONS ===
+    public function ias()
+    {
+        return $this->hasMany(Ia::class);
+    }
+
     public function departements()
     {
         return $this->hasMany(Departement::class);

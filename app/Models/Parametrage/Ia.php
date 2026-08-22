@@ -14,8 +14,8 @@ class Ia extends Model
     protected $fillable = [
         'code',
         'libelle',
-        'region',
-        'departement',
+        'region_id',
+        'departement_id',
         'adresse',
         'telephone',
         'email',
@@ -29,6 +29,11 @@ class Ia extends Model
     ];
 
     // === RELATIONS ===
+    public function region()
+    {
+        return $this->belongsTo(Region::class);
+    }
+
     public function iefs()
     {
         return $this->hasMany(Ief::class);
@@ -62,7 +67,7 @@ class Ia extends Model
 
     public function scopeByRegion($query, $region)
     {
-        return $query->where('region', $region);
+        return $query->where('region_id', $region);
     }
 
     // === ACCESSORS ===
