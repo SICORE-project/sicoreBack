@@ -2,30 +2,26 @@
 
 namespace App\Models\Personnel;
 
+use App\Models\Admin\User;
+use App\Models\Parametrage\Categorie;
+use App\Models\Parametrage\CentreFormation;
+use App\Models\Parametrage\CorpsEnseignant;
+use App\Models\Parametrage\Diplome;
+use App\Models\Parametrage\Discipline;
+use App\Models\Parametrage\Grade;
+use App\Models\Parametrage\Ia;
+use App\Models\Parametrage\Ief;
+use App\Models\Parametrage\InstitutFinancier;
+use App\Models\Parametrage\LieuPaiement;
+use App\Models\Parametrage\LieuService;
+use App\Models\Parametrage\Mutuelle;
+use App\Models\Parametrage\SituationFamiliale;
+use App\Models\Parametrage\Specialite;
+use App\Models\Parametrage\StatutEnseignant;
+use App\Models\Parametrage\Syndicat;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
-
-use App\Models\Admin\User;
-
-use App\Models\Parametrage\{
-    CorpsEnseignant,
-    Grade,
-    Diplome,
-    Discipline,
-    Specialite,
-    Categorie,
-    LieuService,
-    LieuPaiement,
-    Ief,
-    Ia,
-    SituationFamiliale,
-    Syndicat,
-    Mutuelle,
-    InstitutFinancier,
-    CentreFormation,
-    StatutEnseignant
-};
 
 class Enseignant extends Model
 {
@@ -258,14 +254,14 @@ class Enseignant extends Model
             Syndicat::class,
             'enseignant_syndicat'
         )
-        ->withPivot([
-            'taux_personnalise',
-            'date_adhesion',
-            'date_resiliation',
-            'numero_affiliation',
-            'est_actif',
-        ])
-        ->withTimestamps();
+            ->withPivot([
+                'taux_personnalise',
+                'date_adhesion',
+                'date_resiliation',
+                'numero_affiliation',
+                'est_actif',
+            ])
+            ->withTimestamps();
     }
 
     // =====================================================
@@ -278,13 +274,13 @@ class Enseignant extends Model
             Mutuelle::class,
             'enseignant_mutuelle'
         )
-        ->withPivot([
-            'numero_affiliation',
-            'date_adhesion',
-            'date_resiliation',
-            'est_actif',
-        ])
-        ->withTimestamps();
+            ->withPivot([
+                'numero_affiliation',
+                'date_adhesion',
+                'date_resiliation',
+                'est_actif',
+            ])
+            ->withTimestamps();
     }
 
     // =====================================================
@@ -297,14 +293,14 @@ class Enseignant extends Model
             InstitutFinancier::class,
             'enseignant_institut_financier'
         )
-        ->withPivot([
-            'iban',
-            'bic',
-            'titulaire_compte',
-            'est_principal',
-            'est_actif',
-        ])
-        ->withTimestamps();
+            ->withPivot([
+                'iban',
+                'bic',
+                'titulaire_compte',
+                'est_principal',
+                'est_actif',
+            ])
+            ->withTimestamps();
     }
 
     // =====================================================
@@ -317,12 +313,12 @@ class Enseignant extends Model
             CentreFormation::class,
             'enseignant_etablissement'
         )
-        ->withPivot([
-            'date_affectation',
-            'date_fin',
-            'est_actif',
-        ])
-        ->withTimestamps();
+            ->withPivot([
+                'date_affectation',
+                'date_fin',
+                'est_actif',
+            ])
+            ->withTimestamps();
     }
 
     // =====================================================
@@ -341,6 +337,14 @@ class Enseignant extends Model
     {
         return $this->hasMany(
             Affectation::class,
+            'enseignant_id'
+        );
+    }
+
+    public function affectationsLieuxService()
+    {
+        return $this->hasMany(
+            AffectationEnseignant::class,
             'enseignant_id'
         );
     }
@@ -422,26 +426,26 @@ class Enseignant extends Model
                 'LIKE',
                 "%{$search}%"
             )
-            ->orWhere(
-                'nom',
-                'LIKE',
-                "%{$search}%"
-            )
-            ->orWhere(
-                'prenom',
-                'LIKE',
-                "%{$search}%"
-            )
-            ->orWhere(
-                'cni',
-                'LIKE',
-                "%{$search}%"
-            )
-            ->orWhere(
-                'email',
-                'LIKE',
-                "%{$search}%"
-            );
+                ->orWhere(
+                    'nom',
+                    'LIKE',
+                    "%{$search}%"
+                )
+                ->orWhere(
+                    'prenom',
+                    'LIKE',
+                    "%{$search}%"
+                )
+                ->orWhere(
+                    'cni',
+                    'LIKE',
+                    "%{$search}%"
+                )
+                ->orWhere(
+                    'email',
+                    'LIKE',
+                    "%{$search}%"
+                );
         });
     }
 
@@ -451,12 +455,12 @@ class Enseignant extends Model
 
     public function getNomCompletAttribute()
     {
-        return $this->prenom . ' ' . $this->nom;
+        return $this->prenom.' '.$this->nom;
     }
 
     public function getNomCompletInverseAttribute()
     {
-        return $this->nom . ' ' . $this->prenom;
+        return $this->nom.' '.$this->prenom;
     }
 
     public function getAgeAttribute()
@@ -503,6 +507,6 @@ class Enseignant extends Model
             0,
             ',',
             ' '
-        ) . ' FCFA';
+        ).' FCFA';
     }
 }

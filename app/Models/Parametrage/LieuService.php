@@ -2,17 +2,19 @@
 
 namespace App\Models\Parametrage;
 
+use App\Models\Admin\User;
+use App\Models\Personnel\AffectationEnseignant;
+use App\Models\Personnel\Enseignant;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
-use App\Models\Admin\User;
-use App\Models\Personnel\Enseignant;
 
 class LieuService extends Model
 {
     use HasFactory, SoftDeletes;
 
     protected $table = 'lieu_de_services';
+
     protected $fillable = [
         'code',
         'libelle',
@@ -49,6 +51,11 @@ class LieuService extends Model
         return $this->hasMany(Enseignant::class);
     }
 
+    public function affectationsEnseignants()
+    {
+        return $this->hasMany(AffectationEnseignant::class);
+    }
+
     public function users()
     {
         return $this->hasMany(User::class);
@@ -83,7 +90,7 @@ class LieuService extends Model
     // === ACCESSORS ===
     public function getNomCompletAttribute()
     {
-        return $this->code . ' - ' . $this->libelle;
+        return $this->code.' - '.$this->libelle;
     }
 
     public function getHierarchieCoherenteAttribute(): bool
