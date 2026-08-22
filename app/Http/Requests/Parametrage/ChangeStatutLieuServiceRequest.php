@@ -11,6 +11,13 @@ class ChangeStatutLieuServiceRequest extends FormRequest
         return true;
     }
 
+    protected function prepareForValidation(): void
+    {
+        if ($this->has('actif') && ! $this->has('est_actif')) {
+            $this->merge(['est_actif' => $this->input('actif')]);
+        }
+    }
+
     public function rules(): array
     {
         return [

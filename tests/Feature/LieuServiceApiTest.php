@@ -3,7 +3,11 @@
 namespace Tests\Feature;
 
 use App\Http\Middleware\PermissionMiddleware;
+use App\Models\Admin\Role;
+use App\Models\Admin\User;
 use App\Models\Parametrage\LieuService;
+use App\Models\Personnel\AffectationEnseignant;
+use App\Services\Parametrage\LieuServiceScope;
 use Illuminate\Auth\Middleware\Authenticate;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Foundation\Auth\User as Authenticatable;
@@ -122,6 +126,75 @@ class LieuServiceApiTest extends TestCase
             ->assertUnprocessable()->assertJsonValidationErrors(['ia_id', 'per_page']);
     }
 
+    public function test_trie_par_code_et_retourne_une_liste_vide_sans_erreur(): void
+    {
+        $this->getJson('/api/lieux-service?sort=code&direction=desc')
+            ->assertOk()
+            ->assertJsonPath('data.0.code', 'LS02')
+            ->assertJsonPath('data.1.code', 'LS01')
+            ->assertJsonPath('meta.total', 2);
+
+        $this->getJson('/api/lieux-service?search=ABSENT')
+            ->assertOk()
+            ->assertJsonCount(0, 'data')
+            ->assertJsonPath('meta.total', 0);
+    }
+
+    public function test_respecte_le_perimetre_ia_de_l_utilisateur(): void
+    {
+        $user = new User;
+        $user->ia_id = 1;
+        $user->setRelation('role', new Role(['niveau' => 'gestion']));
+
+        $query = app(LieuServiceScope::class)->apply(LieuService::query(), $user);
+
+        $this->assertSame(['LS01'], $query->pluck('code')->all());
+    }
+
+    public function test_cree_un_lieu_actif_et_normalise_ses_champs(): void
+    {
+        $this->postJson('/api/parametrage/lieux-service', [
+            'code' => ' ls03 ',
+            'libelle' => ' Nouveau lieu ',
+            'ia_id' => 1,
+            'ief_id' => 1,
+        ])->assertCreated()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.code', 'LS03')
+            ->assertJsonPath('data.libelle', 'Nouveau lieu')
+            ->assertJsonPath('data.est_actif', true)
+            ->assertJsonPath('data.ia.code', 'IA-DK')
+            ->assertJsonPath('data.ief.code', 'IEF-DK')
+            ->assertJsonPath('data.hierarchie_coherente', true);
+
+        $this->assertDatabaseHas('lieu_de_services', [
+            'code' => 'LS03',
+            'libelle' => 'Nouveau lieu',
+            'ia_id' => 1,
+            'ief_id' => 1,
+            'est_actif' => true,
+        ]);
+    }
+
+    public function test_refuse_la_creation_avec_un_code_existant_ou_une_ief_incoherente(): void
+    {
+        $this->postJson('/api/parametrage/lieux-service', [
+            'code' => 'ls01',
+            'libelle' => 'Doublon',
+            'ia_id' => 1,
+            'ief_id' => 1,
+        ])->assertUnprocessable()
+            ->assertJsonValidationErrors('code');
+
+        $this->postJson('/api/parametrage/lieux-service', [
+            'code' => 'LS03',
+            'libelle' => 'Rattachement incorrect',
+            'ia_id' => 2,
+            'ief_id' => 1,
+        ])->assertUnprocessable()
+            ->assertJsonValidationErrors('ief_id');
+    }
+
     public function test_modifie_un_lieu_et_son_rattachement_territorial(): void
     {
         DB::table('iefs')->insert([
@@ -222,6 +295,14 @@ class LieuServiceApiTest extends TestCase
         $this->assertDatabaseHas('lieu_de_services', ['id' => 1, 'est_actif' => true]);
     }
 
+    public function test_accepte_le_nom_de_champ_actif_du_frontend(): void
+    {
+        $this->patchJson('/api/parametrage/lieux-service/1/statut', [
+            'actif' => false,
+        ])->assertOk()
+            ->assertJsonPath('data.est_actif', false);
+    }
+
     public function test_exige_un_statut_booleen(): void
     {
         $this->patchJson('/api/parametrage/lieux-service/1/statut', [
@@ -264,6 +345,19 @@ class LieuServiceApiTest extends TestCase
         ]);
     }
 
+    public function test_accepte_le_chemin_historique_d_affectation_du_frontend(): void
+    {
+        $this->connecteGestionnaire(77);
+
+        $this->postJson('/api/enseignants/1/affectations', [
+            'lieu_service_id' => 1,
+            'date_debut' => '2026-08-22',
+            'actif' => true,
+        ])->assertCreated()
+            ->assertJsonPath('data.lieu_service_id', 1)
+            ->assertJsonPath('data.est_active', true);
+    }
+
     public function test_reaffecte_et_conserve_l_historique(): void
     {
         $this->connecteGestionnaire(77);
@@ -304,7 +398,7 @@ class LieuServiceApiTest extends TestCase
         ]);
         $this->assertSame(
             '2026-01-31',
-            \App\Models\Personnel\AffectationEnseignant::findOrFail(1)->date_fin->toDateString()
+            AffectationEnseignant::findOrFail(1)->date_fin->toDateString()
         );
         $this->assertDatabaseHas('affectations_enseignants', [
             'enseignant_id' => 1,

@@ -11,6 +11,7 @@ use App\Models\Parametrage\Region;
 use App\Services\Administration\OrganizationalScope;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\Rule;
 
 class LieuServiceController extends Controller
@@ -24,6 +25,8 @@ class LieuServiceController extends Controller
             'type' => ['nullable', 'string', 'max:50'],
             'est_actif' => ['nullable', 'boolean'],
             'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],
+            'sort' => ['nullable', Rule::in(['code', 'libelle', 'created_at'])],
+            'direction' => ['nullable', Rule::in(['asc', 'desc'])],
         ]);
 
         $lieux = LieuService::query()
@@ -38,7 +41,7 @@ class LieuServiceController extends Controller
             ->when($validated['ief_id'] ?? null, fn ($query, int $iefId) => $query->where('ief_id', $iefId))
             ->when($validated['type'] ?? null, fn ($query, string $type) => $query->where('type', $type))
             ->when(array_key_exists('est_actif', $validated), fn ($query) => $query->where('est_actif', $request->boolean('est_actif')))
-            ->orderBy('libelle')
+            ->orderBy($validated['sort'] ?? 'libelle', $validated['direction'] ?? 'asc')
             ->paginate($validated['per_page'] ?? 15);
 
         $lieux->getCollection()->transform(fn (LieuService $lieu) => [
@@ -107,9 +110,23 @@ class LieuServiceController extends Controller
             'perimetre' => $request->input('perimetre', 'regional'),
             'est_actif' => $request->input('est_actif', true),
         ]);
-        $lieu = LieuService::create($this->validated($request));
+        $data = $this->validated($request);
+        if (! Schema::hasColumn((new LieuService)->getTable(), 'perimetre')) {
+            unset($data['perimetre']);
+        }
 
-        return response()->json(['success' => true, 'message' => 'Lieu de service créé avec succès.', 'data' => $this->formatLieu($lieu)], 201);
+        $lieu = LieuService::create($data)->load(['ia', 'ief']);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Lieu de service créé avec succès.',
+            'data' => [
+                ...$this->formatLieu($lieu),
+                'ia' => $lieu->ia?->only(['id', 'code', 'libelle']),
+                'ief' => $lieu->ief?->only(['id', 'ia_id', 'code', 'libelle']),
+                'hierarchie_coherente' => $lieu->hierarchie_coherente,
+            ],
+        ], 201);
     }
 
     public function show(LieuService $lieuService)
@@ -159,6 +176,10 @@ class LieuServiceController extends Controller
     }
     public function index(Request $request, OrganizationalScope $scope)
     {
+        if ($request->user() === null) {
+            return $this->catalogue($request);
+        }
+
         $lieux = $this->visibleLieux($request, $scope);
 
         return response()->json([
