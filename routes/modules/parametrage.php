@@ -1,8 +1,10 @@
 <?php
 
 use App\Http\Controllers\Api\Parametrage\CategorieController;
+
 use App\Http\Controllers\Api\Parametrage\CorpsController;
 use App\Http\Controllers\Api\Parametrage\LieuServiceController;
+use Illuminate\Support\Facades\Route;
 
 Route::post('lieux-service', [LieuServiceController::class, 'store'])
     ->middleware('permission:parametrage.lieux_service.manage');
