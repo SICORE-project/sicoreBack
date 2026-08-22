@@ -3,9 +3,8 @@
 namespace App\Http\Requests\Parametrage;
 
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Validation\Rule;
 
-class UpdateCorpsEnseignantRequest extends FormRequest
+class StoreCategorieRequest extends FormRequest
 {
     public function authorize(): bool
     {
@@ -14,33 +13,35 @@ class UpdateCorpsEnseignantRequest extends FormRequest
 
     public function rules(): array
     {
-        $id = $this->route('corps');
-
-        if (!$id) {
-            $id = $this->route('id');
-        }
-
         return [
             'code' => [
-                'sometimes',
                 'required',
                 'string',
                 'max:50',
-                Rule::unique('corps_enseignant', 'code')->ignore($id),
+                'unique:categories,code',
             ],
 
             'libelle' => [
-                'sometimes',
                 'required',
                 'string',
                 'max:255',
             ],
 
-            
+            'ordre' => [
+                'nullable',
+                'integer',
+                'min:0',
+            ],
 
             'description' => [
                 'nullable',
                 'string',
+            ],
+
+            'corps_id' => [
+                'required',
+                'integer',
+                'exists:corps_enseignant,id',
             ],
         ];
     }
@@ -51,8 +52,9 @@ class UpdateCorpsEnseignantRequest extends FormRequest
             'code.required' => 'Le code est obligatoire.',
             'code.unique' => 'Ce code existe déjà.',
             'libelle.required' => 'Le libellé est obligatoire.',
-            
-            'categorie_id.exists' => 'La catégorie sélectionnée est invalide.',
+            'ordre.integer' => 'L’ordre doit être un entier.',
+            'corps_id.required' => 'Le corps enseignant est obligatoire.',
+            'corps_id.exists' => 'Le corps enseignant sélectionné est invalide.',
         ];
     }
 }

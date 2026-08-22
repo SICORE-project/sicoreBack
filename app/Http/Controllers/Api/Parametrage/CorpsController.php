@@ -42,11 +42,7 @@ class CorpsController extends Controller
                 'max:255',
             ],
 
-            'categorie_id' => [
-                'required',
-                'integer',
-                'exists:categories,id',
-            ],
+            
 
             'description' => [
                 'nullable',
@@ -108,11 +104,7 @@ class CorpsController extends Controller
                 'max:255',
             ],
 
-            'categorie_id' => [
-                'required',
-                'integer',
-                'exists:categories,id',
-            ],
+           
 
             'description' => [
                 'nullable',
