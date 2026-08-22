@@ -3,6 +3,7 @@
 namespace App\Services\Administration;
 
 use App\Models\admin\User;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Hash;
 
 class UserService
@@ -40,6 +41,17 @@ class UserService
             ->orderBy('nom')
             ->orderBy('prenom')
             ->get();
+    }
+
+    /**
+     * Liste paginée des utilisateurs.
+     */
+    public function paginate(int $perPage = 10): LengthAwarePaginator
+    {
+        return User::with('role')
+            ->orderBy('nom')
+            ->orderBy('prenom')
+            ->paginate($perPage);
     }
 
 

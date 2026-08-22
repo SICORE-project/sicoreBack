@@ -59,6 +59,23 @@ class UserController extends Controller
     }
 
     /**
+     * Vérifier la disponibilité d'une adresse avant la soumission du formulaire.
+     */
+    public function checkEmail(Request $request)
+    {
+        $data = $request->validate([
+            'email' => ['required', 'email'],
+        ]);
+
+        $available = ! User::where('email', $data['email'])->exists();
+
+        return response()->json([
+            'available' => $available,
+            'message' => $available ? null : 'Cette adresse e-mail est déjà utilisée.',
+        ]);
+    }
+
+    /**
      * Display the specified resource.
      */
     public function show(string $id)

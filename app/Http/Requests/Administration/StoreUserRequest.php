@@ -77,6 +77,15 @@ class StoreUserRequest extends FormRequest
         $roleId = $this->input('role_id');
 
         return $roleId !== null
-            && Role::whereKey($roleId)->where('niveau', '!=', 'systeme')->exists();
+            && Role::whereKey($roleId)->where('niveau', '!=', 'systeme')->exists(); 
+    }
+  
+    public function messages(): array
+    {
+        return [
+            'email.required' => 'L’adresse e-mail est obligatoire.',
+            'email.email' => 'L’adresse e-mail doit être valide.',
+            'email.unique' => 'Cette adresse e-mail est déjà utilisée.',
+        ];
     }
 }
