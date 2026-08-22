@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Api\Parametrage;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Parametrage\ChangeStatutLieuServiceRequest;
+use App\Http\Requests\Parametrage\UpdateLieuServiceRequest;
 use App\Models\Parametrage\LieuService;
 use App\Models\Parametrage\Ia;
 use App\Models\Parametrage\Region;
@@ -115,11 +117,19 @@ class LieuServiceController extends Controller
         return response()->json(['success' => true, 'data' => $this->formatLieu($lieuService)]);
     }
 
-    public function update(Request $request, LieuService $lieuService)
+    public function update(UpdateLieuServiceRequest $request, LieuService $lieuService)
     {
-        $lieuService->update($this->validated($request, $lieuService));
+        $lieuService->update($request->validated());
+        $lieuService->refresh()->load(['ia', 'ief']);
 
-        return response()->json(['success' => true, 'message' => 'Lieu de service mis à jour avec succès.', 'data' => $this->formatLieu($lieuService->fresh())]);
+        return response()->json([
+            'success' => true,
+            'message' => 'Lieu de service mis à jour avec succès.',
+            'data' => [
+                ...$this->formatLieu($lieuService),
+                'hierarchie_coherente' => $lieuService->hierarchie_coherente,
+            ],
+        ]);
     }
 
     public function destroy(LieuService $lieuService)
@@ -131,6 +141,21 @@ class LieuServiceController extends Controller
         $lieuService->delete();
 
         return response()->json(['success' => true, 'message' => 'Lieu de service supprimé avec succès.']);
+    }
+
+    public function updateStatut(ChangeStatutLieuServiceRequest $request, LieuService $lieuService)
+    {
+        $lieuService->update([
+            'est_actif' => $request->boolean('est_actif'),
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => $lieuService->est_actif
+                ? 'Lieu de service activé avec succès.'
+                : 'Lieu de service désactivé avec succès.',
+            'data' => $this->formatLieu($lieuService->refresh()),
+        ]);
     }
     public function index(Request $request, OrganizationalScope $scope)
     {

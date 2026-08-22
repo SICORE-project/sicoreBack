@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\Parametrage\CategorieController;
+use App\Http\Controllers\Api\Parametrage\AffectationLieuServiceController;
 use App\Http\Controllers\Api\Parametrage\CompteBancaireEnseignantController;
 use App\Http\Controllers\Api\Parametrage\CorpsController;
 use App\Http\Controllers\Api\Parametrage\InstitutFinancierController;
@@ -13,6 +14,18 @@ use Illuminate\Support\Facades\Route;
 
 Route::get('parametrage/lieux-service', [LieuServiceController::class, 'catalogue'])
     ->middleware('permission:parametrage.lieux_service.read');
+
+Route::put('parametrage/lieux-service/{lieuService}', [LieuServiceController::class, 'update'])
+    ->whereNumber('lieuService')
+    ->middleware('permission:parametrage.lieux_service.manage');
+
+Route::patch('parametrage/lieux-service/{lieuService}/statut', [LieuServiceController::class, 'updateStatut'])
+    ->whereNumber('lieuService')
+    ->middleware('permission:parametrage.lieux_service.manage');
+
+Route::post('parametrage/enseignants/{enseignant}/affectations', [AffectationLieuServiceController::class, 'store'])
+    ->whereNumber('enseignant')
+    ->middleware('permission:parametrage.lieux_service.manage');
 
 Route::prefix('parametrage/ia')->group(function () {
     Route::get('/', [IaController::class, 'index'])

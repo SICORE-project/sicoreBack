@@ -3,6 +3,7 @@
 namespace App\Models\Parametrage;
 
 use App\Models\Admin\User;
+use App\Models\Personnel\AffectationEnseignant;
 use App\Models\Personnel\Enseignant;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -54,6 +55,11 @@ class LieuService extends Model
     public function users()
     {
         return $this->hasMany(User::class);
+    }
+
+    public function affectationsEnseignants()
+    {
+        return $this->hasMany(AffectationEnseignant::class);
     }
 
     public function centresFormation()
