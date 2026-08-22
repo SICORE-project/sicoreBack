@@ -2,7 +2,8 @@
 
 namespace App\Services\Administration;
 
-use App\Models\Admin\User;
+use App\Models\admin\User;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Hash;
 use App\Models\Parametrage\Ia;
 use App\Models\Parametrage\Ief;
@@ -23,14 +24,23 @@ class UserService
         return User::create($data);
     }
 
-
-
     /**
      * Liste des utilisateurs
      */
     public function all()
     {
         return User::with('role')->get();
+    }
+
+    /**
+     * Liste paginée des utilisateurs.
+     */
+    public function paginate(int $perPage = 10): LengthAwarePaginator
+    {
+        return User::with('role')
+            ->orderBy('nom')
+            ->orderBy('prenom')
+            ->paginate($perPage);
     }
 
 
@@ -43,8 +53,6 @@ class UserService
         return User::with('role')
             ->findOrFail($id);
     }
-
-
 
     /**
      * Mise à jour utilisateur
@@ -60,13 +68,10 @@ class UserService
 
         }
 
-
         $user->update($data);
 
         return $user;
     }
-
-
 
     /**
      * Suppression utilisateur

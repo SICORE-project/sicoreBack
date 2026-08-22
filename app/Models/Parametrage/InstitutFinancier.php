@@ -16,6 +16,11 @@ class InstitutFinancier extends Model
     protected $fillable = [
         'code',
         'libelle',
+<<<<<<< HEAD
+        'sigle',
+        'type_institution',
+=======
+>>>>>>> module-parametrage
         'adresse',
         'telephone',
         'email',
@@ -23,6 +28,11 @@ class InstitutFinancier extends Model
         'code_guichet',
         'iban_exemple',
     ];
+
+    public function scopeActif($query)
+    {
+        return $query->where('est_actif', true);
+    }
 
     // === RELATIONS ===
 
@@ -36,6 +46,11 @@ class InstitutFinancier extends Model
 
     public function enseignants()
     {
+<<<<<<< HEAD
+        return $this->belongsToMany(Enseignant::class, 'enseignant_institut_financier')
+            ->withPivot('iban', 'bic', 'titulaire_compte', 'est_principal', 'est_actif')
+            ->withTimestamps();
+=======
         return $this->belongsToMany(
             Enseignant::class,
             'enseignant_institut_financier'
@@ -48,5 +63,6 @@ class InstitutFinancier extends Model
             'est_actif'
         )
         ->withTimestamps();
+>>>>>>> module-parametrage
     }
 }
