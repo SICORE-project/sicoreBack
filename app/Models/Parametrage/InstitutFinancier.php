@@ -2,10 +2,10 @@
 
 namespace App\Models\Parametrage;
 
+use App\Models\Personnel\CompteBancaireEnseignant;
+use App\Models\Personnel\Enseignant;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use App\Models\Personnel\Enseignant;
-use App\Models\Personnel\CompteBancaireEnseignant;
 
 class InstitutFinancier extends Model
 {
@@ -16,11 +16,8 @@ class InstitutFinancier extends Model
     protected $fillable = [
         'code',
         'libelle',
-<<<<<<< HEAD
         'sigle',
         'type_institution',
-=======
->>>>>>> module-parametrage
         'adresse',
         'telephone',
         'email',
@@ -46,23 +43,8 @@ class InstitutFinancier extends Model
 
     public function enseignants()
     {
-<<<<<<< HEAD
         return $this->belongsToMany(Enseignant::class, 'enseignant_institut_financier')
             ->withPivot('iban', 'bic', 'titulaire_compte', 'est_principal', 'est_actif')
             ->withTimestamps();
-=======
-        return $this->belongsToMany(
-            Enseignant::class,
-            'enseignant_institut_financier'
-        )
-        ->withPivot(
-            'iban',
-            'bic',
-            'titulaire_compte',
-            'est_principal',
-            'est_actif'
-        )
-        ->withTimestamps();
->>>>>>> module-parametrage
     }
 }
