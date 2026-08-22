@@ -4,25 +4,25 @@ namespace App\Http\Controllers\Api\Parametrage;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Parametrage\ChangeStatutLieuServiceRequest;
+use App\Http\Requests\Parametrage\IndexLieuServiceRequest;
+use App\Http\Requests\Parametrage\StoreLieuServiceRequest;
 use App\Http\Requests\Parametrage\UpdateLieuServiceRequest;
+use App\Http\Resources\Parametrage\LieuServiceResource;
 use App\Models\Parametrage\LieuService;
+use App\Services\Parametrage\LieuServiceScope;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
 
 class LieuServiceController extends Controller
 {
-    public function index(Request $request): JsonResponse
+    public function index(IndexLieuServiceRequest $request, LieuServiceScope $scope): JsonResponse
     {
-        $validated = $request->validate([
-            'search' => ['nullable', 'string', 'max:100'],
-            'ia_id' => ['nullable', 'integer', 'exists:ias,id'],
-            'ief_id' => ['nullable', 'integer', 'exists:iefs,id'],
-            'type' => ['nullable', 'string', 'max:50'],
-            'est_actif' => ['nullable', 'boolean'],
-            'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],
-        ]);
+        $validated = $request->validated();
 
-        $query = LieuService::query()->with(['ia', 'ief']);
+        $query = $scope->apply(LieuService::query(), $request->user())
+            ->with([
+                'ia:id,code,libelle',
+                'ief:id,code,libelle,ia_id',
+            ]);
 
         if (! empty($validated['search'])) {
             $term = $validated['search'];
@@ -41,13 +41,36 @@ class LieuServiceController extends Controller
             $query->where('est_actif', $request->boolean('est_actif'));
         }
 
-        $lieux = $query->orderBy('libelle')->paginate($validated['per_page'] ?? 15);
-        $lieux->getCollection()->each->append('hierarchie_coherente');
+        $lieux = $query
+            ->orderBy($validated['sort'] ?? 'libelle', $validated['direction'] ?? 'asc')
+            ->paginate($validated['per_page'] ?? 15)
+            ->withQueryString();
 
         return response()->json([
             'success' => true,
-            ...$lieux->toArray(),
+            'message' => 'Liste des lieux de service récupérée avec succès.',
+            'data' => LieuServiceResource::collection($lieux->getCollection()),
+            'meta' => [
+                'current_page' => $lieux->currentPage(),
+                'last_page' => $lieux->lastPage(),
+                'per_page' => $lieux->perPage(),
+                'total' => $lieux->total(),
+            ],
         ]);
+    }
+
+    public function store(StoreLieuServiceRequest $request): JsonResponse
+    {
+        $lieuService = LieuService::create([
+            ...$request->validated(),
+            'est_actif' => true,
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Lieu de service créé avec succès.',
+            'data' => new LieuServiceResource($lieuService->load(['ia', 'ief'])),
+        ], 201);
     }
 
     public function update(

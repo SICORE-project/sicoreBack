@@ -12,6 +12,12 @@ use Illuminate\Support\Facades\Route;
 Route::get('parametrage/lieux-service', [LieuServiceController::class, 'index'])
     ->middleware('permission:parametrage.lieux_service.read');
 
+Route::get('lieux-service', [LieuServiceController::class, 'index'])
+    ->middleware('permission:parametrage.lieux_service.read');
+
+Route::post('parametrage/lieux-service', [LieuServiceController::class, 'store'])
+    ->middleware('permission:parametrage.lieux_service.manage');
+
 Route::put('parametrage/lieux-service/{lieuService}', [LieuServiceController::class, 'update'])
     ->whereNumber('lieuService')
     ->middleware('permission:parametrage.lieux_service.manage');
@@ -21,6 +27,11 @@ Route::patch('parametrage/lieux-service/{lieuService}/statut', [LieuServiceContr
     ->middleware('permission:parametrage.lieux_service.manage');
 
 Route::post('parametrage/enseignants/{enseignant}/affectations', [AffectationLieuServiceController::class, 'store'])
+    ->whereNumber('enseignant')
+    ->middleware('permission:parametrage.lieux_service.manage');
+
+// Compatibilité avec le chemin historique utilisé par le frontend.
+Route::post('enseignants/{enseignant}/affectations', [AffectationLieuServiceController::class, 'store'])
     ->whereNumber('enseignant')
     ->middleware('permission:parametrage.lieux_service.manage');
 
