@@ -1,18 +1,28 @@
 <?php
 
-use App\Http\Controllers\Api\Parametrage\CorpsController;
-use \App\Http\Controllers\Api\Parametrage\SyndicatController;
+use App\Http\Controllers\Api\Parametrage\AffectationLieuServiceController;
 use App\Http\Controllers\Api\Parametrage\CompteBancaireEnseignantController;
-use App\Http\Controllers\Api\Parametrage\InstitutFinancierController;
-<<<<<<< HEAD
+use App\Http\Controllers\Api\Parametrage\CorpsController;
 use App\Http\Controllers\Api\Parametrage\DiplomeController;
-=======
+use App\Http\Controllers\Api\Parametrage\InstitutFinancierController;
 use App\Http\Controllers\Api\Parametrage\LieuServiceController;
->>>>>>> e72345b (Travail en cours LieuService dev-Amina-para)
+use App\Http\Controllers\Api\Parametrage\SyndicatController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('parametrage/lieux-service', [LieuServiceController::class, 'index'])
     ->middleware('permission:parametrage.lieux_service.read');
+
+Route::put('parametrage/lieux-service/{lieuService}', [LieuServiceController::class, 'update'])
+    ->whereNumber('lieuService')
+    ->middleware('permission:parametrage.lieux_service.manage');
+
+Route::patch('parametrage/lieux-service/{lieuService}/statut', [LieuServiceController::class, 'updateStatut'])
+    ->whereNumber('lieuService')
+    ->middleware('permission:parametrage.lieux_service.manage');
+
+Route::post('parametrage/enseignants/{enseignant}/affectations', [AffectationLieuServiceController::class, 'store'])
+    ->whereNumber('enseignant')
+    ->middleware('permission:parametrage.lieux_service.manage');
 
 Route::get('parametrage/institutions-financieres', [InstitutFinancierController::class, 'index'])
     ->middleware('permission:parametrage.institutions_financieres.read');
@@ -37,7 +47,7 @@ Route::post('enseignants/{enseignant}/comptes-bancaires', [CompteBancaireEnseign
  */
 Route::middleware(['auth:sanctum', 'role:admin,super_admin'])
     ->apiResource('diplomes', DiplomeController::class);
-    
+
 /**
  * Routes for the Corps resource.
  */
@@ -57,12 +67,12 @@ Route::prefix('corps')->group(function () {
 
     Route::patch('/{id}/activate', [
         CorpsController::class,
-        'activate'
+        'activate',
     ]);
 
     Route::patch('/{id}/deactivate', [
         CorpsController::class,
-        'deactivate'
+        'deactivate',
     ]);
 });
 
@@ -82,11 +92,11 @@ Route::prefix('syndicats')->group(function () {
 
     Route::patch('/{id}/activate', [
         SyndicatController::class,
-        'activate'
+        'activate',
     ]);
 
     Route::patch('/{id}/deactivate', [
         SyndicatController::class,
-        'deactivate'
+        'deactivate',
     ]);
 });
