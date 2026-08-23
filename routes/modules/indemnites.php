@@ -27,6 +27,20 @@ use App\Http\Controllers\Api\Indemnites\IndemniteSurveillanceController;
 use App\Http\Controllers\Api\Indemnites\EtatPaieIndemnitesController;
 use App\Http\Controllers\Api\Indemnites\BoursesController;
 use App\Http\Controllers\Api\Indemnites\AidesEtudiantesController;
+use App\Http\Controllers\Api\Indemnites\NotificationController;
+
+
+/*
+|--------------------------------------------------------------------------
+| Indemnités
+|--------------------------------------------------------------------------
+*/
+
+Route::get('/indemnites/notifications', [NotificationController::class, 'index']);
+Route::post('/indemnites/notifications', [NotificationController::class, 'store']);
+Route::patch('/indemnites/notifications/read-all', [NotificationController::class, 'markAllAsRead']);
+Route::get('/indemnites/notifications/unread-count', [NotificationController::class, 'unreadCount']);
+Route::patch('/indemnites/notifications/{id}/read', [NotificationController::class, 'markAsRead']);
 
 /*
 |--------------------------------------------------------------------------
@@ -285,3 +299,10 @@ Route::get('aides-etudiantes/{id}/pieces', [AidesEtudiantesController::class, 'p
 Route::post('aides-etudiantes/{id}/pieces', [AidesEtudiantesController::class, 'deposerPiece']);
 
 Route::post('aides-etudiantes/{id}/archiver', [AidesEtudiantesController::class, 'archiver']);
+
+
+
+
+
+
+

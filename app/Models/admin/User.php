@@ -1,17 +1,19 @@
 <?php
 
-namespace App\Models\Admin;
+namespace App\Models\admin;
 
+use App\Models\admin\Notification;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Laravel\Sanctum\HasApiTokens;
 use App\Models\admin\Role;
+use App\Models\Parametrage\Enseignant;
 use App\Models\Parametrage\LieuService;
 use App\Models\Parametrage\Ief;
 use App\Models\Parametrage\Ia;
-use App\Models\Personnel\Enseignant;
+
 
 class User extends Authenticatable
 {
@@ -63,9 +65,9 @@ class User extends Authenticatable
         'password' => 'hashed',
     ];
     }
-    
+
     // === RELATIONS ===
-   
+
 
     public function enseignant()
     {
@@ -172,4 +174,12 @@ public function isGestionnaire()
 {
     return $this->hasRole('gestionnaire_paie') || $this->hasRole('gestionnaire_budget');
 }
+
+public function notifications()
+{
+    return $this->belongsToMany(Notification::class, 'notification_user')
+                ->withPivot('est_lu', 'lu_at')
+                ->withTimestamps();
+}
+
 }

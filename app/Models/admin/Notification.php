@@ -5,45 +5,48 @@ namespace App\Models\admin;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use App\Models\admin\User;
+use Illuminate\Database\Eloquent\Builder;
 
 class Notification extends Model
 {
-    use HasFactory;
-
+     use HasFactory;
     protected $fillable = [
-        'titre',
-        'message',
-        'type',
-        'url',
-        'created_by',
-        'est_actif',
-    ];
-
+            'titre', 'message', 'type', 'url', 'created_by', 'est_actif',
+        ];
     protected $casts = [
-        'est_actif' => 'boolean',
-    ];
-
-    // === RELATIONS ===
+            'est_actif' => 'boolean',
+        ];
+        // === RELATIONS ===
     public function users()
-    {
-        return $this->belongsToMany(User::class, 'notification_user')
-                    ->withPivot('est_lu', 'lu_at')
-                    ->withTimestamps();
-    }
-
+        {
+            return $this->belongsToMany(User::class, 'notification_user')
+                        ->withPivot('est_lu', 'lu_at')
+                        ->withTimestamps();
+        }
     public function createdBy()
-    {
-        return $this->belongsTo(User::class, 'created_by');
-    }
-
-    // === SCOPES ===
+        {
+            return $this->belongsTo(User::class, 'created_by');
+        }
+        // === SCOPES ===
     public function scopeActif($query)
-    {
-        return $query->where('est_actif', true);
+        {
+            return $query->where('est_actif', true);
+        }
+    public function scopeByType($query, $type)
+        {
+            return $query->where('type', $type);
+        }
+    public function scopeForUser(Builder $query, User $user): Builder
+        {
+            return $query->whereHas('users', function (Builder $q) use ($user) {
+                $q->where('users.id', $user->id);
+            });
+        }
+    public function scopeUnreadFor(Builder $query, User $user): Builder
+        {
+            return $query->whereHas('users', function (Builder $q) use ($user) {
+                $q->where('users.id', $user->id)->where('notification_user.est_lu', false);
+            });
     }
 
-    public function scopeByType($query, $type)
-    {
-        return $query->where('type', $type);
-    }
 }
