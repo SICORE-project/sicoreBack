@@ -60,8 +60,6 @@ jobs:
 
       - name: Installer les dependances PHP
         run: |
-          # composer.lock n'est pas encore present dans ce depot.
-          # Quand il sera versionne, composer install sera utilise automatiquement.
           if [ -f composer.lock ]; then
             composer install --no-interaction --prefer-dist --no-progress
           else
@@ -70,7 +68,6 @@ jobs:
 
       - name: Installer les dependances Node
         run: |
-          # npm install est utilise car package-lock.json n'est pas present.
           npm install
 
       - name: Compiler les assets
@@ -80,10 +77,15 @@ jobs:
         run: |
           cp .env.example .env
           php artisan key:generate --ansi
-          mkdir -p database
-          touch database/database.sqlite
 
       - name: Lancer les tests
+        env:
+          DB_CONNECTION: mysql
+          DB_HOST: 127.0.0.1
+          DB_PORT: 3306
+          DB_DATABASE: sicore_test
+          DB_USERNAME: sicore_user
+          DB_PASSWORD: sicore_password
         run: composer test
 
   docker:
