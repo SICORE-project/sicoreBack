@@ -4,13 +4,73 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Parametrage\LieuService;
+use App\Models\Parametrage\Ia;
 use App\Models\Parametrage\Region;
 use App\Services\Administration\OrganizationalScope;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
+use Illuminate\Validation\Rule;
 
 class StructureOrganisationnelleController extends Controller
 {
+    public function iaOptions()
+    {
+        $ias = Ia::actif()
+            ->with(['lieuxServices' => fn ($query) => $query->actif()->where('type', 'IA')->orderBy('id')])
+            ->orderBy('libelle')
+            ->get(['id', 'code', 'libelle'])
+            ->map(fn (Ia $ia) => [
+                'id' => $ia->id,
+                'code' => $ia->code,
+                'libelle' => $ia->libelle,
+                'structure_organisationnelle_id' => $ia->lieuxServices->first()?->id,
+            ])
+            ->filter(fn (array $ia) => $ia['structure_organisationnelle_id'] !== null)
+            ->values();
+
+        return response()->json([
+            'success' => true,
+            'data' => $ias,
+        ]);
+    }
+
+    public function manage()
+    {
+        return response()->json([
+            'success' => true,
+            'data' => LieuService::with(['ia:id,code,libelle', 'ief:id,ia_id,code,libelle'])->orderBy('libelle')->get()
+                ->map(fn (LieuService $lieu) => $this->formatLieu($lieu))->values(),
+        ]);
+    }
+    public function store(Request $request)
+    {
+        $lieu = LieuService::create($this->validated($request));
+
+        return response()->json(['success' => true, 'message' => 'Structure créée avec succès.', 'data' => $this->formatLieu($lieu)], 201);
+    }
+
+    public function show(LieuService $structure)
+    {
+        return response()->json(['success' => true, 'data' => $this->formatLieu($structure)]);
+    }
+
+    public function update(Request $request, LieuService $structure)
+    {
+        $structure->update($this->validated($request, $structure));
+
+        return response()->json(['success' => true, 'message' => 'Structure mise à jour avec succès.', 'data' => $this->formatLieu($structure->fresh())]);
+    }
+
+    public function destroy(LieuService $structure)
+    {
+        if ($structure->users()->exists()) {
+            return response()->json(['success' => false, 'message' => 'Cette structure est liée à des utilisateurs et ne peut pas être supprimée.'], 409);
+        }
+
+        $structure->delete();
+
+        return response()->json(['success' => true, 'message' => 'Structure supprimée avec succès.']);
+    }
     public function index(Request $request, OrganizationalScope $scope)
     {
         $lieux = $this->visibleLieux($request, $scope);
@@ -125,6 +185,7 @@ class StructureOrganisationnelleController extends Controller
             'perimetre' => $lieu->perimetre ?? $this->inferPerimetreFromType($lieu->type),
             'ia_id' => $lieu->ia_id,
             'ief_id' => $lieu->ief_id,
+            'est_actif' => $lieu->est_actif,
         ];
     }
 
@@ -140,5 +201,27 @@ class StructureOrganisationnelleController extends Controller
     private function normalizedPerimetre(LieuService $lieu): string
     {
         return $lieu->perimetre ?? $this->inferPerimetreFromType($lieu->type);
+    }
+
+    private function validated(Request $request, ?LieuService $structure = null): array
+    {
+        $data = $request->validate([
+            'code' => ['required', 'string', 'max:20', Rule::unique('lieu_de_services', 'code')->ignore($structure)],
+            'libelle' => ['required', 'string', 'max:100'],
+            'type' => ['required', Rule::in(['DRH', 'DAGE', 'DECPC', 'IA', 'IEF'])],
+            'perimetre' => ['required', Rule::in(['national', 'regional'])],
+            'ia_id' => ['nullable', 'integer', Rule::requiredIf(fn () => in_array($request->input('type'), ['IA', 'IEF'], true)), Rule::exists('ias', 'id')],
+            'ief_id' => ['nullable', 'integer', Rule::requiredIf(fn () => $request->input('type') === 'IEF'), Rule::exists('iefs', 'id')],
+            'est_actif' => ['required', 'boolean'],
+        ]);
+
+        $data['perimetre'] = in_array($data['type'], ['DRH', 'DAGE', 'DECPC'], true) ? 'national' : 'regional';
+
+        if ($data['perimetre'] === 'national') {
+            $data['ia_id'] = null;
+            $data['ief_id'] = null;
+        }
+
+        return $data;
     }
 }

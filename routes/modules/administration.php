@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\Api\Admin\RoleController;
 use App\Http\Controllers\Api\Admin\PermissionController;
 use App\Http\Controllers\Api\Admin\RolePermissionController;
+use App\Http\Controllers\Api\Admin\TypeRoleController;
 use App\Http\Controllers\Api\StructureOrganisationnelleController;
 
 
@@ -16,15 +17,38 @@ use App\Http\Controllers\Api\StructureOrganisationnelleController;
 
 Route::prefix('admin')->group(function () {
 
+    Route::prefix('type-roles')->group(function () {
+        Route::get('/', [TypeRoleController::class, 'index'])
+            ->middleware('permission:administration.roles.read');
+        Route::get('/all', [TypeRoleController::class, 'all'])
+            ->middleware('permission:administration.roles.read');
+        Route::post('/', [TypeRoleController::class, 'store'])
+            ->middleware('permission:administration.roles.manage');
+        Route::get('/{typeRole}', [TypeRoleController::class, 'show'])
+            ->whereNumber('typeRole')
+            ->middleware('permission:administration.roles.read');
+        Route::put('/{typeRole}', [TypeRoleController::class, 'update'])
+            ->whereNumber('typeRole')
+            ->middleware('permission:administration.roles.manage');
+        Route::delete('/{typeRole}', [TypeRoleController::class, 'destroy'])
+            ->whereNumber('typeRole')
+            ->middleware('permission:administration.roles.manage');
+    });
+
     Route::prefix('structures-organisationnelles')
-        ->middleware('permission:administration.users.read')
         ->group(function () {
-            Route::get('/', [StructureOrganisationnelleController::class, 'index']);
-            Route::get('/national', [StructureOrganisationnelleController::class, 'national']);
-            Route::get('/regions', [StructureOrganisationnelleController::class, 'regions']);
+            Route::get('/', [StructureOrganisationnelleController::class, 'index'])->middleware('permission:administration.users.read');
+            Route::get('/manage', [StructureOrganisationnelleController::class, 'manage'])->middleware('permission:administration.users.read');
+            Route::get('/ias', [StructureOrganisationnelleController::class, 'iaOptions'])->middleware('permission:administration.users.read');
+            Route::get('/national', [StructureOrganisationnelleController::class, 'national'])->middleware('permission:administration.users.read');
+            Route::get('/regions', [StructureOrganisationnelleController::class, 'regions'])->middleware('permission:administration.users.read');
             Route::get('/regions/{region}/ias', [StructureOrganisationnelleController::class, 'ias']);
             Route::get('/ias/{ia}/iefs', [StructureOrganisationnelleController::class, 'iefs'])
                 ->whereNumber('ia');
+            Route::post('/', [StructureOrganisationnelleController::class, 'store'])->middleware('permission:administration.users.update');
+            Route::get('/{structure}', [StructureOrganisationnelleController::class, 'show'])->whereNumber('structure')->middleware('permission:administration.users.read');
+            Route::put('/{structure}', [StructureOrganisationnelleController::class, 'update'])->whereNumber('structure')->middleware('permission:administration.users.update');
+            Route::delete('/{structure}', [StructureOrganisationnelleController::class, 'destroy'])->whereNumber('structure')->middleware('permission:administration.users.update');
         });
 
 

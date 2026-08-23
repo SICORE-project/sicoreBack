@@ -18,11 +18,26 @@ return new class extends Migration
 {
     public function up(): void
     {
+        if (DB::connection()->getDriverName() === 'pgsql') {
+            DB::statement('ALTER TABLE convocations ALTER COLUMN objet TYPE TEXT');
+            DB::statement('ALTER TABLE convocations ALTER COLUMN objet SET NOT NULL');
+
+            return;
+        }
+
         DB::statement('ALTER TABLE convocations MODIFY objet TEXT NOT NULL');
     }
 
     public function down(): void
     {
+        if (DB::connection()->getDriverName() === 'pgsql') {
+            DB::statement('ALTER TABLE convocations ALTER COLUMN objet TYPE VARCHAR(255) USING LEFT(objet, 255)');
+            DB::statement("ALTER TABLE convocations ALTER COLUMN objet SET DEFAULT ''");
+            DB::statement('ALTER TABLE convocations ALTER COLUMN objet SET NOT NULL');
+
+            return;
+        }
+
         DB::statement("ALTER TABLE convocations MODIFY objet VARCHAR(255) NOT NULL DEFAULT ''");
     }
 };
