@@ -69,3 +69,40 @@ L'authentification API utilise exclusivement `utilisateurs.login` et les rôles 
 En production, `APP_ENV=production` et `APP_DEBUG=false` sont obligatoires. Définir aussi `FRONTEND_URL` avec l'origine exacte du frontend, puis exécuter `php artisan migrate --force`.
 
 Les tokens Sanctum du BFF expirent selon `SANCTUM_TOKEN_EXPIRATION` et sont révoqués au logout.
+
+## Workflow Git — se synchroniser avec `module-indemnite-intermedaire`
+
+Récupérer les derniers changements de la branche partagée `module-indemnite-intermedaire` :
+
+```
+git fetch origin module-indemnite-intermedaire
+git merge origin/module-indemnite-intermedaire
+```
+
+S'il y a des modifications locales non committées qui bloquent le merge :
+
+```
+git stash push -u -m "avant fusion module-indemnite-intermedaire"
+git fetch origin module-indemnite-intermedaire
+git merge origin/module-indemnite-intermedaire
+```
+Puis, une fois le merge vérifié, remettre les modifications de côté si besoin (`git stash pop`) ou les jeter si ce n'était pas du vrai travail (`git stash drop`).
+
+Committer et pousser uniquement les fichiers réellement modifiés (jamais `git add .`, pour éviter d'envoyer du bruit type changement de fin de ligne sur des fichiers non concernés) :
+
+```
+git add <fichier1> <fichier2> ...
+git commit -m "message clair"
+git fetch origin module-indemnite-intermedaire
+git merge origin/module-indemnite-intermedaire
+git push origin dev-aminata
+```
+
+Si un `.git/index.lock` bloque toutes les commandes git (message "Unable to create '.git/index.lock': File exists") :
+
+1. Fermer tout logiciel git ouvert (VS Code, GitHub Desktop, etc.).
+2. Supprimer le fichier :
+```
+rm -f .git/index.lock
+```
+3. Relancer la commande git.
