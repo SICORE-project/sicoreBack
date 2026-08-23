@@ -24,6 +24,18 @@ class UserResource extends JsonResource
 
             'email' => $this->email,
 
+            'genre' => $this->genre,
+
+            'date_naiss' => $this->date_naiss?->format('d/m/Y'),
+
+            'lieu_naissance' => $this->lieu_naissance,
+
+            'telephone' => $this->telephone,
+
+            'adresse' => $this->adresse,
+
+            'fonction' => $this->fonction,
+
             'statut' => $this->statut,
 
             'role' => [
@@ -34,6 +46,7 @@ class UserResource extends JsonResource
 
             'structure_organisationnelle' => $this->structureOrganisationnelle ? [
                 'id' => $this->structureOrganisationnelle->id,
+                'code' => $this->structureOrganisationnelle->code,
                 'type' => $this->structureOrganisationnelle->type,
                 'libelle' => $this->structureOrganisationnelle->libelle,
             ] : null,
