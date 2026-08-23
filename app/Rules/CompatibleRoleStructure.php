@@ -33,17 +33,18 @@ class CompatibleRoleStructure implements ValidationRule
             return;
         }
 
-        $role = Role::query()->find($roleId);
+        $role = Role::query()->with('typeRole')->find($roleId);
         $structure = StructureOrganisationnelle::query()->find($structureId);
 
         if (! $role || ! $structure) {
             return;
         }
 
-        $allowedTypes = config("role_structure.allowed_structure_types.{$role->niveau}");
+        $typeRoleCode = $role->typeRole?->code;
+        $allowedTypes = config("role_structure.allowed_structure_types.{$typeRoleCode}");
 
         if ($allowedTypes !== null && ! in_array(strtoupper($structure->type), $allowedTypes, true)) {
-            $fail("Le role {$role->niveau} n'est pas autorise pour une structure de type {$structure->type}.");
+            $fail("Le rôle {$typeRoleCode} n'est pas autorisé pour une structure de type {$structure->type}.");
         }
     }
 }

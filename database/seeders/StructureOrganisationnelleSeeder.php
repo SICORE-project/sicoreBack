@@ -3,75 +3,61 @@
 namespace Database\Seeders;
 
 use Illuminate\Database\Seeder;
-use Illuminate\Support\Facades\DB;
+use App\Models\Parametrage\LieuService;
 
 class StructureOrganisationnelleSeeder extends Seeder
 {
     public function run(): void
     {
-        // Éviter les doublons
-        if (DB::table('structures_organisationnelles')->count() > 0) {
-            $this->command->info('Les structures existent déjà. Aucune insertion effectuée.');
-            return;
-        }
-
-        DB::table('structures_organisationnelles')->insert([
+        foreach ([
             [
                 'code' => 'DG',
                 'libelle' => 'Direction Générale',
-                'type' => 'direction',
-                'parent_id' => null,
+                'type' => 'DRH',
+                'perimetre' => 'national',
                 'ia_id' => null,
                 'ief_id' => null,
                 'est_actif' => 1,
-                'created_at' => now(),
-                'updated_at' => now(),
             ],
             [
                 'code' => 'DRH',
                 'libelle' => 'Direction des Ressources Humaines',
-                'type' => 'direction',
-                'parent_id' => null,
+                'type' => 'DRH',
+                'perimetre' => 'national',
                 'ia_id' => null,
                 'ief_id' => null,
                 'est_actif' => 1,
-                'created_at' => now(),
-                'updated_at' => now(),
             ],
             [
                 'code' => 'DF',
                 'libelle' => 'Direction Financière',
-                'type' => 'direction',
-                'parent_id' => null,
+                'type' => 'DAGE',
+                'perimetre' => 'national',
                 'ia_id' => null,
                 'ief_id' => null,
                 'est_actif' => 1,
-                'created_at' => now(),
-                'updated_at' => now(),
             ],
             [
                 'code' => 'SI',
                 'libelle' => 'Service Informatique',
-                'type' => 'service',
-                'parent_id' => null,
+                'type' => 'DECPC',
+                'perimetre' => 'national',
                 'ia_id' => null,
                 'ief_id' => null,
                 'est_actif' => 1,
-                'created_at' => now(),
-                'updated_at' => now(),
             ],
             [
                 'code' => 'SP',
                 'libelle' => 'Service Paie',
-                'type' => 'service',
-                'parent_id' => null,
+                'type' => 'DAGE',
+                'perimetre' => 'national',
                 'ia_id' => null,
                 'ief_id' => null,
                 'est_actif' => 1,
-                'created_at' => now(),
-                'updated_at' => now(),
             ],
-        ]);
+        ] as $structure) {
+            LieuService::withTrashed()->updateOrCreate(['code' => $structure['code']], $structure + ['deleted_at' => null]);
+        }
 
         $this->command->info('✅ Structures organisationnelles insérées avec succès !');
     }

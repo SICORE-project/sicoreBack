@@ -9,9 +9,9 @@ class OrganizationalScope
 {
     public function apply(Builder $query, User $user, string $iaColumn = 'ia_id', string $iefColumn = 'ief_id'): Builder
     {
-        $user->loadMissing(['role', 'structureOrganisationnelle']);
+        $user->loadMissing(['role.typeRole', 'structureOrganisationnelle']);
 
-        if ($user->role && $user->role->niveau === 'systeme') {
+        if ($user->role?->typeRole?->code === 'systeme') {
             return $query;
         }
 
@@ -34,9 +34,9 @@ class OrganizationalScope
 
     public function allows(User $user, object $resource): bool
     {
-        $user->loadMissing(['role', 'structureOrganisationnelle']);
+        $user->loadMissing(['role.typeRole', 'structureOrganisationnelle']);
 
-        if ($user->role && $user->role->niveau === 'systeme') {
+        if ($user->role?->typeRole?->code === 'systeme') {
             return true;
         }
 

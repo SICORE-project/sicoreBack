@@ -51,6 +51,8 @@ class UpdateUserRequest extends FormRequest
 
             'statut'=>'sometimes|in:actif,inactif',
 
+            'password' => ['nullable', 'string', 'min:8', 'confirmed'],
+
             'structure_organisationnelle_id' => [
                 Rule::requiredIf(fn () => $this->structureRequise($userId)),
                 'nullable',
@@ -68,7 +70,7 @@ class UpdateUserRequest extends FormRequest
             ?? User::query()->whereKey($userId)->value('role_id');
 
         return $roleId !== null
-            && Role::whereKey($roleId)->where('niveau', '!=', 'systeme')->exists();
+            && Role::whereKey($roleId)->whereHas('typeRole', fn ($query) => $query->where('code', '!=', 'systeme'))->exists();
     }
 
     private function structureRequise(int|string|null $userId): bool
