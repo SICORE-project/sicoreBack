@@ -6,6 +6,7 @@ use App\Models\PayrollPayslip;
 use App\Services\PayrollPageService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class PayrollPageController extends Controller
@@ -63,6 +64,22 @@ class PayrollPageController extends Controller
             'enseignant.institutionFinanciere',
             'enseignant.etablissement.ief.ia',
         ]);
+        $teacher = $payslip->enseignant;
+        $ief = $teacher->etablissement?->ief
+            ?? ($teacher->ief_id ? DB::table('iefs')->where('id', $teacher->ief_id)->first() : null);
+        $iaId = $teacher->etablissement?->ief?->ia_id
+            ?? $teacher->ia_id
+            ?? $ief?->ia_id;
+        $iaLabel = $teacher->etablissement?->ief?->ia?->libelle
+            ?? ($iaId ? DB::table('ias')->where('id', $iaId)->value('libelle') : null);
+        $corpsId = $teacher->getAttribute('corps_id')
+            ?? $teacher->getAttribute('corps_enseignant_id');
+        $corpsLabel = $teacher->corps?->libelle
+            ?? ($corpsId ? DB::table('corps_enseignant')->where('id', $corpsId)->value('libelle') : null);
+        $teacherName = trim(
+            ($teacher->user?->prenom ?? $teacher->prenom ?? '').' '
+            .($teacher->user?->nom ?? $teacher->nom ?? '')
+        );
 
         return response()->json([
             'data' => [
@@ -74,19 +91,16 @@ class PayrollPageController extends Controller
                     'label' => $payslip->period->label,
                 ],
                 'teacher' => [
-                    'matricule' => $payslip->enseignant->matricule,
-                    'name' => trim(
-                        ($payslip->enseignant->user?->prenom ?? '').' '
-                        .($payslip->enseignant->user?->nom ?? '')
-                    ),
-                    'corps' => $payslip->enseignant->corps?->libelle,
-                    'bank' => $payslip->enseignant->institutionFinanciere?->nom,
-                    'account_last_four' => $payslip->enseignant->numero_compte
-                        ? mb_substr($payslip->enseignant->numero_compte, -4)
+                    'matricule' => $teacher->matricule,
+                    'name' => $teacherName,
+                    'corps' => $corpsLabel,
+                    'bank' => $teacher->institutionFinanciere?->nom,
+                    'account_last_four' => $teacher->numero_compte
+                        ? mb_substr($teacher->numero_compte, -4)
                         : null,
-                    'academic_inspection' => $payslip->enseignant->etablissement?->ief?->ia?->libelle,
-                    'education_inspection' => $payslip->enseignant->etablissement?->ief?->libelle,
-                    'establishment' => $payslip->enseignant->etablissement?->libelle,
+                    'academic_inspection' => $iaLabel,
+                    'education_inspection' => $teacher->etablissement?->ief?->libelle ?? $ief?->libelle,
+                    'establishment' => $teacher->etablissement?->libelle,
                 ],
                 'profile' => [
                     'engagement_type' => data_get($payslip->profile_snapshot, 'engagement_type'),

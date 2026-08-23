@@ -67,12 +67,12 @@ class GestionPaieTestSeeder extends Seeder
             }
 
             $teachers = [
-                ['matricule' => 'VAC-TEST-001', 'prenom' => 'Awa', 'nom' => 'Ndiaye', 'corps' => 'VAC', 'salary' => 150000],
-                ['matricule' => 'PC-TEST-001', 'prenom' => 'Moussa', 'nom' => 'Diop', 'corps' => 'PC', 'salary' => 225000],
-                ['matricule' => 'VAC-TEST-002', 'prenom' => 'Fatou', 'nom' => 'Sarr', 'corps' => 'VAC', 'salary' => 155000],
-                ['matricule' => 'PC-TEST-002', 'prenom' => 'Ibrahima', 'nom' => 'Fall', 'corps' => 'PC', 'salary' => 235000],
-                ['matricule' => 'VAC-TEST-003', 'prenom' => 'Mariama', 'nom' => 'Ba', 'corps' => 'VAC', 'salary' => 160000],
-                ['matricule' => 'PC-TEST-003', 'prenom' => 'Cheikh', 'nom' => 'Diallo', 'corps' => 'PC', 'salary' => 245000],
+                ['matricule' => 'VAC-TEST-001', 'prenom' => 'Awa', 'nom' => 'Ndiaye', 'corps' => 'VAC', 'salary' => 150000, 'engagement' => 'vacataire'],
+                ['matricule' => 'PC-TEST-001', 'prenom' => 'Moussa', 'nom' => 'Diop', 'corps' => 'PC', 'salary' => 152773, 'engagement' => 'contractuel', 'category' => 1],
+                ['matricule' => 'VAC-TEST-002', 'prenom' => 'Fatou', 'nom' => 'Sarr', 'corps' => 'VAC', 'salary' => 150000, 'engagement' => 'vacataire'],
+                ['matricule' => 'PC-TEST-002', 'prenom' => 'Ibrahima', 'nom' => 'Fall', 'corps' => 'PC', 'salary' => 157662, 'engagement' => 'contractuel', 'category' => 2],
+                ['matricule' => 'VAC-TEST-003', 'prenom' => 'Mariama', 'nom' => 'Ba', 'corps' => 'VAC', 'salary' => 150000, 'engagement' => 'vacataire'],
+                ['matricule' => 'PC-TEST-003', 'prenom' => 'Cheikh', 'nom' => 'Diallo', 'corps' => 'PC', 'salary' => 162795, 'engagement' => 'contractuel', 'category' => 3],
             ];
 
             $period = PayrollPeriod::query()
@@ -99,6 +99,14 @@ class GestionPaieTestSeeder extends Seeder
                     'ief_id' => $inspection['ief_id'],
                     'salaire_brut' => $teacher['salary'],
                     'salaire_base' => $teacher['salary'],
+                    'type_engagement' => $teacher['engagement'],
+                    'payroll_diploma_level' => $teacher['engagement'] === 'contractuel' ? 'BAC_BT' : null,
+                    'payroll_category_level' => $teacher['category'] ?? null,
+                    'impr_monthly_amount' => $teacher['engagement'] === 'contractuel' ? 11767 : 10500,
+                    'trimf_monthly_amount' => $teacher['engagement'] === 'contractuel' ? 500 : 400,
+                    'ipm_monthly_amount' => $teacher['engagement'] === 'contractuel' ? 4500 : 0,
+                    'union_checkoff_monthly_amount' => $teacher['engagement'] === 'contractuel' ? 1000 : 0,
+                    'payroll_profile_configured_at' => now(),
                     'numero_compte' => 'TEST-'.str_pad((string) ($index + 1), 12, '0', STR_PAD_LEFT),
                     'statut' => 'en_activite',
                     'est_actif' => true,
@@ -243,9 +251,13 @@ class GestionPaieTestSeeder extends Seeder
     /** @param array<int, array<string, mixed>> $teachers */
     private function seedPaidPayslips(PayrollPeriod $period, array $teachers): void
     {
-        $totalGross = array_sum(array_column($teachers, 'salary'));
-        $totalDeductions = count($teachers) * 10000;
-        $totalNet = $totalGross - $totalDeductions;
+        $references = collect($teachers)->mapWithKeys(
+            fn (array $teacher): array => [$teacher['id'] => $this->referencePayslip($teacher)]
+        );
+        $totalGross = $references->sum('gross');
+        $totalDeductions = $references->sum('deductions');
+        $totalEmployerContributions = $references->sum('employer');
+        $totalNet = $references->sum('net');
 
         $run = PayrollRun::query()->firstOrCreate(
             ['payroll_period_id' => $period->id],
@@ -255,7 +267,7 @@ class GestionPaieTestSeeder extends Seeder
                 'employee_count' => count($teachers),
                 'total_gross' => $totalGross,
                 'total_deductions' => $totalDeductions,
-                'total_employer_contributions' => 0,
+                'total_employer_contributions' => $totalEmployerContributions,
                 'total_net' => $totalNet,
                 'checksum' => hash('sha256', 'PAY-TEST-'.$period->code),
                 'calculated_at' => now(),
@@ -263,9 +275,26 @@ class GestionPaieTestSeeder extends Seeder
             ]
         );
 
+        if ($run->reference !== 'PAY-TEST-'.$period->code) {
+            return;
+        }
+
+        $run->update([
+            'status' => 'validated',
+            'employee_count' => count($teachers),
+            'total_gross' => $totalGross,
+            'total_deductions' => $totalDeductions,
+            'total_employer_contributions' => $totalEmployerContributions,
+            'total_net' => $totalNet,
+            'checksum' => hash('sha256', 'PAY-TEST-'.$period->code),
+            'calculated_at' => now(),
+            'validated_at' => now(),
+        ]);
+
         foreach ($teachers as $index => $teacher) {
-            $gross = (float) $teacher['salary'];
-            $deductions = 10000.0;
+            $referenceData = $references->get($teacher['id']);
+            $gross = $referenceData['gross'];
+            $deductions = $referenceData['deductions'];
             $reference = 'BS-TEST-'.str_replace('-', '', $period->code).'-'.str_pad(
                 (string) ($index + 1),
                 3,
@@ -281,10 +310,11 @@ class GestionPaieTestSeeder extends Seeder
                 [
                     'payroll_run_id' => $run->id,
                     'reference' => $reference,
+                    'profile_snapshot' => $referenceData['profile'],
                     'gross_amount' => $gross,
                     'deduction_amount' => $deductions,
-                    'employer_contribution_amount' => 0,
-                    'net_amount' => $gross - $deductions,
+                    'employer_contribution_amount' => $referenceData['employer'],
+                    'net_amount' => $referenceData['net'],
                     'payment_status' => 'paid',
                     'payment_reference' => 'VIR-TEST-'.str_replace('-', '', $period->code).'-'.str_pad(
                         (string) ($index + 1),
@@ -301,36 +331,127 @@ class GestionPaieTestSeeder extends Seeder
                 continue;
             }
 
-            $payslip->lines()->firstOrCreate(
-                ['code' => 'SALAIRE_BASE_TEST'],
-                [
-                    'label' => 'Salaire de base de démonstration',
-                    'category' => 'earning',
-                    'amount' => $gross,
-                    'source' => 'test_seeder',
-                    'sort_order' => 10,
-                ]
-            );
-            $payslip->lines()->firstOrCreate(
-                ['code' => 'TABASKI_RETENUE_TEST'],
-                [
-                    'label' => 'Retenue Tabaski de démonstration',
-                    'category' => 'deduction',
-                    'amount' => $deductions,
-                    'source' => 'test_seeder',
-                    'sort_order' => 20,
-                ]
-            );
+            $payslip->update([
+                'payroll_run_id' => $run->id,
+                'profile_snapshot' => $referenceData['profile'],
+                'gross_amount' => $gross,
+                'deduction_amount' => $deductions,
+                'employer_contribution_amount' => $referenceData['employer'],
+                'net_amount' => $referenceData['net'],
+                'payment_status' => 'paid',
+            ]);
+            $payslip->lines()->delete();
+            $payslip->lines()->createMany($referenceData['lines']);
         }
 
-        if ((int) $period->employee_count === 0) {
-            $period->update([
-                'employee_count' => count($teachers),
-                'total_gross' => $totalGross,
-                'total_deductions' => $totalDeductions,
-                'total_net' => $totalNet,
-            ]);
+        $period->update([
+            'employee_count' => count($teachers),
+            'total_gross' => $totalGross,
+            'total_deductions' => $totalDeductions,
+            'total_net' => $totalNet,
+        ]);
+    }
+
+    /**
+     * Reproduit les lignes visibles sur les deux bulletins reçus. Les
+     * augmentations contractuelles sont détaillées pour la traçabilité, mais
+     * ne sont pas additionnées deux fois puisqu'elles composent le salaire
+     * contractuel courant.
+     *
+     * @param  array<string, mixed>  $teacher
+     * @return array<string, mixed>
+     */
+    private function referencePayslip(array $teacher): array
+    {
+        if ($teacher['engagement'] === 'vacataire') {
+            $lines = [
+                $this->payslipLine('SALAIRE_BASE', 'Salaire de base', 'earning', 150000, 'salary_scale', 10),
+                $this->payslipLine('IMPR', 'Impôt mensuel sur le revenu (IMPR)', 'deduction', 10500, 'payroll_profile', 90),
+                $this->payslipLine('TRIMF', 'Taxe représentative de l’impôt du minimum fiscal (TRIMF)', 'deduction', 400, 'payroll_profile', 95),
+                $this->payslipLine('TABASKI_RETENUE', 'Retenue Tabaski', 'deduction', 10000, 'manual', 97),
+            ];
+
+            return [
+                'gross' => 150000,
+                'deductions' => 20900,
+                'employer' => 0,
+                'net' => 129100,
+                'profile' => [
+                    'engagement_type' => 'vacataire',
+                    'diploma_label' => null,
+                    'category_level' => null,
+                    'calculation_model' => 'sicore-pc-vacataire-v1',
+                ],
+                'lines' => $lines,
+            ];
         }
+
+        $salary = (float) $teacher['salary'];
+        $increases = collect(config('payroll_reference.contract_salary_increases', []));
+        $salaryOrigin = $salary - (float) $increases->sum('amount');
+        $lines = [
+            $this->payslipLine('SALAIRE_BASE', 'Salaire de base avant augmentations', 'earning', $salaryOrigin, 'salary_scale', 10),
+        ];
+        foreach ($increases->values() as $index => $increase) {
+            $lines[] = $this->payslipLine(
+                $increase['code'],
+                $increase['label'],
+                'earning',
+                $increase['amount'],
+                'salary_increase',
+                11 + $index
+            );
+        }
+        $lines = [
+            ...$lines,
+            $this->payslipLine('PRIME_SPECIALE', 'Prime spéciale', 'earning', 20000, 'payroll_reference', 20),
+            $this->payslipLine('INDEMNITE_COMPENSATION', 'Indemnité de compensation', 'earning', 60000, 'payroll_reference', 30),
+            $this->payslipLine('IRD', 'Indice de Recherche et de Documentation (IRD)', 'earning', 70000, 'payroll_reference', 40),
+            $this->payslipLine('IPRES_SALARIE', 'IPRES — part salariale', 'contribution', 14336, 'payroll_profile', 80),
+            $this->payslipLine('IPM', 'IPM', 'contribution', 4500, 'payroll_profile', 85),
+            $this->payslipLine('IMPR', 'Impôt mensuel sur le revenu (IMPR)', 'deduction', 11767, 'payroll_profile', 90),
+            $this->payslipLine('TRIMF', 'Taxe représentative de l’impôt du minimum fiscal (TRIMF)', 'deduction', 500, 'payroll_profile', 95),
+            $this->payslipLine('CHECKOFF_UES', 'Check-off UES', 'deduction', 1000, 'payroll_profile', 96),
+            $this->payslipLine('TABASKI_RETENUE', 'Retenue Tabaski', 'deduction', 10000, 'manual', 97),
+            $this->payslipLine('IPRES_EMPLOYEUR', 'IPRES — part employeur', 'employer_contribution', 21504, 'payroll_reference', 100),
+        ];
+        $gross = $salary + 150000;
+        $deductions = 42103;
+
+        return [
+            'gross' => $gross,
+            'deductions' => $deductions,
+            'employer' => 21504,
+            'net' => $gross - $deductions,
+            'profile' => [
+                'engagement_type' => 'contractuel',
+                'diploma_label' => 'BAC / BT',
+                'category_level' => $teacher['category'],
+                'salary_origin' => $salaryOrigin,
+                'salary_increases' => $increases->values()->all(),
+                'calculation_model' => 'sicore-pc-vacataire-v1',
+            ],
+            'lines' => $lines,
+        ];
+    }
+
+    /** @return array<string, mixed> */
+    private function payslipLine(
+        string $code,
+        string $label,
+        string $category,
+        float|int $amount,
+        string $source,
+        int $sortOrder
+    ): array {
+        return [
+            'code' => $code,
+            'label' => $label,
+            'category' => $category,
+            'amount' => $amount,
+            'source' => $source,
+            'sort_order' => $sortOrder,
+        ];
     }
 
     /** @param array<string, mixed> $values */
@@ -355,6 +476,11 @@ class GestionPaieTestSeeder extends Seeder
         $existing = DB::table('enseignants')->where('matricule', $values['matricule'])->first();
 
         if ($existing) {
+            DB::table('enseignants')->where('id', $existing->id)->update([
+                ...$values,
+                'updated_at' => now(),
+            ]);
+
             return (int) $existing->id;
         }
 

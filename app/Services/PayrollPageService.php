@@ -151,6 +151,7 @@ class PayrollPageService
                 ->contains(fn (mixed $column): bool => $this->normalizeColumn((string) $column) === 'matricule'),
             'filters' => $this->filters($periods, $period),
             'actions' => $report['actions'] ?? $this->reportActions($slug, $period),
+            'input_records' => $report['input_records'] ?? [],
             'notice' => $report['notice'] ?? $this->periodNotice($period),
         ];
     }
@@ -216,6 +217,16 @@ class PayrollPageService
                 $this->action('Valider les présences', 'validate-attendance'),
                 $this->exportAction(),
             ],
+            'input_records' => $items->map(fn (PayrollAttendance $item): array => [
+                'action' => 'save-attendance',
+                'payroll_period_id' => $item->payroll_period_id,
+                'enseignant_id' => $item->enseignant_id,
+                'absence_days' => $item->absence_days,
+                'delay_minutes' => $item->delay_minutes,
+                'deduction_amount' => $item->deduction_amount,
+                'notes' => $item->notes,
+                'expected_version' => $item->version,
+            ])->values(),
             'stats' => [
                 $this->stat('Enseignants suivis', $items->count(), 'Période sélectionnée', 'EN', 'green'),
                 $this->stat('Absences', $items->sum(fn ($item) => (float) $item->absence_days), 'Jours déclarés', 'AB', 'red'),
@@ -314,6 +325,7 @@ class PayrollPageService
                 $this->action('Valider les éléments', 'validate-elements'),
                 $this->exportAction(),
             ],
+            'input_records' => $this->elementInputRecords($items),
             'stats' => [
                 $this->stat('Dossiers', $items->count(), $label, 'EN', 'green'),
                 $this->stat('Montant brut', $this->money($items->sum('amount')), 'Avant exemptions', 'FC', 'blue'),
@@ -470,7 +482,29 @@ class PayrollPageService
                 $this->action('Valider les éléments', 'validate-elements'),
                 $this->exportAction(),
             ],
+            'input_records' => $this->elementInputRecords($items),
         ];
+    }
+
+    /**
+     * Expose uniquement les valeurs nécessaires pour reprendre une saisie
+     * existante avec sa version courante. Le navigateur peut ainsi distinguer
+     * une création d'une modification sans contourner le verrou optimiste.
+     *
+     * @return Collection<int, array<string, mixed>>
+     */
+    private function elementInputRecords(Collection $items): Collection
+    {
+        return $items->map(fn (PayrollElement $item): array => [
+            'action' => 'add-element',
+            'payroll_period_id' => $item->payroll_period_id,
+            'enseignant_id' => $item->enseignant_id,
+            'code' => $item->code,
+            'label' => $item->label,
+            'category' => $item->category,
+            'amount' => $item->amount,
+            'expected_version' => $item->version,
+        ])->values();
     }
 
     /** @return array<string, mixed> */

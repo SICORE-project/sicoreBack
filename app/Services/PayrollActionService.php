@@ -2,13 +2,13 @@
 
 namespace App\Services;
 
+use App\Models\Admin\User;
 use App\Models\Enseignant;
 use App\Models\PayrollAttendance;
 use App\Models\PayrollElement;
 use App\Models\PayrollPayslip;
 use App\Models\PayrollPeriod;
 use App\Models\PayrollRun;
-use App\Models\Admin\User;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
@@ -46,11 +46,10 @@ class PayrollActionService
             $salary = $this->references->salaryFor($engagement, $diploma, $category, now());
             $before = $teacher->toArray();
 
-            $teacher->update([
+            $profileValues = [
                 'type_engagement' => $engagement,
                 'payroll_diploma_level' => $diploma,
                 'payroll_category_level' => $category,
-                'diplome' => $diploma ? config('payroll_reference.diplomas.'.$diploma) : null,
                 'salaire_base' => $salary,
                 'impr_monthly_amount' => round((float) $data['impr_monthly_amount'], 2),
                 'trimf_monthly_amount' => round((float) $data['trimf_monthly_amount'], 2),
@@ -62,7 +61,13 @@ class PayrollActionService
                     : 0,
                 'payroll_profile_configured_at' => now(),
                 'payroll_profile_configured_by' => $actor->id,
-            ]);
+            ];
+            if (Schema::hasColumn('enseignants', 'diplome')) {
+                $profileValues['diplome'] = $diploma
+                    ? config('payroll_reference.diplomas.'.$diploma)
+                    : null;
+            }
+            $teacher->update($profileValues);
 
             $this->audit->log(
                 'teacher.payroll_profile_configured',

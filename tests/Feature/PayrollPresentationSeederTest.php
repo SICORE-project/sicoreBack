@@ -91,7 +91,25 @@ class PayrollPresentationSeederTest extends TestCase
             if ($slug === 'paie-retenue-tabaski') {
                 $response->assertJsonPath('data.actions.0.code', 'apply-tabaski-deduction');
             }
+            if (in_array($slug, ['paie-etats-presence', 'paie-retenues-rappel'], true)) {
+                $response
+                    ->assertJsonCount(20, 'data.input_records')
+                    ->assertJsonStructure([
+                        'data' => [
+                            'input_records' => [[
+                                'action',
+                                'payroll_period_id',
+                                'enseignant_id',
+                                'expected_version',
+                            ]],
+                        ],
+                    ]);
+            }
         }
+
+        $this->getJson('/api/payroll/pages/paie-elements-saisie-dashboard?period_id='.$period->id)
+            ->assertOk()
+            ->assertJsonCount(80, 'data.input_records');
 
         foreach ([
             'paie-etat-salaires',
