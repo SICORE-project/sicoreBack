@@ -33,4 +33,24 @@ class EnseignantsController extends Controller
 
         return $this->success('Liste des enseignants.', $enseignants);
     }
+
+    /**
+     * Coordonnées bancaires d'UN enseignant — alimente la modale "Ajouter
+     * état de paie" (code banque/guichet/numéro de compte/clé RIB déjà
+     * enregistrés sur sa fiche, pré-remplis puis modifiables). Volontairement
+     * absent de index() (select() minimal, pas de RIB dans une liste de
+     * recherche) : un enregistrement précis, demandé explicitement par id.
+     */
+    public function show(string $id)
+    {
+        $enseignant = Enseignant::query()
+            ->select(['id', 'matricule', 'nom', 'prenom', 'code_banque', 'code_guichet', 'numero_compte_bancaire', 'cle_rib', 'titulaire_compte'])
+            ->find($id);
+
+        if (! $enseignant) {
+            return $this->error('Enseignant introuvable.', 404);
+        }
+
+        return $this->success('Enseignant trouvé.', $enseignant);
+    }
 }

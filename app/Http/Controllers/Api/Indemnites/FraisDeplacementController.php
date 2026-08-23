@@ -106,10 +106,31 @@ class FraisDeplacementController extends Controller
             'enseignants.lieuService',
             'centres.chefCentre.lieuService',
             'centres.presidentJury.lieuService',
+            'centres.metiers.enseignants',
         ])->find($convocationId);
 
         if (! $convocation) {
             return $this->error('Convocation introuvable.', 404);
+        }
+
+        // Métier (matière corrigée/surveillée) par centre+enseignant — vient
+        // d'un pivot distinct de celui des fonctions (voir centres.metiers,
+        // même relation qu'IndemniteCorrectionController::correcteursEligibles()
+        // /IndemniteSurveillanceController::surveillantsEligibles()). Sans ça,
+        // un correcteur/surveillant ici n'a que sa 'fonction' générique
+        // ("Correction"/"Surveillant"), pas la matière qu'il corrige/surveille
+        // — demande utilisatrice : "la ou tu as mis correction en haut du
+        // tableau tu dois recuperer le metier" (fiche état de paie groupée
+        // par métier).
+        $metierParCentreEtEnseignant = [];
+
+        foreach ($convocation->centres as $centre) {
+            foreach ($centre->metiers as $metierGroupe) {
+                foreach ($metierGroupe->enseignants as $enseignant) {
+                    $cle = $centre->id.'|'.$enseignant->id;
+                    $metierParCentreEtEnseignant[$cle] = $metierParCentreEtEnseignant[$cle] ?? $metierGroupe->metier;
+                }
+            }
         }
 
         $typesRequis = array_keys(piece_justificatives::TYPES);
@@ -132,7 +153,7 @@ class FraisDeplacementController extends Controller
             ->get(['id', 'beneficiaire_id', 'statut', 'montant_calcule', 'lieu_service', 'indice_agent', 'salaire_global_annuel'])
             ->keyBy('beneficiaire_id');
 
-        $construireLigne = function ($enseignant, ?string $nomCentre, ?int $centreId) use ($convocation, $typesRequis, $typesParEnseignant, $missionsExistantes) {
+        $construireLigne = function ($enseignant, ?string $nomCentre, ?int $centreId, ?string $fonctionForcee = null) use ($convocation, $typesRequis, $typesParEnseignant, $missionsExistantes, $metierParCentreEtEnseignant) {
             $typesPresents = $typesParEnseignant->get($enseignant->id, []);
             $complet = count(array_intersect($typesRequis, $typesPresents)) === count($typesRequis);
             $mission = $missionsExistantes->get($enseignant->id);
@@ -156,6 +177,12 @@ class FraisDeplacementController extends Controller
                 'prenom' => $enseignant->prenom,
                 'matricule' => $enseignant->matricule,
                 'categorie_personnel' => $categoriePersonnel,
+                // Chef de centre/president de jury : role structurel (pas de
+                // valeur pivot 'fonction', ils ne sont pas membres du pivot
+                // pour ce role) — force explicitement par l'appelant. Membre
+                // ordinaire : valeur du pivot (Correction/Surveillant).
+                'fonction' => $fonctionForcee ?? ($enseignant->pivot->fonction ?? null),
+                'metier' => $centreId ? ($metierParCentreEtEnseignant[$centreId.'|'.$enseignant->id] ?? null) : null,
                 'indice' => $enseignant->indice,
                 // 'centre'/'centre_id' : indispensables pour que le front
                 // (FraisDeplacementController::construireLignes()) puisse
@@ -202,11 +229,11 @@ class FraisDeplacementController extends Controller
 
             foreach ($convocation->centres as $centre) {
                 if ($centre->chefCentre) {
-                    $beneficiaires->push($construireLigne($centre->chefCentre, $centre->centre, $centre->id));
+                    $beneficiaires->push($construireLigne($centre->chefCentre, $centre->centre, $centre->id, 'Chef de centre'));
                 }
 
                 if ($centre->presidentJury) {
-                    $beneficiaires->push($construireLigne($centre->presidentJury, $centre->centre, $centre->id));
+                    $beneficiaires->push($construireLigne($centre->presidentJury, $centre->centre, $centre->id, 'Président de jury'));
                 }
 
                 foreach ($convocation->enseignants as $enseignant) {

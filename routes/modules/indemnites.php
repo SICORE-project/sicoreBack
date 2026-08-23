@@ -66,6 +66,7 @@ Route::get('indemnites/{id}/frais', [IndemnitesController::class, 'listeFrais'])
 */
 
 Route::get('enseignants', [EnseignantsController::class, 'index']);
+Route::get('enseignants/{id}', [EnseignantsController::class, 'show']);
 
 
 /*
@@ -250,6 +251,11 @@ Route::post('indemnite-surveillance/calculer-groupe', [IndemniteSurveillanceCont
 | États de paie des indemnités
 |--------------------------------------------------------------------------
 */
+
+// Fiche PDF generee a la volee depuis le filtre courant (pas besoin d'un
+// etat de paie deja enregistre) — doit rester avant apiResource() (segment
+// fixe, pas de {id}).
+Route::post('etat-paie-indemnites/fiche-pdf', [EtatPaieIndemnitesController::class, 'genererFichePdf']);
 
 // Routes à 2 segments déclarées AVANT apiResource() pour ne pas être
 // interceptées par la route "show" (GET etat-paie-indemnites/{id})

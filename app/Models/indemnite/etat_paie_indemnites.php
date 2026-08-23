@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Models\indemnite;
+namespace App\Models\Indemnite;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;

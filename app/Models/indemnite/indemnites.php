@@ -27,6 +27,6 @@ class Indemnites extends Model
 
     public function etatPaie(): BelongsTo
     {
-        return $this->belongsTo(Etat_paie_indemnites::class, 'etat_paie_indemnite_id');
+        return $this->belongsTo(\App\Models\Indemnite\Etat_paie_indemnites::class, 'etat_paie_indemnite_id');
     }
 }

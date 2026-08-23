@@ -55,6 +55,8 @@ class IndemniteSurveillanceController extends Controller
                         'nom' => $enseignant->nom,
                         'prenom' => $enseignant->prenom,
                         'matricule' => $enseignant->matricule,
+                        'categorie_personnel' => $enseignant->pivot->categorie_personnel ?: $enseignant->categorie_personnel,
+                        'fonction' => $enseignant->pivot->fonction ?: 'Surveillance',
                         'centre' => $centre->centre,
                         'centre_id' => $centre->id,
                         'metier' => $metierGroupe->metier,
