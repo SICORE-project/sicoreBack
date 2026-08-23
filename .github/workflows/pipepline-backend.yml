@@ -94,11 +94,12 @@ jobs:
     needs: ci
 
     steps:
-      - name: Recuperer le code # <-- AJOUT CRITIQUE : Clone le dépôt pour que Docker trouve le Dockerfile
+      # Solution du bug : Récupère les fichiers (incluant le Dockerfile) avant le build
+      - name: Recuperer le code
         uses: actions/checkout@v4
 
       - name: Construire l'image backend
-        run: docker build -t sicore-backend:ci . 
+        run: docker build -t sicore-backend:ci .
 
   deploy:
     name: Deploy VPS
