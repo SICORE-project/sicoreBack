@@ -9,11 +9,14 @@ COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
 WORKDIR /var/www
 
-# Copier l'intégralité du code de l'application
-COPY . .
+# CORRECTION : On force la copie des fichiers de configuration en premier
+COPY composer.json composer.lock* ./
 
-# Installer les dépendances PHP sans les outils de développement
-RUN composer install --no-dev --no-interaction --prefer-dist --optimize-autoloader
+# Installer les dépendances PHP
+RUN composer install --no-dev --no-interaction --prefer-dist --optimize-autoloader --no-scripts
+
+# Copier le reste de l'application
+COPY . .
 
 # Configurer les permissions indispensables pour Laravel
 RUN chown -R www-data:www-data /var/www/storage /var/www/bootstrap/cache
