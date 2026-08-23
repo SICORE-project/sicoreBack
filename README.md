@@ -62,6 +62,7 @@ If you discover a security vulnerability within Laravel, please send an e-mail t
 # sicoreBack
 
 le REPOSITORY pour la partie backend
+
 # SICORE API
 
 L'authentification API utilise exclusivement `utilisateurs.login` et les rôles métier. La table et le modèle Laravel historiques `users` sont conservés temporairement pour compatibilité de migration, mais ne sont reliés à aucun guard et ne doivent recevoir aucun compte métier. Leur suppression fera l'objet d'une migration dédiée après validation de l'équipe.
@@ -86,6 +87,7 @@ git stash push -u -m "avant fusion module-indemnite-intermedaire"
 git fetch origin module-indemnite-intermedaire
 git merge origin/module-indemnite-intermedaire
 ```
+
 Puis, une fois le merge vérifié, remettre les modifications de côté si besoin (`git stash pop`) ou les jeter si ce n'était pas du vrai travail (`git stash drop`).
 
 Committer et pousser uniquement les fichiers réellement modifiés (jamais `git add .`, pour éviter d'envoyer du bruit type changement de fin de ligne sur des fichiers non concernés) :
@@ -102,7 +104,9 @@ Si un `.git/index.lock` bloque toutes les commandes git (message "Unable to crea
 
 1. Fermer tout logiciel git ouvert (VS Code, GitHub Desktop, etc.).
 2. Supprimer le fichier :
+
 ```
 rm -f .git/index.lock
 ```
+
 3. Relancer la commande git.
