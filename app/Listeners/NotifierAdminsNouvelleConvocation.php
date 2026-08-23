@@ -16,10 +16,12 @@ class NotifierAdminsNouvelleConvocation implements ShouldQueue
     {
         $convocation = $event->convocation;
 
-        $adminRoleId = Role::where('slug', 'admin')->value('id');
-        if (! $adminRoleId) return;
+       $adminRoleIds = Role::whereIn('slug', ['drh', 'admin','super_admin'])->pluck('id');
+        if (! $adminRoleIds) return;
 
-        $adminIds = $this->notificationService->resolveTargetUserIds(['role_id' => $adminRoleId]);
+        $adminIds = $this->notificationService->resolveTargetUserIds([
+            'role_id' => $adminRoleIds->all(),
+        ]);
         if ($adminIds->isEmpty()) return;
 
         $this->notificationService->createAndDispatch([

@@ -36,6 +36,6 @@ class AppServiceProvider extends ServiceProvider
 
         Convocations::observe(ConvocationObserver::class);
 
-        Event::listen(ConvocationCreated::class, NotifierAdminsNouvelleConvocation::class);
+        //Event::listen(ConvocationCreated::class, NotifierAdminsNouvelleConvocation::class);
     }
 }

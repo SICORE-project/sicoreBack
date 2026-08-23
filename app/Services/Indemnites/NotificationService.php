@@ -35,7 +35,7 @@ class NotificationService
                 ->actif()
                 ->forUser($user)
                 ->findOrFail($notificationId);
-    $notification->users()->updateExistingPivot($user->id, [
+            $notification->users()->updateExistingPivot($user->id, [
                 'est_lu' => true,
                 'lu_at'  => Carbon::now(),
             ]);
@@ -61,18 +61,21 @@ class NotificationService
     }
 
     public function resolveTargetUserIds(array $filters): \Illuminate\Support\Collection
-{
-    $query = User::query();
+    {
+        $query = User::query();
 
-    if (! empty($filters['role_id'])) {
-        $query->where('role_id', $filters['role_id']);
+        if (! empty($filters['role_id'])) {
+        $roleIds = is_array($filters['role_id']) ? $filters['role_id'] : [$filters['role_id']];
+        $query->whereIn('role_id', $roleIds);
+        }
+
+        if (! empty($filters['lieu_service_id'])) {
+            $query->where('lieu_service_id', $filters['lieu_service_id']);
+        }
+
+        return $query->pluck('id');
     }
 
-    if (! empty($filters['lieu_service_id'])) {
-        $query->where('lieu_service_id', $filters['lieu_service_id']);
-    }
 
-    return $query->pluck('id');
-}
 
 }

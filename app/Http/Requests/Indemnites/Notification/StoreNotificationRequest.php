@@ -25,7 +25,8 @@ class StoreNotificationRequest extends FormRequest
 
             // Ciblage par critère (adapte les tables/colonnes à ton schéma réel)
             'filters'                  => ['sometimes', 'array'],
-            'filters.role_id'          => ['sometimes', 'integer', 'exists:roles,id'],
+            'filters.role_id'   => ['sometimes'], // scalaire ou tableau
+            'filters.role_id.*' => ['integer', 'exists:roles,id'],
             'filters.lieu_service_id'  => ['sometimes', 'integer', 'exists:lieu_de_services,id'],
         ];
     }
