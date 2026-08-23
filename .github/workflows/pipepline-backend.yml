@@ -94,7 +94,7 @@ jobs:
     needs: ci
 
     steps:
-      - name: Recuperer le code
+      - name: Recuperer le code # <-- AJOUT CRITIQUE : Clone le dépôt pour que Docker trouve le Dockerfile
         uses: actions/checkout@v4
 
       - name: Construire l'image backend
