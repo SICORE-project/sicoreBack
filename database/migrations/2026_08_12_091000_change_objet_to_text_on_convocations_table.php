@@ -18,15 +18,19 @@ return new class extends Migration
     public function up(): void
     {
         if (Schema::hasTable('convocations')) {
-            // "NULL" permet de passer le mode strict de MySQL lors du rafraîchissement des tests
-            DB::statement('ALTER TABLE convocations MODIFY objet TEXT NULL');
+            // Exécute la modification de structure UNIQUEMENT si on est sur MySQL
+            if (DB::getDriverName() === 'mysql') {
+                DB::statement('ALTER TABLE convocations MODIFY objet TEXT NULL');
+            }
         }
     }
 
     public function down(): void
     {
         if (Schema::hasTable('convocations')) {
-            DB::statement("ALTER TABLE convocations MODIFY objet VARCHAR(255) NOT NULL DEFAULT ''");
+            if (DB::getDriverName() === 'mysql') {
+                DB::statement("ALTER TABLE convocations MODIFY objet VARCHAR(255) NOT NULL DEFAULT ''");
+            }
         }
     }
 };

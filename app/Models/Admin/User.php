@@ -20,8 +20,6 @@ class User extends Authenticatable
 {
     use HasFactory, Notifiable, SoftDeletes, HasApiTokens;
 
-    use SoftDeletes; // Le trait doit être présent ici
-
     protected $fillable = [
         'nom',
         'prenom',
