@@ -38,7 +38,7 @@ class UpdateUserRequest extends FormRequest
             'email'=>[
                 'sometimes',
                 'email',
-                'unique:users,email,'.$userId
+                Rule::unique('users', 'email')->ignore($user),
             ],
 
             'role_id' => [
@@ -51,7 +51,7 @@ class UpdateUserRequest extends FormRequest
 
             'statut'=>'sometimes|in:actif,inactif',
 
-            'password' => ['nullable', 'string', 'min:8', 'confirmed'],
+            'password' => ['sometimes', 'nullable', 'string', 'min:8', 'confirmed'],
 
             'structure_organisationnelle_id' => [
                 Rule::requiredIf(fn () => $this->structureRequise($userId)),
