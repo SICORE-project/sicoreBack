@@ -8,9 +8,11 @@ use Illuminate\Support\Facades\Hash; // <-- Utilisé pour chiffrer le mot de pas
 use Illuminate\Support\Facades\Schema;
 use Laravel\Sanctum\PersonalAccessToken;
 use Tests\TestCase;
+use Illuminate\Foundation\Testing\RefreshDatabase; // 1. Importez le trait
 
 class AuthApiTest extends TestCase
 {
+    use RefreshDatabase; // 2. Utilisez le trait pour réinitialiser la base de données entre les tests
     protected function setUp(): void
     {
         parent::setUp();
