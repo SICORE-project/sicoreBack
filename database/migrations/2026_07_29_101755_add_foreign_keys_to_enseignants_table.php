@@ -9,14 +9,17 @@ return new class extends Migration
 {
     public function up(): void
     {
-        // MySQL keeps constraints applied before a later ALTER TABLE failure.
-        // This lets a previously interrupted migration resume safely.
-        if (DB::table('information_schema.table_constraints')
-            ->where('constraint_schema', DB::getDatabaseName())
-            ->where('table_name', 'enseignants')
-            ->where('constraint_name', 'enseignants_situation_familiale_id_foreign')
-            ->exists()) {
-            return;
+        // Évite le crash sur SQLite (environnement de test par défaut)
+        if (DB::getDriverName() === 'mysql') {
+            $constraintExists = DB::table('information_schema.table_constraints')
+                ->where('constraint_schema', DB::getDatabaseName())
+                ->where('table_name', 'enseignants')
+                ->where('constraint_name', 'enseignants_situation_familiale_id_foreign')
+                ->exists();
+
+            if ($constraintExists) {
+                return;
+            }
         }
 
         Schema::table('enseignants', function (Blueprint $table) {
@@ -25,7 +28,6 @@ return new class extends Migration
             $table->foreign('specialite_id')->references('id')->on('specialites')->onDelete('set null');
             $table->foreign('lieu_service_id')->references('id')->on('lieu_de_services')->onDelete('cascade');
             $table->foreign('lieu_paiement_id')->references('id')->on('lieux_paiement')->onDelete('set null');
-            // $table->foreign('nationalite_id')->references('id')->on('nationalites')->onDelete('set null'); // <-- SUPPRIMÉ
             $table->foreign('statut_enseignant_id')->references('id')->on('statuts_enseignant')->onDelete('set null');
             $table->foreign('created_by')->references('id')->on('users')->onDelete('set null');
             $table->foreign('updated_by')->references('id')->on('users')->onDelete('set null');
@@ -35,15 +37,17 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('enseignants', function (Blueprint $table) {
-            $table->dropForeign(['situation_familiale_id']);
-            $table->dropForeign(['corps_id']);
-            $table->dropForeign(['specialite_id']);
-            $table->dropForeign(['lieu_service_id']);
-            $table->dropForeign(['lieu_paiement_id']);
-            // $table->dropForeign(['nationalite_id']); // <-- SUPPRIMÉ
-            $table->dropForeign(['statut_enseignant_id']);
-            $table->dropForeign(['created_by']);
-            $table->dropForeign(['updated_by']);
+            // SQLite ne supporte pas nativement le dropForeign classique de MySQL de la même façon
+            if (DB::getDriverName() !== 'sqlite') {
+                $table->dropForeign(['situation_familiale_id']);
+                $table->dropForeign(['corps_id']);
+                $table->dropForeign(['specialite_id']);
+                $table->dropForeign(['lieu_service_id']);
+                $table->dropForeign(['lieu_paiement_id']);
+                $table->dropForeign(['statut_enseignant_id']);
+                $table->dropForeign(['created_by']);
+                $table->dropForeign(['updated_by']);
+            }
         });
     }
 };
