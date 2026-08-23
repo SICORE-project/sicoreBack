@@ -98,7 +98,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Construire l'image backend
-        run: docker build -t sicore-backend:ci ./sicoreBack
+        run: docker build -t sicore-backend:ci . 
 
   deploy:
     name: Deploy VPS
