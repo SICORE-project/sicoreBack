@@ -45,7 +45,7 @@ class UpdateUserRequest extends FormRequest
                 'sometimes',
                 'exists:roles,id',
                 CompatibleRoleStructure::roleForStructure(
-                    $this->input('structure_organisationnelle_id', $user?->lieu_service_id)
+                    $this->input('lieu_service_id', $user?->lieu_service_id)
                 ),
             ],
 
@@ -53,7 +53,7 @@ class UpdateUserRequest extends FormRequest
 
             'password' => ['sometimes', 'nullable', 'string', 'min:8', 'confirmed'],
 
-            'structure_organisationnelle_id' => [
+            'lieu_service_id' => [
                 Rule::requiredIf(fn () => $this->structureRequise($userId)),
                 'nullable',
                 'integer',
@@ -79,9 +79,9 @@ class UpdateUserRequest extends FormRequest
             return false;
         }
 
-        if ($this->has('structure_organisationnelle_id')) {
-            return $this->input('structure_organisationnelle_id') === null
-                || $this->input('structure_organisationnelle_id') === '';
+        if ($this->has('lieu_service_id')) {
+            return $this->input('lieu_service_id') === null
+                || $this->input('lieu_service_id') === '';
         }
 
         return ! User::query()->whereKey($userId)

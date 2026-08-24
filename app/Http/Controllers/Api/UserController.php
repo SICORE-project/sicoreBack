@@ -98,7 +98,7 @@ class UserController extends Controller
         $user = $this->userService->find($id);
 
         $validated = $request->validate([
-            'structure_organisationnelle_id' => [
+            'lieu_service_id' => [
                 'required',
                 'integer',
                 Rule::exists('lieu_de_services', 'id')->where('est_actif', true),
@@ -110,7 +110,7 @@ class UserController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'Utilisateur rattaché à la structure avec succès.',
+            'message' => 'Utilisateur rattaché au lieu de service avec succès.',
             'data' => new UserResource($user),
         ], 200);
     }

@@ -43,7 +43,7 @@
                     <p class="mb-5 text-sm text-slate-500">Choisissez une structure nationale ou une IA et son IEF.</p>
                     <div class="grid gap-5 sm:grid-cols-2">
                         <label class="grid gap-2 text-sm font-medium">Périmètre<select name="perimetre" data-perimetre-select class="rounded-lg border border-slate-300 bg-white px-3 py-2.5"><option value="national">National</option><option value="regional">Régional</option></select></label>
-                        <label data-structure-field class="grid gap-2 text-sm font-medium">Structure nationale<select name="structure_organisationnelle_id" class="rounded-lg border border-slate-300 bg-white px-3 py-2.5"></select><span data-structure-hint class="text-xs font-normal text-slate-500">Obligatoire pour un compte métier.</span></label>
+                        <label data-structure-field class="grid gap-2 text-sm font-medium">Structure nationale<select name="lieu_service_id" class="rounded-lg border border-slate-300 bg-white px-3 py-2.5"></select><span data-structure-hint class="text-xs font-normal text-slate-500">Obligatoire pour un compte métier.</span></label>
                     </div>
                 </div>
             </div>

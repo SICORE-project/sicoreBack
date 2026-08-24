@@ -2,7 +2,7 @@
 
 namespace Tests\Feature;
 
-use App\Http\Controllers\Api\StructureOrganisationnelleController;
+use App\Http\Controllers\Api\Parametrage\LieuServiceController;
 use App\Http\Controllers\Api\UserController;
 use App\Http\Middleware\PermissionMiddleware;
 use App\Http\Requests\Administration\StoreUserRequest;
@@ -219,7 +219,7 @@ class AuthApiTest extends TestCase
         $validator = Validator::make($data, $request->rules());
 
         $this->assertTrue($validator->fails());
-        $this->assertArrayHasKey('structure_organisationnelle_id', $validator->errors()->toArray());
+        $this->assertArrayHasKey('lieu_service_id', $validator->errors()->toArray());
     }
 
     public function test_structure_inactive_est_refusee(): void
@@ -236,7 +236,7 @@ class AuthApiTest extends TestCase
             'nom' => 'Ndiaye', 'prenom' => 'Awa',
             'email' => 'awa@example.com', 'password' => 'password123',
             'role_id' => 10, 'statut' => 'actif',
-            'structure_organisationnelle_id' => $structureId,
+            'lieu_service_id' => $structureId,
         ];
         $request = StoreUserRequest::create('/api/admin/users', 'POST', $data);
 
@@ -259,14 +259,14 @@ class AuthApiTest extends TestCase
                 'nom' => 'Ndiaye', 'prenom' => 'Awa',
                 'email' => strtolower($type).'@example.com', 'password' => 'password123',
                 'role_id' => 20, 'statut' => 'actif',
-                'structure_organisationnelle_id' => $structureId,
+                'lieu_service_id' => $structureId,
             ];
             $request = StoreUserRequest::create('/api/admin/users', 'POST', $data);
 
             $validator = Validator::make($data, $request->rules());
 
             $this->assertTrue($validator->fails(), "Le type {$type} devrait etre refuse.");
-            $this->assertArrayHasKey('structure_organisationnelle_id', $validator->errors()->toArray());
+            $this->assertArrayHasKey('lieu_service_id', $validator->errors()->toArray());
         }
     }
 
@@ -285,7 +285,7 @@ class AuthApiTest extends TestCase
             $data = [
                 'nom' => 'Ndiaye', 'prenom' => 'Awa', 'email' => strtolower($type).'@example.com',
                 'password' => 'password123', 'role_id' => 20, 'statut' => 'actif',
-                'structure_organisationnelle_id' => $structureId,
+                'lieu_service_id' => $structureId,
             ];
             $request = StoreUserRequest::create('/api/admin/users', 'POST', $data);
 
@@ -317,8 +317,8 @@ class AuthApiTest extends TestCase
         $this->assertArrayHasKey('role_id', Validator::make($roleRequest->all(), $roleRequest->rules())->errors()->toArray());
 
         $user->update(['role_id' => 20, 'lieu_service_id' => $dageId]);
-        $structureRequest = $this->updateRequest($user->id, ['structure_organisationnelle_id' => $iefId]);
-        $this->assertArrayHasKey('structure_organisationnelle_id', Validator::make($structureRequest->all(), $structureRequest->rules())->errors()->toArray());
+        $structureRequest = $this->updateRequest($user->id, ['lieu_service_id' => $iefId]);
+        $this->assertArrayHasKey('lieu_service_id', Validator::make($structureRequest->all(), $structureRequest->rules())->errors()->toArray());
     }
 
     public function test_rattachement_dedie_applique_les_regles_role_structure(): void
@@ -342,7 +342,7 @@ class AuthApiTest extends TestCase
         $controller = new UserController(app(UserService::class));
 
         $response = $controller->assignStructure(Request::create('/', 'POST', [
-            'structure_organisationnelle_id' => $dageId,
+            'lieu_service_id' => $dageId,
         ]), (string) $user->id);
 
         $this->assertSame(200, $response->status());
@@ -350,11 +350,11 @@ class AuthApiTest extends TestCase
 
         try {
             $controller->assignStructure(Request::create('/', 'POST', [
-                'structure_organisationnelle_id' => $iefId,
+                'lieu_service_id' => $iefId,
             ]), (string) $user->id);
             $this->fail('Le rattachement d’un admin métier à une IEF devait être refusé.');
         } catch (ValidationException $exception) {
-            $this->assertArrayHasKey('structure_organisationnelle_id', $exception->errors());
+            $this->assertArrayHasKey('lieu_service_id', $exception->errors());
             $this->assertSame($dageId, $user->fresh()->lieu_service_id);
         }
     }
@@ -406,10 +406,10 @@ class AuthApiTest extends TestCase
         LieuService::create(['code' => 'IA-legacy', 'type' => 'IA', 'libelle' => 'IA Legacy', 'ia_id' => 10, 'est_actif' => true]);
         LieuService::create(['code' => 'IEF-legacy', 'type' => 'IEF', 'libelle' => 'IEF Legacy', 'ia_id' => 10, 'ief_id' => 20, 'est_actif' => true]);
 
-        $request = Request::create('/api/admin/structures-organisationnelles', 'GET');
+        $request = Request::create('/api/lieux-service', 'GET');
         $request->setUserResolver(fn () => $user);
 
-        $controller = new StructureOrganisationnelleController;
+        $controller = new LieuServiceController;
         $response = $controller->index($request, app(OrganizationalScope::class));
         $payload = $response->getData(true);
 
@@ -455,7 +455,7 @@ class AuthApiTest extends TestCase
 
         $this->assertCount(1, $payload['data']);
         $this->assertSame('awa@example.com', $payload['data'][0]['email']);
-        $this->assertSame('IEF', $payload['data'][0]['structure_organisationnelle']['type']);
+        $this->assertSame('IEF', $payload['data'][0]['lieu_service']['type']);
     }
 
     public function test_un_lieu_de_service_est_cree_avec_une_ia_et_une_ief_coherentes(): void

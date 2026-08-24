@@ -1,28 +1,61 @@
 <?php
 
 use App\Http\Controllers\Api\Parametrage\CategorieController;
-
 use App\Http\Controllers\Api\Parametrage\CorpsController;
 use App\Http\Controllers\Api\Parametrage\LieuServiceController;
 use Illuminate\Support\Facades\Route;
 
-Route::post('lieux-service', [LieuServiceController::class, 'store'])
-    ->middleware('permission:parametrage.lieux_service.manage');
+/*
+|--------------------------------------------------------------------------
+| LIEUX DE SERVICE
+|--------------------------------------------------------------------------
+| Consultation, gestion et organisation territoriale des lieux de service.
+*/
+Route::prefix('lieux-service')->group(function () {
+    // Consultation
+    Route::get('/', [LieuServiceController::class, 'index'])
+        ->middleware('permission:administration.users.read');
+    Route::get('/manage', [LieuServiceController::class, 'manage'])
+        ->middleware('permission:administration.users.read');
 
+    // Référentiels et organisation territoriale
+    Route::get('/ias', [LieuServiceController::class, 'iaOptions'])
+        ->middleware('permission:administration.users.read');
+    Route::get('/national', [LieuServiceController::class, 'national'])
+        ->middleware('permission:administration.users.read');
+    Route::get('/regions', [LieuServiceController::class, 'regions'])
+        ->middleware('permission:administration.users.read');
+    Route::get('/regions/{region}/ias', [LieuServiceController::class, 'ias']);
+    Route::get('/ias/{ia}/iefs', [LieuServiceController::class, 'iefs'])
+        ->whereNumber('ia');
+
+    // Création, consultation, modification et suppression
+    Route::post('/', [LieuServiceController::class, 'store'])
+        ->middleware('permission:parametrage.lieux_service.manage');
+    Route::get('/{lieuService}', [LieuServiceController::class, 'show'])
+        ->whereNumber('lieuService')
+        ->middleware('permission:administration.users.read');
+    Route::put('/{lieuService}', [LieuServiceController::class, 'update'])
+        ->whereNumber('lieuService')
+        ->middleware('permission:parametrage.lieux_service.manage');
+    Route::delete('/{lieuService}', [LieuServiceController::class, 'destroy'])
+        ->whereNumber('lieuService')
+        ->middleware('permission:parametrage.lieux_service.manage');
+});
+
+/*
+|--------------------------------------------------------------------------
+| CORPS
+|--------------------------------------------------------------------------
+| Gestion du référentiel des corps et de leur état d'activation.
+*/
 Route::prefix('corps')->group(function () {
-
     Route::get('/', [CorpsController::class, 'index']);
-
     Route::post('/', [CorpsController::class, 'store']);
-
     Route::get('/{id}', [CorpsController::class, 'show']);
-
     Route::put('/{id}', [CorpsController::class, 'update']);
-
     Route::patch('/{id}', [CorpsController::class, 'update']);
-
     Route::delete('/{id}', [CorpsController::class, 'destroy']);
-
     Route::patch('/{id}/activate', [
         CorpsController::class,
         'activate',
@@ -34,8 +67,13 @@ Route::prefix('corps')->group(function () {
     ]);
 });
 
+/*
+|--------------------------------------------------------------------------
+| CATÉGORIES
+|--------------------------------------------------------------------------
+| Gestion du référentiel des catégories et de leur état d'activation.
+*/
 Route::apiResource('categories', CategorieController::class);
-
 Route::patch(
     'categories/{id}/activate',
     [CategorieController::class, 'activate']

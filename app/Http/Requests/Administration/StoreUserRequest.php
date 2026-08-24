@@ -61,7 +61,7 @@ class StoreUserRequest extends FormRequest
                 'in:actif,inactif'
             ],
 
-            'structure_organisationnelle_id' => [
+            'lieu_service_id' => [
                 Rule::requiredIf(fn () => $this->roleMetier()),
                 'nullable',
                 'integer',
