@@ -145,6 +145,7 @@ Route::apiResource('pieces-justificatives', PieceJustificativesController::class
 
 Route::post('pieces-justificatives/deposer', [PieceJustificativesController::class, 'deposer']);
 Route::post('pieces-justificatives/deposer-lot', [PieceJustificativesController::class, 'deposerLot']);
+Route::post('pieces-justificatives/modifier-lot', [PieceJustificativesController::class, 'modifierLot']);
 
 Route::put('pieces-justificatives/{id}/classifier', [PieceJustificativesController::class, 'classifier']);
 
