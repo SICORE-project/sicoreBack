@@ -8,6 +8,7 @@ use App\Http\Requests\Indemnites\StorePieceJustificativeRequest;
 use App\Http\Requests\Indemnites\UpdatePieceJustificativeRequest;
 use App\Http\Requests\Indemnites\DeposerPieceJustificativeRequest;
 use App\Http\Requests\Indemnites\DeposerLotPiecesJustificativesRequest;
+use App\Http\Requests\Indemnites\ModifierLotPiecesJustificativesRequest;
 use App\Http\Requests\Indemnites\ClassifierPieceJustificativeRequest;
 use App\Http\Requests\Indemnites\VerifierPieceJustificativeRequest;
 use App\Http\Requests\Indemnites\RejeterPieceJustificativeRequest;
@@ -121,9 +122,34 @@ class PieceJustificativesController extends Controller
      */
     public function deposerLot(DeposerLotPiecesJustificativesRequest $request)
     {
-        $convocationId = (int) $request->validated('convocation_id');
-        $enseignantId = (int) $request->validated('enseignant_id');
-        $centreId = $request->validated('centre_id');
+        return $this->traiterLot($request);
+    }
+
+    /**
+     * Modification du dossier d'UN membre depuis la modale "Modifier"
+     * (meme formulaire complet que "Ajouter une piece", demande
+     * utilisatrice : "en cliquant sur modifier il doit afficher le
+     * formulaire complet en recuperant le fichier qui y etait") — memes 5
+     * champs, mais tous optionnels (voir ModifierLotPiecesJustificativesRequest) :
+     * seuls les types pour lesquels un NOUVEAU fichier est fourni sont
+     * remplaces, les autres pieces deja deposees restent inchangees.
+     */
+    public function modifierLot(ModifierLotPiecesJustificativesRequest $request)
+    {
+        return $this->traiterLot($request);
+    }
+
+    /**
+     * Logique commune a deposerLot()/modifierLot() : seule la validation
+     * (tous les fichiers obligatoires vs tous optionnels) differe entre les
+     * deux — un type sans fichier fourni est simplement ignore ici (piece
+     * deja existante conservee telle quelle).
+     */
+    private function traiterLot(Request $request)
+    {
+        $convocationId = (int) $request->input('convocation_id');
+        $enseignantId = (int) $request->input('enseignant_id');
+        $centreId = $request->input('centre_id');
         $depositaireId = $request->user()?->id;
 
         $piecesCreees = [];

@@ -28,7 +28,7 @@ class ConvocationsController extends Controller
         // chaque centre doivent CHACUN apparaître comme un membre à part
         // entière (ils déposent eux aussi leurs pièces justificatives).
         $query = ConvocationModel::withCount('enseignants')
-            ->with(['typeConvocation', 'centres.presidentJury', 'centres.chefCentre', 'enseignants.lieuService']);
+            ->with(['typeConvocation', 'centres.presidentJury', 'centres.chefCentre', 'centres.metiers', 'enseignants.lieuService']);
 
         if ($request->filled('statut')) {
             $query->where('statut', $request->query('statut'));
@@ -86,14 +86,69 @@ class ConvocationsController extends Controller
 
     /**
      * Valeurs distinctes reellement presentes en base, pour remplir les
-     * menus deroulants des filtres de la liste front (index.blade.php) —
-     * plutot que des champs texte libre. Independant de tout filtre en
-     * cours : renvoie toujours l'univers complet des valeurs possibles,
-     * pas seulement celles de la page courante/filtree.
+     * menus deroulants des filtres de la liste front (index.blade.php).
+     *
+     * Chaque liste est scopee aux convocations qui correspondent a TOUS LES
+     * AUTRES filtres deja choisis (mais jamais au sien propre : sinon la
+     * valeur qu'on vient de selectionner disparaitrait de son propre menu)
+     * — demande utilisatrice : "si je choisi un objet les infos relatif a
+     * l'objet selectione s'affiche sur le select suivant". Sans aucun
+     * filtre en query string (comportement historique), on retombe sur
+     * l'univers complet des valeurs possibles.
      */
-    public function optionsFiltres()
+    public function optionsFiltres(Request $request)
     {
-        $objets = ConvocationModel::query()
+        $filtres = [
+            'objet' => $request->query('objet'),
+            'session' => $request->query('session'),
+            'centre' => $request->query('centre'),
+            'metier' => $request->query('metier'),
+            'date' => $request->query('date'),
+            'statut' => $request->query('statut'),
+        ];
+
+        // Meme logique de filtrage que index() ci-dessus, mais parametrable
+        // pour pouvoir exclure UN champ a la fois (celui dont on est en
+        // train de calculer les options).
+        $appliquerFiltres = function ($query, ?string $exclure = null) use ($filtres) {
+            if ($exclure !== 'statut' && filled($filtres['statut'])) {
+                $query->where('statut', $filtres['statut']);
+            }
+
+            if ($exclure !== 'objet' && filled($filtres['objet'])) {
+                $query->where('objet', 'like', '%'.$filtres['objet'].'%');
+            }
+
+            if ($exclure !== 'date' && filled($filtres['date'])) {
+                $query->whereDate('date_emission', $filtres['date']);
+            }
+
+            if ($exclure !== 'session' && filled($filtres['session'])) {
+                $query->where('session', $filtres['session']);
+            }
+
+            if ($exclure !== 'metier' && filled($filtres['metier'])) {
+                $metier = $filtres['metier'];
+                $query->where(function ($outer) use ($metier) {
+                    $outer->whereHas('centres', function ($q) use ($metier) {
+                        $q->where('metier', 'like', '%'.$metier.'%');
+                    })->orWhereHas('centres.metiers', function ($q) use ($metier) {
+                        $q->where('metier', 'like', '%'.$metier.'%');
+                    });
+                });
+            }
+
+            if ($exclure !== 'centre' && filled($filtres['centre'])) {
+                $centre = $filtres['centre'];
+                $query->whereHas('centres', function ($q) use ($centre) {
+                    $q->where('centre', 'like', '%'.$centre.'%');
+                });
+            }
+
+            return $query;
+        };
+
+        $objets = $appliquerFiltres(ConvocationModel::query(), 'objet')
             ->whereNotNull('objet')
             ->where('objet', '!=', '')
             ->distinct()
@@ -101,7 +156,7 @@ class ConvocationsController extends Controller
             ->pluck('objet')
             ->values();
 
-        $sessions = ConvocationModel::query()
+        $sessions = $appliquerFiltres(ConvocationModel::query(), 'session')
             ->whereNotNull('session')
             ->where('session', '!=', '')
             ->distinct()
@@ -109,30 +164,7 @@ class ConvocationsController extends Controller
             ->pluck('session')
             ->values();
 
-        $centres = ConvocationCentre::query()
-            ->whereNotNull('centre')
-            ->where('centre', '!=', '')
-            ->distinct()
-            ->orderBy('centre')
-            ->pluck('centre')
-            ->values();
-
-        
-        $metiersLegacy = ConvocationCentre::query()
-            ->whereNotNull('metier')
-            ->where('metier', '!=', '')
-            ->distinct()
-            ->pluck('metier');
-
-        $metiersDedies = ConvocationCentreMetier::query()
-            ->whereNotNull('metier')
-            ->where('metier', '!=', '')
-            ->distinct()
-            ->pluck('metier');
-
-        $metiers = $metiersLegacy->merge($metiersDedies)->unique()->sort()->values();
-
-        $dates = ConvocationModel::query()
+        $dates = $appliquerFiltres(ConvocationModel::query(), 'date')
             ->whereNotNull('date_emission')
             ->distinct()
             ->orderByDesc('date_emission')
@@ -140,6 +172,38 @@ class ConvocationsController extends Controller
             ->map(fn ($date) => Carbon::parse($date)->format('Y-m-d'))
             ->unique()
             ->values();
+
+        // Centres et metiers ne vivent pas sur convocations : on part des
+        // ids des convocations qui matchent les AUTRES filtres, puis on
+        // remonte a leurs centres/metiers.
+        $idsPourCentres = $appliquerFiltres(ConvocationModel::query(), 'centre')->pluck('id');
+
+        $centres = ConvocationCentre::query()
+            ->whereIn('convocation_id', $idsPourCentres)
+            ->whereNotNull('centre')
+            ->where('centre', '!=', '')
+            ->distinct()
+            ->orderBy('centre')
+            ->pluck('centre')
+            ->values();
+
+        $idsPourMetiers = $appliquerFiltres(ConvocationModel::query(), 'metier')->pluck('id');
+
+        $metiersLegacy = ConvocationCentre::query()
+            ->whereIn('convocation_id', $idsPourMetiers)
+            ->whereNotNull('metier')
+            ->where('metier', '!=', '')
+            ->distinct()
+            ->pluck('metier');
+
+        $metiersDedies = ConvocationCentreMetier::query()
+            ->whereHas('centre', fn ($q) => $q->whereIn('convocation_id', $idsPourMetiers))
+            ->whereNotNull('metier')
+            ->where('metier', '!=', '')
+            ->distinct()
+            ->pluck('metier');
+
+        $metiers = $metiersLegacy->merge($metiersDedies)->unique()->sort()->values();
 
         // Enum fixe (cf. migration convocations.statut) plutot qu'une
         // requete : toujours les 4 valeurs possibles, meme si aucune
