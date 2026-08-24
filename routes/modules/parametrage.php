@@ -2,7 +2,6 @@
 
 use App\Http\Controllers\Api\Parametrage\AffectationLieuServiceController;
 use App\Http\Controllers\Api\Parametrage\CompteBancaireEnseignantController;
-use App\Http\Controllers\Api\Parametrage\CorpsController;
 use App\Http\Controllers\Api\Parametrage\DiplomeController;
 use App\Http\Controllers\Api\Parametrage\InstitutFinancierController;
 use App\Http\Controllers\Api\Parametrage\LieuServiceController;
@@ -10,14 +9,8 @@ use App\Http\Controllers\Api\Parametrage\SyndicatController;
 use App\Http\Controllers\Api\Parametrage\IaController;
 use App\Http\Controllers\Api\Parametrage\IefController;
 use App\Http\Controllers\Api\Parametrage\SpecialiteController;
-use App\Http\Controllers\Api\Parametrage\CorpsController;
 use App\Http\Controllers\Api\Parametrage\CategorieController;
 use App\Http\Controllers\Api\Parametrage\AnneeAcademiqueController;
-use \App\Http\Controllers\Api\Parametrage\SyndicatController;
-use App\Http\Controllers\Api\Parametrage\CompteBancaireEnseignantController;
-use App\Http\Controllers\Api\Parametrage\InstitutFinancierController;
-use App\Http\Controllers\Api\Parametrage\DiplomeController;
-use App\Http\Controllers\Api\Parametrage\LieuServiceController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('parametrage/lieux-service', [LieuServiceController::class, 'index'])
@@ -132,50 +125,31 @@ Route::patch(
     [AnneeAcademiqueController::class, 'close']
 );
 
-// Routes for the Syndicat resource.
 Route::prefix('syndicats')->group(function () {
     Route::get('/', [SyndicatController::class, 'index']);
-
     Route::post('/', [SyndicatController::class, 'store']);
-
     Route::get('/{id}', [SyndicatController::class, 'show']);
-
     Route::put('/{id}', [SyndicatController::class, 'update']);
-
     Route::patch('/{id}', [SyndicatController::class, 'update']);
-
     Route::delete('/{id}', [SyndicatController::class, 'destroy']);
-
-    Route::patch('/{id}/activate', [
-        SyndicatController::class,
-        'activate',
-    ]);
-
-        Route::get('/', [IefController::class, 'index'])->middleware('permission:parametrage.ief.read');
-        Route::post('/', [IefController::class, 'store'])->middleware('permission:parametrage.ief.manage');
-        Route::get('/{id}', [IefController::class, 'show'])->middleware('permission:parametrage.ief.read');
-        Route::get('/{id}/iefs', [IefController::class, 'byIa'])->middleware('permission:parametrage.ief.read');
-        Route::put('/{id}', [IefController::class, 'update'])->middleware('permission:parametrage.ief.manage');
-        Route::patch('/{id}/statut', [IefController::class, 'changeStatus'])->middleware('permission:parametrage.ief.manage');
-        Route::patch('/{id}/ia', [IefController::class, 'rattacherIa'])->middleware('permission:parametrage.ief.manage');
-});    
- // ============================================================
-    // ROUTES  SPECIALITES 
-    // ============================================================
-     Route::prefix('specialites')->group(function () {
-
-        Route::get('/', [SpecialiteController::class, 'index'])->middleware('permission:parametrage.specialites.read');
-        Route::post('/', [SpecialiteController::class, 'store'])->middleware('permission:parametrage.specialites.manage');
-        Route::put('/{id}', [SpecialiteController::class, 'update'])->middleware('permission:parametrage.specialites.manage');
-        Route::patch('/{id}/statut', [SpecialiteController::class, 'changeStatus'])->middleware('permission:parametrage.specialites.manage');
-        Route::get('/actives', [SpecialiteController::class, 'actives'])->middleware('permission:parametrage.specialites.read');
-
-
+    Route::patch('/{id}/activate', [SyndicatController::class, 'activate']);
+    Route::patch('/{id}/deactivate', [SyndicatController::class, 'deactivate']);
 });
 
-    Route::patch('/{id}/deactivate', [
-        SyndicatController::class,
-        'deactivate',
-    ]);
+Route::prefix('iefs')->group(function () {
+    Route::get('/', [IefController::class, 'index'])->middleware('permission:parametrage.ief.read');
+    Route::post('/', [IefController::class, 'store'])->middleware('permission:parametrage.ief.manage');
+    Route::get('/{id}', [IefController::class, 'show'])->middleware('permission:parametrage.ief.read');
+    Route::get('/{id}/iefs', [IefController::class, 'byIa'])->middleware('permission:parametrage.ief.read');
+    Route::put('/{id}', [IefController::class, 'update'])->middleware('permission:parametrage.ief.manage');
+    Route::patch('/{id}/statut', [IefController::class, 'changeStatus'])->middleware('permission:parametrage.ief.manage');
+    Route::patch('/{id}/ia', [IefController::class, 'rattacherIa'])->middleware('permission:parametrage.ief.manage');
 });
 
+Route::prefix('specialites')->group(function () {
+    Route::get('/', [SpecialiteController::class, 'index'])->middleware('permission:parametrage.specialites.read');
+    Route::post('/', [SpecialiteController::class, 'store'])->middleware('permission:parametrage.specialites.manage');
+    Route::put('/{id}', [SpecialiteController::class, 'update'])->middleware('permission:parametrage.specialites.manage');
+    Route::patch('/{id}/statut', [SpecialiteController::class, 'changeStatus'])->middleware('permission:parametrage.specialites.manage');
+    Route::get('/actives', [SpecialiteController::class, 'actives'])->middleware('permission:parametrage.specialites.read');
+});
