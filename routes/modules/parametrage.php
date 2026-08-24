@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\Parametrage\AffectationLieuServiceController;
 use App\Http\Controllers\Api\Parametrage\CompteBancaireEnseignantController;
+use App\Http\Controllers\Api\Parametrage\CorpsController;
 use App\Http\Controllers\Api\Parametrage\DiplomeController;
 use App\Http\Controllers\Api\Parametrage\InstitutFinancierController;
 use App\Http\Controllers\Api\Parametrage\LieuServiceController;
@@ -144,6 +145,21 @@ Route::prefix('iefs')->group(function () {
     Route::put('/{id}', [IefController::class, 'update'])->middleware('permission:parametrage.ief.manage');
     Route::patch('/{id}/statut', [IefController::class, 'changeStatus'])->middleware('permission:parametrage.ief.manage');
     Route::patch('/{id}/ia', [IefController::class, 'rattacherIa'])->middleware('permission:parametrage.ief.manage');
+});
+
+/*
+|--------------------------------------------------------------------------
+| INSPECTIONS D'ACADÉMIE (IA)
+|--------------------------------------------------------------------------
+| Gestion des IA et chargement du référentiel des régions.
+*/
+Route::prefix('ias')->group(function () {
+    Route::get('/', [IaController::class, 'index'])->middleware('permission:parametrage.ia.read');
+    Route::get('/regions', [IaController::class, 'regionOptions'])->middleware('permission:parametrage.ia.read');
+    Route::post('/', [IaController::class, 'store'])->middleware('permission:parametrage.ia.manage');
+    Route::get('/{id}', [IaController::class, 'show'])->whereNumber('id')->middleware('permission:parametrage.ia.read');
+    Route::put('/{id}', [IaController::class, 'update'])->whereNumber('id')->middleware('permission:parametrage.ia.manage');
+    Route::delete('/{id}', [IaController::class, 'destroy'])->whereNumber('id')->middleware('permission:parametrage.ia.manage');
 });
 
 Route::prefix('specialites')->group(function () {

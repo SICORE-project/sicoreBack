@@ -33,33 +33,6 @@ class StoreIaRequest extends FormRequest
                 'exists:regions,id',
             ],
 
-            'adresse' => [
-                'nullable',
-                'string',
-                'max:255',
-            ],
-
-            'telephone' => [
-            'nullable',
-            'string',
-            'max:20',
-],
-
-            'email' => [
-                'nullable',
-                'email',
-                'max:100',
-            ],
-
-            'responsable' => [
-                'nullable',
-                'string',
-                'max:100',
-            ],
-            'est_actif' => [
-                'nullable',
-                'boolean',
-            ],
         ];
     }
 
@@ -79,11 +52,6 @@ class StoreIaRequest extends FormRequest
             'region_id.integer' => 'La région sélectionnée est invalide.',
             'region_id.exists' => 'La région sélectionnée n’existe pas.',
 
-            'email.email' => 'L’adresse email n’est pas valide.',
-            'telephone.max' => 'Le numéro de téléphone ne doit pas dépasser 20 caractères.',
-
-            'telephone.regex' => 'Le numéro de téléphone doit être un numéro sénégalais valide.',
-            'est_actif.boolean' => 'Le statut de l’IA doit être vrai ou faux.',
         ];
     }
 
@@ -94,15 +62,6 @@ class StoreIaRequest extends FormRequest
     // Normaliser le code
     if ($this->filled('code')) {
         $data['code'] = strtoupper(trim($this->code));
-    }
-
-    // Normaliser le téléphone
-    if ($this->filled('telephone')) {
-        $data['telephone'] = preg_replace(
-            '/[\s\-.]/',
-            '',
-            trim($this->telephone)
-        );
     }
 
     $this->merge($data);

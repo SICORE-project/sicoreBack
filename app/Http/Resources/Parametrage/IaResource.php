@@ -24,17 +24,6 @@ class IaResource extends JsonResource
                 ];
             }),
 
-            'adresse' => $this->adresse,
-            'telephone' => $this->telephone,
-            'email' => $this->email,
-            'responsable' => $this->responsable,
-
-            'est_actif' => (bool) $this->est_actif,
-
-            'nom_complet' => $this->nom_complet,
-
-            'created_at' => $this->created_at,
-            'updated_at' => $this->updated_at,
         ];
     }
 }
