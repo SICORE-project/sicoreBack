@@ -89,6 +89,9 @@ class PayrollPageController extends Controller
                     'id' => $payslip->period->id,
                     'code' => $payslip->period->code,
                     'label' => $payslip->period->label,
+                    'month_label' => $payslip->period->label,
+                    'month_number' => (int) $payslip->period->start_date->format('n'),
+                    'year' => (int) $payslip->period->start_date->format('Y'),
                 ],
                 'teacher' => [
                     'matricule' => $teacher->matricule,

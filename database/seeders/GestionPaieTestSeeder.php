@@ -48,6 +48,27 @@ class GestionPaieTestSeeder extends Seeder
                         ['code' => 'IEF-STL-DAG', 'libelle' => 'IEF Dagana'],
                     ],
                 ],
+                [
+                    'ia' => ['code' => 'IA-KLK', 'libelle' => 'IA Kaolack'],
+                    'iefs' => [
+                        ['code' => 'IEF-KLK-COM', 'libelle' => 'IEF Kaolack Commune'],
+                        ['code' => 'IEF-KLK-NIO', 'libelle' => 'IEF Nioro'],
+                    ],
+                ],
+                [
+                    'ia' => ['code' => 'IA-ZIG', 'libelle' => 'IA Ziguinchor'],
+                    'iefs' => [
+                        ['code' => 'IEF-ZIG-COM', 'libelle' => 'IEF Ziguinchor'],
+                        ['code' => 'IEF-ZIG-BIG', 'libelle' => 'IEF Bignona'],
+                    ],
+                ],
+                [
+                    'ia' => ['code' => 'IA-DBL', 'libelle' => 'IA Diourbel'],
+                    'iefs' => [
+                        ['code' => 'IEF-DBL-COM', 'libelle' => 'IEF Diourbel'],
+                        ['code' => 'IEF-DBL-MBK', 'libelle' => 'IEF Mbacké'],
+                    ],
+                ],
             ];
 
             $inspections = [];
@@ -73,6 +94,18 @@ class GestionPaieTestSeeder extends Seeder
                 ['matricule' => 'PC-TEST-002', 'prenom' => 'Ibrahima', 'nom' => 'Fall', 'corps' => 'PC', 'salary' => 157662, 'engagement' => 'contractuel', 'category' => 2],
                 ['matricule' => 'VAC-TEST-003', 'prenom' => 'Mariama', 'nom' => 'Ba', 'corps' => 'VAC', 'salary' => 150000, 'engagement' => 'vacataire'],
                 ['matricule' => 'PC-TEST-003', 'prenom' => 'Cheikh', 'nom' => 'Diallo', 'corps' => 'PC', 'salary' => 162795, 'engagement' => 'contractuel', 'category' => 3],
+                ['matricule' => 'VAC-TEST-004', 'prenom' => 'Aminata', 'nom' => 'Cissé', 'corps' => 'VAC', 'salary' => 150000, 'engagement' => 'vacataire', 'configured' => true],
+                ['matricule' => 'PC-TEST-004', 'prenom' => 'Abdoulaye', 'nom' => 'Sow', 'corps' => 'PC', 'salary' => 167540, 'engagement' => 'contractuel', 'category' => 4, 'configured' => true],
+                ['matricule' => 'VAC-TEST-005', 'prenom' => 'Rokhaya', 'nom' => 'Faye', 'corps' => 'VAC', 'salary' => 150000, 'engagement' => 'vacataire', 'configured' => false],
+                ['matricule' => 'PC-TEST-005', 'prenom' => 'Ousmane', 'nom' => 'Kane', 'corps' => 'PC', 'salary' => 172420, 'engagement' => 'contractuel', 'category' => 5, 'configured' => false],
+                ['matricule' => 'VAC-TEST-006', 'prenom' => 'Khady', 'nom' => 'Mbaye', 'corps' => 'VAC', 'salary' => 150000, 'engagement' => 'vacataire', 'configured' => true],
+                ['matricule' => 'PC-TEST-006', 'prenom' => 'Mamadou', 'nom' => 'Diallo', 'corps' => 'PC', 'salary' => 177310, 'engagement' => 'contractuel', 'category' => 6, 'configured' => true],
+                ['matricule' => 'VAC-TEST-007', 'prenom' => 'Sokhna', 'nom' => 'Guèye', 'corps' => 'VAC', 'salary' => 150000, 'engagement' => 'vacataire', 'configured' => false],
+                ['matricule' => 'PC-TEST-007', 'prenom' => 'Alioune', 'nom' => 'Seck', 'corps' => 'PC', 'salary' => 182205, 'engagement' => 'contractuel', 'category' => 7, 'configured' => false],
+                ['matricule' => 'VAC-TEST-008', 'prenom' => 'Ndèye', 'nom' => 'Fall', 'corps' => 'VAC', 'salary' => 150000, 'engagement' => 'vacataire', 'configured' => true],
+                ['matricule' => 'PC-TEST-008', 'prenom' => 'Babacar', 'nom' => 'Ndiaye', 'corps' => 'PC', 'salary' => 187095, 'engagement' => 'contractuel', 'category' => 8, 'configured' => true],
+                ['matricule' => 'VAC-TEST-009', 'prenom' => 'Astou', 'nom' => 'Diop', 'corps' => 'VAC', 'salary' => 150000, 'engagement' => 'vacataire', 'configured' => false],
+                ['matricule' => 'PC-TEST-009', 'prenom' => 'Pape', 'nom' => 'Sarr', 'corps' => 'PC', 'salary' => 191980, 'engagement' => 'contractuel', 'category' => 9, 'configured' => false],
             ];
 
             $period = PayrollPeriod::query()
@@ -88,7 +121,8 @@ class GestionPaieTestSeeder extends Seeder
 
             $seededTeachers = [];
             foreach ($teachers as $index => $teacher) {
-                $inspection = $inspections[$index];
+                $inspection = $inspections[$index % count($inspections)];
+                $configured = $teacher['configured'] ?? true;
                 $teacherId = $this->teacherId([
                     'matricule' => $teacher['matricule'],
                     'prenom' => $teacher['prenom'],
@@ -99,14 +133,14 @@ class GestionPaieTestSeeder extends Seeder
                     'ief_id' => $inspection['ief_id'],
                     'salaire_brut' => $teacher['salary'],
                     'salaire_base' => $teacher['salary'],
-                    'type_engagement' => $teacher['engagement'],
-                    'payroll_diploma_level' => $teacher['engagement'] === 'contractuel' ? 'BAC_BT' : null,
-                    'payroll_category_level' => $teacher['category'] ?? null,
-                    'impr_monthly_amount' => $teacher['engagement'] === 'contractuel' ? 11767 : 10500,
-                    'trimf_monthly_amount' => $teacher['engagement'] === 'contractuel' ? 500 : 400,
-                    'ipm_monthly_amount' => $teacher['engagement'] === 'contractuel' ? 4500 : 0,
-                    'union_checkoff_monthly_amount' => $teacher['engagement'] === 'contractuel' ? 1000 : 0,
-                    'payroll_profile_configured_at' => now(),
+                    'type_engagement' => $configured ? $teacher['engagement'] : null,
+                    'payroll_diploma_level' => $configured && $teacher['engagement'] === 'contractuel' ? 'BAC_BT' : null,
+                    'payroll_category_level' => $configured ? ($teacher['category'] ?? null) : null,
+                    'impr_monthly_amount' => $configured ? ($teacher['engagement'] === 'contractuel' ? 11767 : 10500) : null,
+                    'trimf_monthly_amount' => $configured ? ($teacher['engagement'] === 'contractuel' ? 500 : 400) : null,
+                    'ipm_monthly_amount' => $configured && $teacher['engagement'] === 'contractuel' ? 4500 : 0,
+                    'union_checkoff_monthly_amount' => $configured && $teacher['engagement'] === 'contractuel' ? 1000 : 0,
+                    'payroll_profile_configured_at' => $configured ? now() : null,
                     'numero_compte' => 'TEST-'.str_pad((string) ($index + 1), 12, '0', STR_PAD_LEFT),
                     'statut' => 'en_activite',
                     'est_actif' => true,
@@ -147,7 +181,7 @@ class GestionPaieTestSeeder extends Seeder
             }
 
             $this->seedPayrollElements($period, $seededTeachers);
-            $this->seedPaidPayslips($period, $seededTeachers);
+            $this->seedPaidPayslips($period, array_slice($seededTeachers, 0, 6));
         });
     }
 

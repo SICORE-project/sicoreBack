@@ -149,7 +149,7 @@ class PayrollPageService
             'row_filters' => $rowFilters,
             'supports_hierarchy_filter' => collect($report['columns'])
                 ->contains(fn (mixed $column): bool => $this->normalizeColumn((string) $column) === 'matricule'),
-            'filters' => $this->filters($periods, $period),
+            'filters' => $this->filters($periods, $period, $slug),
             'actions' => $report['actions'] ?? $this->reportActions($slug, $period),
             'input_records' => $report['input_records'] ?? [],
             'notice' => $report['notice'] ?? $this->periodNotice($period),
@@ -579,9 +579,10 @@ class PayrollPageService
         $items = $this->payslips($period);
 
         return [
-            'columns' => ['Référence', 'Matricule', 'Enseignant', 'Brut', 'Retenues', 'Net', 'Paiement', 'Version', 'Actions'],
+            'columns' => ['Référence', 'Mois du bulletin', 'Matricule', 'Enseignant', 'Brut', 'Retenues', 'Net', 'Paiement', 'Version', 'Actions'],
             'rows' => $items->map(fn (PayrollPayslip $item): array => [
                 $item->reference,
+                $period?->label ?? '—',
                 $item->enseignant->matricule ?: '—',
                 $this->teacherName($item->enseignant),
                 $this->money($item->gross_amount),
@@ -608,6 +609,13 @@ class PayrollPageService
                 ],
             ])->values(),
             'actions' => [$this->exportAction()],
+            'notice' => $period
+                ? sprintf(
+                    'Bulletins du mois de %s — %d bulletin(s) disponible(s).',
+                    $period->label,
+                    $items->count()
+                )
+                : 'Aucun mois de paie n’est disponible pour les bulletins.',
         ];
     }
 
@@ -648,10 +656,13 @@ class PayrollPageService
             : collect();
 
         return [
-            'columns' => ['Matricule', 'Enseignant', 'Engagement', 'Corps', 'Salaire de base', 'Banque', 'Motif probable', 'Actions'],
+            'columns' => ['Matricule', 'Enseignant', 'État du profil', 'Engagement', 'Corps', 'Salaire de base', 'Banque', 'Situation du bulletin', 'Actions'],
             'rows' => $items->map(fn (Enseignant $teacher): array => [
                 $teacher->matricule ?: '—',
                 $this->teacherName($teacher),
+                $teacher->payroll_profile_configured_at
+                    ? ['value' => 'Profil configuré', 'badge' => 'active']
+                    : ['value' => 'À configurer', 'badge' => 'pending'],
                 match ($teacher->type_engagement) {
                     'contractuel' => 'Professeur contractuel',
                     'vacataire' => 'Vacataire',
@@ -661,9 +672,11 @@ class PayrollPageService
                 $this->money($teacher->salaire_base),
                 $teacher->institutionFinanciere?->nom ?? 'Non renseignée',
                 $this->payrollProfileReason($teacher),
-                $this->actionCell('Configurer', 'configure-teacher-payroll', [
-                    'enseignant_id' => $teacher->id,
-                ]),
+                $this->actionCell(
+                    $teacher->payroll_profile_configured_at ? 'Modifier le profil' : 'Configurer',
+                    'configure-teacher-payroll', [
+                        'enseignant_id' => $teacher->id,
+                    ]),
             ])->values(),
             'actions' => [
                 $this->action('Configurer un formateur', 'configure-teacher-payroll', 'primary'),
@@ -673,8 +686,14 @@ class PayrollPageService
                 $this->stat('Non générés', $items->count(), 'Enseignants actifs', 'NG', 'red'),
                 $this->stat('Profils à configurer', $items->whereNull('payroll_profile_configured_at')->count(), 'Donnée bloquante', 'FC', 'yellow'),
                 $this->stat('Sans banque', $items->whereNull('institution_financiere_id')->count(), 'Coordonnées manquantes', 'BQ', 'blue'),
-                $this->stat('À corriger', $items->count(), 'Avant validation', 'CT', 'green'),
+                $this->stat('À traiter', $items->count(), 'Profil ou calcul de paie', 'CT', 'green'),
             ],
+            'notice' => $period
+                ? sprintf(
+                    'Paie non générée pour %s : un profil configuré reste visible jusqu’à la génération de son bulletin.',
+                    $period->label
+                )
+                : 'Sélectionnez un mois de paie pour identifier les bulletins non générés.',
         ];
     }
 
@@ -740,15 +759,18 @@ class PayrollPageService
     }
 
     /** @return array<int, array<string, mixed>> */
-    private function filters(Collection $periods, ?PayrollPeriod $selected): array
+    private function filters(Collection $periods, ?PayrollPeriod $selected, string $slug): array
     {
+        $isPayslipPage = $slug === 'paie-bulletins';
+
         return [[
             'name' => 'period_id',
-            'label' => 'Période de paie',
+            'label' => $isPayslipPage ? 'Mois du bulletin' : 'Période de paie',
             'value' => $selected?->id,
             'options' => $periods->map(fn (PayrollPeriod $period): array => [
                 'value' => $period->id,
-                'label' => $period->label.' — '.$this->statusLabel($period->status),
+                'label' => ($isPayslipPage ? 'Bulletin de ' : '')
+                    .$period->label.' — '.$this->statusLabel($period->status),
             ])->values(),
         ]];
     }
@@ -907,6 +929,9 @@ class PayrollPageService
             'version' => $period->version,
             'start_date' => $period->start_date->toDateString(),
             'end_date' => $period->end_date->toDateString(),
+            'month_label' => $period->label,
+            'month_number' => (int) $period->start_date->format('n'),
+            'year' => (int) $period->start_date->format('Y'),
         ];
     }
 
