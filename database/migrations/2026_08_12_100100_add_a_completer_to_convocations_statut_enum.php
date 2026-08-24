@@ -17,13 +17,18 @@ use Illuminate\Support\Facades\Schema;
  * Modification en SQL brut (DB::statement) plutôt que ->change(), qui
  * nécessiterait doctrine/dbal — absent de composer.json (cf. note dans
  * 2026_08_12_090010_add_type_convocation_id_to_convocations_table.php).
- * MySQL/MariaDB uniquement (comme le reste du schéma).
+ * PostgreSQL représente les enums Laravel par un VARCHAR : aucune
+ * modification de type n'est donc nécessaire sur ce moteur.
  */
 return new class extends Migration
 {
     public function up(): void
     {
         if (! Schema::hasTable('convocations')) {
+            return;
+        }
+
+        if (DB::connection()->getDriverName() === 'pgsql') {
             return;
         }
 
@@ -42,6 +47,10 @@ return new class extends Migration
         // la valeur de l'ENUM, pour ne jamais laisser une ligne avec une
         // valeur hors-énumération après rollback.
         DB::table('convocations')->where('statut', 'a_completer')->update(['statut' => 'brouillon']);
+
+        if (DB::connection()->getDriverName() === 'pgsql') {
+            return;
+        }
 
         DB::statement(
             "ALTER TABLE convocations MODIFY statut ENUM('brouillon','emise','envoyee','cloturee') NOT NULL DEFAULT 'brouillon'"

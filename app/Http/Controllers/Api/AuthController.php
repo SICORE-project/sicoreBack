@@ -9,6 +9,7 @@ use App\Http\Requests\Auth\ResetPasswordOtpRequest;
 use App\Http\Requests\Auth\SendOtpRequest;
 use App\Http\Requests\Auth\VerifyOtpRequest;
 use App\Services\Auth\AuthService;
+use App\Http\Resources\UserResource;
 use Illuminate\Http\Request;
 
 class AuthController extends Controller
@@ -52,7 +53,9 @@ class AuthController extends Controller
     {
 
         return response()->json([
-            'user'=>$request->user()
+            'user'=>new UserResource(
+                $request->user()->loadMissing(['role', 'lieuService'])
+            )
         ]);
 
     }

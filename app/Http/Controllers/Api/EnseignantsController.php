@@ -2,8 +2,8 @@
 
 namespace App\Http\Controllers\Api;
 
-use App\Http\Controllers\Controller;
 use App\Http\Controllers\Api\Indemnites\Concerns\ApiResponseTrait;
+use App\Http\Controllers\Controller;
 use App\Models\Parametrage\Enseignant;
 use Illuminate\Http\Request;
 
@@ -20,7 +20,7 @@ class EnseignantsController extends Controller
 
     public function index(Request $request)
     {
-        $query = Enseignant::query()->actif();
+        $query = Enseignant::query()->visibleTo($request->user())->actif();
 
         if ($request->filled('search')) {
             $query->search($request->query('search'));

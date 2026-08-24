@@ -13,7 +13,7 @@ class Role extends Model
         'nom',
         'slug',
         'description',
-        'niveau',
+        'type_role_id',
         'est_actif',
     ];
 
@@ -24,6 +24,11 @@ class Role extends Model
     public function users()
     {
         return $this->hasMany(User::class);
+    }
+
+    public function typeRole()
+    {
+        return $this->belongsTo(TypeRole::class, 'type_role_id');
     }
 
     public function permissions()
@@ -38,7 +43,9 @@ class Role extends Model
 
     public function getLibelleAttribute(): ?string
     {
-        return $this->nom;
+        return $this->attributes['nom']
+            ?? $this->attributes['libelle']
+            ?? null;
     }
 
     // Vérifier si le rôle a une permission
@@ -84,9 +91,13 @@ class Role extends Model
         return $query->where('est_actif', true);
     }
 
-    // Scope par niveau
-    public function scopeNiveau($query, $niveau)
+    // Scope par type de rôle (code ou identifiant)
+    public function scopeTypeRole($query, string|int $typeRole)
     {
-        return $query->where('niveau', $niveau);
+        if (is_int($typeRole) || ctype_digit($typeRole)) {
+            return $query->where('type_role_id', $typeRole);
+        }
+
+        return $query->whereHas('typeRole', fn ($query) => $query->where('code', $typeRole));
     }
 }

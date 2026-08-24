@@ -132,7 +132,6 @@ public function role()
     return $this->belongsTo(Role::class);
 }
 
-
 public function hasRoleId($roleId)
 {
     return $this->role_id === $roleId;

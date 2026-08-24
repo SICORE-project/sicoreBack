@@ -16,7 +16,7 @@ class RoleController extends Controller
      */
     public function index(Request $request)
     {
-        $query = Role::withCount('users');
+        $query = Role::with('typeRole')->withCount('users');
 
         if ($request->has('search')) {
             $search = $request->search;
@@ -30,8 +30,8 @@ class RoleController extends Controller
             $query->where('est_actif', $request->est_actif);
         }
 
-        if ($request->has('niveau')) {
-            $query->where('niveau', $request->niveau);
+        if ($request->filled('type_role_id')) {
+            $query->where('type_role_id', $request->integer('type_role_id'));
         }
 
         $roles = $query->orderBy('nom')->paginate($request->per_page ?? 15);
@@ -48,7 +48,7 @@ class RoleController extends Controller
      */
     public function all()
     {
-        $roles = Role::where('est_actif', true)->orderBy('nom')->get();
+        $roles = Role::with('typeRole')->where('est_actif', true)->orderBy('nom')->get();
 
         return response()->json([
             'success' => true,
@@ -66,7 +66,7 @@ class RoleController extends Controller
             'nom' => 'required|string|max:50|unique:roles',
             'slug' => 'required|string|max:50|unique:roles',
             'description' => 'nullable|string',
-            'niveau' => 'required|in:systeme,admin,gestion,consultation',
+            'type_role_id' => 'required|exists:type_roles,id',
             'est_actif' => 'nullable|boolean',
             'permissions' => 'nullable|array',
             'permissions.*' => 'exists:permissions,id',
@@ -83,7 +83,7 @@ class RoleController extends Controller
             'nom' => $request->nom,
             'slug' => $request->slug,
             'description' => $request->description,
-            'niveau' => $request->niveau,
+            'type_role_id' => $request->type_role_id,
             'est_actif' => $request->est_actif ?? true,
         ]);
 
@@ -94,7 +94,7 @@ class RoleController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Rôle créé avec succès.',
-            'data' => $role->load('permissions'),
+            'data' => $role->load('permissions', 'typeRole'),
         ], 201);
     }
 
@@ -104,7 +104,7 @@ class RoleController extends Controller
      */
     public function show($id)
     {
-        $role = Role::with('permissions')->withCount('users')->find($id);
+        $role = Role::with(['permissions', 'typeRole'])->withCount('users')->find($id);
 
         if (!$role) {
             return response()->json([
@@ -138,7 +138,7 @@ class RoleController extends Controller
             'nom' => 'required|string|max:50|unique:roles,nom,' . $id,
             'slug' => 'required|string|max:50|unique:roles,slug,' . $id,
             'description' => 'nullable|string',
-            'niveau' => 'required|in:systeme,admin,gestion,consultation',
+            'type_role_id' => 'required|exists:type_roles,id',
             'est_actif' => 'nullable|boolean',
             'permissions' => 'nullable|array',
             'permissions.*' => 'exists:permissions,id',
@@ -155,7 +155,7 @@ class RoleController extends Controller
             'nom' => $request->nom,
             'slug' => $request->slug,
             'description' => $request->description,
-            'niveau' => $request->niveau,
+            'type_role_id' => $request->type_role_id,
             'est_actif' => $request->est_actif ?? $role->est_actif,
         ]);
 
@@ -166,7 +166,7 @@ class RoleController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Rôle mis à jour avec succès.',
-            'data' => $role->load('permissions'),
+            'data' => $role->load('permissions', 'typeRole'),
         ], 200);
     }
 
@@ -233,7 +233,7 @@ class RoleController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Permissions synchronisées avec succès.',
-            'data' => $role->load('permissions'),
+            'data' => $role->load('permissions', 'typeRole'),
         ], 200);
     }
 

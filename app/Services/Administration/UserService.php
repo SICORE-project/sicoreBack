@@ -2,17 +2,15 @@
 
 namespace App\Services\Administration;
 
-
 use App\Models\admin\User;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Hash;
 use App\Models\Parametrage\Ia;
 use App\Models\Parametrage\Ief;
-use Illuminate\Contracts\Pagination\LengthAwarePaginator;
-use Illuminate\Support\Facades\Hash;
 
 class UserService
 {
+
     /**
      * Création d'un utilisateur
      */
@@ -22,34 +20,53 @@ class UserService
         // Hash du mot de passe
         $data['password'] = Hash::make($data['password']);
 
-        return User::create($data);
+
+        return User::create($data)->load(['role', 'lieuService']);
     }
 
     /**
      * Liste des utilisateurs
      */
-    public function all()
+    public function all(?string $structureType = null)
     {
-        return User::with('role')->get();
+        return User::with(['role', 'lieuService'])
+            ->when($structureType, function ($query, string $type) {
+                $query->whereHas('lieuService', function ($structureQuery) use ($type) {
+                    $structureQuery->whereRaw('UPPER(type) = ?', [mb_strtoupper($type)]);
+                });
+            })
+            ->orderByDesc('created_at')
+            ->orderByDesc('id')
+            ->get();
     }
 
     /**
      * Liste paginée des utilisateurs.
      */
-    public function paginate(int $perPage = 10): LengthAwarePaginator
+    public function paginate(
+        int $perPage = 10,
+        ?string $structureType = null
+    ): LengthAwarePaginator
     {
-        return User::with('role')
+        return User::with(['role', 'lieuService'])
+            ->when($structureType, function ($query, string $type) {
+                $query->whereHas('lieuService', function ($structureQuery) use ($type) {
+                    $structureQuery->whereRaw('UPPER(type) = ?', [mb_strtoupper($type)]);
+                });
+            })
             ->orderBy('nom')
             ->orderBy('prenom')
             ->paginate($perPage);
     }
+
+
 
     /**
      * Trouver un utilisateur
      */
     public function find(int $id): User
     {
-        return User::with('role')
+        return User::with(['role', 'lieuService'])
             ->findOrFail($id);
     }
 
@@ -59,7 +76,7 @@ class UserService
     public function update(User $user, array $data): User
     {
 
-        if (isset($data['password'])) {
+        if(isset($data['password'])){
 
             $data['password'] = Hash::make(
                 $data['password']
@@ -68,6 +85,8 @@ class UserService
         }
 
         $user->update($data);
+
+        $user->load(['role', 'lieuService']);
 
         return $user;
     }
@@ -79,93 +98,97 @@ class UserService
     {
         return $user->delete();
     }
+    
 
     /**
-     * Rattacher un utilisateur à une IA
-     */
-    public function assignUserToIa(int $userId, int $iaId): User
-    {
-        // 1. Trouver l'utilisateur
-        $user = User::findOrFail($userId);
-
-        // 2. ✅ VÉRIFIER QUE L'IA EXISTE
-        $ia = Ia::findOrFail($iaId);  // ← Cette ligne vérifie l'existence
-
-        // 3. Vérifier que l'utilisateur a le bon rôle
-        if (! $user->hasRole('gestionnaire_ia')) {
-            throw new \Exception("Cet utilisateur n'a pas le rôle Gestionnaire IA.");
-        }
-
-        // 4. Vérifier s'il est déjà rattaché
-        if ($user->ia_id) {
-            throw new \Exception("Cet utilisateur est déjà rattaché à l'IA : {$user->ia->libelle}");
-        }
-
-        // 5. Rattacher
-        $user->ia_id = $iaId;
-        $user->save();
-
-        return $user->load(['ia', 'role']);
+ * Rattacher un utilisateur à une IA
+ */
+public function assignUserToIa(int $userId, int $iaId): User
+{
+    // 1. Trouver l'utilisateur
+    $user = User::findOrFail($userId);
+    
+    // 2. ✅ VÉRIFIER QUE L'IA EXISTE
+    $ia = Ia::findOrFail($iaId);  // ← Cette ligne vérifie l'existence
+    
+    // 3. Vérifier que l'utilisateur a le bon rôle
+    if (!$user->hasRole('gestionnaire_ia')) {
+        throw new \Exception("Cet utilisateur n'a pas le rôle Gestionnaire IA.");
     }
 
-    public function assignUserToIef(int $userId, int $iefId): User
-    {
-        $user = User::findOrFail($userId);
-        $ief = Ief::findOrFail($iefId);
-
-        if (! $user->hasRole('gestionnaire_ief')) {
-            throw new \Exception("Cet utilisateur n'a pas le rôle Gestionnaire IEF.");
-        }
-
-        if ($user->ief_id) {
-            throw new \Exception('Cet utilisateur est déjà rattaché à une IEF.');
-        }
-
-        $user->ief_id = $iefId;
-        $user->save();
-
-        return $user->load(['ief', 'role']);
+    // 4. Vérifier s'il est déjà rattaché
+    if ($user->ia_id) {
+        throw new \Exception("Cet utilisateur est déjà rattaché à l'IA : {$user->ia->libelle}");
     }
 
-    public function revokeUserFromIef(int $userId): User
-    {
-        $user = User::findOrFail($userId);
+    // 5. Rattacher
+    $user->ia_id = $iaId;
+    $user->save();
 
-        if (! $user->ief_id) {
-            throw new \Exception("Cet utilisateur n'est rattaché à aucune IEF.");
-        }
+    return $user->load(['ia', 'role']);
+}
 
-        $user->ief_id = null;
-        $user->save();
+public function revokeUserFromIa(int $userId): User
+{
+    $user = User::findOrFail($userId);
+    $user->update(['ia_id' => null]);
 
-        return $user->load('role');
+    return $user->load(['ia', 'role']);
+}
+
+public function assignUserToIef(int $userId, int $iefId): User
+{
+    $user = User::findOrFail($userId);
+    Ief::findOrFail($iefId);
+
+    if (! $user->hasRole('gestionnaire_ief')) {
+        throw new \Exception("Cet utilisateur n'a pas le rôle Gestionnaire IEF.");
     }
 
-    public function getUserIef(int $userId)
-    {
-        $user = User::with('ief')->findOrFail($userId);
-
-        return $user->ief;
+    if ($user->ief_id) {
+        throw new \Exception('Cet utilisateur est déjà rattaché à une IEF.');
     }
 
-    public function getGestionnairesIef()
-    {
-        return User::whereHas('role', function ($query) {
-            $query->where('slug', 'gestionnaire_ief');
-        })->with(['ief', 'role'])->get();
-    }
+    $user->update(['ief_id' => $iefId]);
 
-    public function getAvailableGestionnairesIef()
-    {
-        return User::whereHas('role', function ($query) {
-            $query->where('slug', 'gestionnaire_ief');
-        })->whereNull('ief_id')->with('role')->get();
-    }
+    return $user->load(['ief', 'role']);
+}
 
-    public function getGestionnairesByIef(int $iefId)
-    {
-        return User::whereHas('role', function ($query) {
-            $query->where('slug', 'gestionnaire_ief');
-        })->where('ief_id', $iefId)->with(['ief', 'role'])->get();
-    }
+public function revokeUserFromIef(int $userId): User
+{
+    $user = User::findOrFail($userId);
+    $user->update(['ief_id' => null]);
+
+    return $user->load(['ief', 'role']);
+}
+
+public function getUserIef(int $userId)
+{
+    return User::with('ief')->findOrFail($userId)->ief;
+}
+
+public function getGestionnairesIef()
+{
+    return User::whereHas('role', fn ($query) => $query->where('slug', 'gestionnaire_ief'))
+        ->with(['ief', 'role'])
+        ->get();
+}
+
+public function getAvailableGestionnairesIef()
+{
+    return User::whereHas('role', fn ($query) => $query->where('slug', 'gestionnaire_ief'))
+        ->whereNull('ief_id')
+        ->with('role')
+        ->get();
+}
+
+public function getGestionnairesByIef(int $iefId)
+{
+    Ief::findOrFail($iefId);
+
+    return User::whereHas('role', fn ($query) => $query->where('slug', 'gestionnaire_ief'))
+        ->where('ief_id', $iefId)
+        ->with(['ief', 'role'])
+        ->get();
+}
 }

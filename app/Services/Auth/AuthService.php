@@ -29,7 +29,8 @@ class AuthService
 
 
 
-        $user = User::with('role')
+        // ⚠️ Changement : on charge aussi les permissions du rôle
+        $user = User::with(['role.permissions', 'lieuService'])
             ->where('email',$identifier)
             ->first();
 
@@ -89,7 +90,14 @@ class AuthService
                 'nom'=>$user->nom,
                 'prenom'=>$user->prenom,
                 'email'=>$user->email,
-                'role'=>$user->role
+                // 'role' inclut maintenant automatiquement 'permissions'
+                // grâce au eager load with('role.permissions') ci-dessus
+                'role'=>$user->role,
+                'lieu_service'=>$user->lieuService ? [
+                    'id'=>$user->lieuService->id,
+                    'type'=>$user->lieuService->type,
+                    'libelle'=>$user->lieuService->libelle,
+                ] : null
             ]
 
         ]);

@@ -26,6 +26,7 @@ class LieuService extends Model
         'email',
         'responsable',
         'type',
+        'perimetre',
         'ia_id',
         'ief_id',
         'est_actif',
@@ -51,14 +52,14 @@ class LieuService extends Model
         return $this->hasMany(Enseignant::class);
     }
 
-    public function affectationsEnseignants()
-    {
-        return $this->hasMany(AffectationEnseignant::class);
-    }
-
     public function users()
     {
         return $this->hasMany(User::class);
+    }
+
+    public function affectationsEnseignants()
+    {
+        return $this->hasMany(AffectationEnseignant::class);
     }
 
     public function centresFormation()

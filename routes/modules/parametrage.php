@@ -1,29 +1,19 @@
 <?php
 
+use App\Http\Controllers\Api\Parametrage\CategorieController;
 use App\Http\Controllers\Api\Parametrage\AffectationLieuServiceController;
 use App\Http\Controllers\Api\Parametrage\CompteBancaireEnseignantController;
 use App\Http\Controllers\Api\Parametrage\CorpsController;
-use App\Http\Controllers\Api\Parametrage\DiplomeController;
 use App\Http\Controllers\Api\Parametrage\InstitutFinancierController;
-use App\Http\Controllers\Api\Parametrage\LieuServiceController;
-use App\Http\Controllers\Api\Parametrage\SyndicatController;
 use App\Http\Controllers\Api\Parametrage\IaController;
 use App\Http\Controllers\Api\Parametrage\IefController;
-use App\Http\Controllers\Api\Parametrage\SpecialiteController;
-use App\Http\Controllers\Api\Parametrage\CorpsController;
-use App\Http\Controllers\Api\Parametrage\CategorieController;
-use App\Http\Controllers\Api\Parametrage\AnneeAcademiqueController;
-use \App\Http\Controllers\Api\Parametrage\SyndicatController;
-use App\Http\Controllers\Api\Parametrage\CompteBancaireEnseignantController;
-use App\Http\Controllers\Api\Parametrage\InstitutFinancierController;
-use App\Http\Controllers\Api\Parametrage\DiplomeController;
 use App\Http\Controllers\Api\Parametrage\LieuServiceController;
+use App\Http\Controllers\Api\Parametrage\AnneeAcademiqueController;
+use App\Http\Controllers\Api\Parametrage\SyndicatController;
+use App\Http\Controllers\Api\Parametrage\SpecialiteController;
 use Illuminate\Support\Facades\Route;
 
-Route::get('parametrage/lieux-service', [LieuServiceController::class, 'index'])
-    ->middleware('permission:parametrage.lieux_service.read');
-
-Route::get('lieux-service', [LieuServiceController::class, 'index'])
+Route::get('parametrage/lieux-service', [LieuServiceController::class, 'catalogue'])
     ->middleware('permission:parametrage.lieux_service.read');
 
 Route::post('parametrage/lieux-service', [LieuServiceController::class, 'store'])
@@ -41,52 +31,102 @@ Route::post('parametrage/enseignants/{enseignant}/affectations', [AffectationLie
     ->whereNumber('enseignant')
     ->middleware('permission:parametrage.lieux_service.manage');
 
-// Compatibilité avec le chemin historique utilisé par le frontend.
 Route::post('enseignants/{enseignant}/affectations', [AffectationLieuServiceController::class, 'store'])
     ->whereNumber('enseignant')
     ->middleware('permission:parametrage.lieux_service.manage');
 
-Route::get('parametrage/institutions-financieres', [InstitutFinancierController::class, 'index'])
-    ->middleware('permission:parametrage.institutions_financieres.read');
+Route::prefix('parametrage/ia')->group(function () {
+    Route::get('/', [IaController::class, 'index'])
+        ->middleware('permission:parametrage.ia.read');
+    Route::post('/', [IaController::class, 'store'])
+        ->middleware('permission:parametrage.ia.manage');
+    Route::patch('/{id}/statut', [IaController::class, 'changeStatus'])
+        ->whereNumber('id')
+        ->middleware('permission:parametrage.ia.manage');
+    Route::get('/{id}', [IaController::class, 'show'])
+        ->whereNumber('id')
+        ->middleware('permission:parametrage.ia.read');
+    Route::put('/{id}', [IaController::class, 'update'])
+        ->whereNumber('id')
+        ->middleware('permission:parametrage.ia.manage');
+    Route::delete('/{id}', [IaController::class, 'destroy'])
+        ->whereNumber('id')
+        ->middleware('permission:parametrage.ia.manage');
+    Route::get('/{id}/iefs', [IefController::class, 'byIa'])
+        ->whereNumber('id')
+        ->middleware('permission:parametrage.ief.read');
+});
 
-Route::post('parametrage/institutions-financieres', [InstitutFinancierController::class, 'store'])
-    ->middleware('permission:parametrage.institutions_financieres.manage');
+Route::prefix('parametrage/ief')->group(function () {
+    Route::get('/', [IefController::class, 'index'])
+        ->middleware('permission:parametrage.ief.read');
+    Route::post('/', [IefController::class, 'store'])
+        ->middleware('permission:parametrage.ief.manage');
+    Route::get('/{id}', [IefController::class, 'show'])
+        ->whereNumber('id')
+        ->middleware('permission:parametrage.ief.read');
+    Route::put('/{id}', [IefController::class, 'update'])
+        ->whereNumber('id')
+        ->middleware('permission:parametrage.ief.manage');
+    Route::patch('/{id}/statut', [IefController::class, 'changeStatus'])
+        ->whereNumber('id')
+        ->middleware('permission:parametrage.ief.manage');
+    Route::patch('/{id}/ia', [IefController::class, 'rattacherIa'])
+        ->whereNumber('id')
+        ->middleware('permission:parametrage.ief.manage');
+});
 
-Route::put('parametrage/institutions-financieres/{institution}', [InstitutFinancierController::class, 'update'])
-    ->whereNumber('institution')
-    ->middleware('permission:parametrage.institutions_financieres.manage');
+/*
+|--------------------------------------------------------------------------
+| LIEUX DE SERVICE
+|--------------------------------------------------------------------------
+| Consultation, gestion et organisation territoriale des lieux de service.
+*/
+Route::prefix('lieux-service')->group(function () {
+    // Consultation
+    Route::get('/', [LieuServiceController::class, 'index'])
+        ->middleware('permission:administration.users.read');
+    Route::get('/manage', [LieuServiceController::class, 'manage'])
+        ->middleware('permission:administration.users.read');
 
-Route::patch('parametrage/institutions-financieres/{institution}/statut', [InstitutFinancierController::class, 'updateStatut'])
-    ->whereNumber('institution')
-    ->middleware('permission:parametrage.institutions_financieres.manage');
+    // Référentiels et organisation territoriale
+    Route::get('/ias', [LieuServiceController::class, 'iaOptions'])
+        ->middleware('permission:administration.users.read');
+    Route::get('/national', [LieuServiceController::class, 'national'])
+        ->middleware('permission:administration.users.read');
+    Route::get('/regions', [LieuServiceController::class, 'regions'])
+        ->middleware('permission:administration.users.read');
+    Route::get('/regions/{region}/ias', [LieuServiceController::class, 'ias']);
+    Route::get('/ias/{ia}/iefs', [LieuServiceController::class, 'iefs'])
+        ->whereNumber('ia');
 
-Route::post('enseignants/{enseignant}/comptes-bancaires', [CompteBancaireEnseignantController::class, 'store'])
-    ->whereNumber('enseignant')
-    ->middleware('permission:enseignants.comptes_bancaires.manage');
+    // Création, consultation, modification et suppression
+    Route::post('/', [LieuServiceController::class, 'store'])
+        ->middleware('permission:parametrage.lieux_service.manage');
+    Route::get('/{lieuService}', [LieuServiceController::class, 'show'])
+        ->whereNumber('lieuService')
+        ->middleware('permission:administration.users.read');
+    Route::put('/{lieuService}', [LieuServiceController::class, 'update'])
+        ->whereNumber('lieuService')
+        ->middleware('permission:parametrage.lieux_service.manage');
+    Route::delete('/{lieuService}', [LieuServiceController::class, 'destroy'])
+        ->whereNumber('lieuService')
+        ->middleware('permission:parametrage.lieux_service.manage');
+});
 
-/**
- * Routes for the Diplome resource.
- */
-Route::middleware(['auth:sanctum', 'role:admin,super_admin'])
-    ->apiResource('diplomes', DiplomeController::class);
-
-/**
- * Routes for the Corps resource.
- */
+/*
+|--------------------------------------------------------------------------
+| CORPS
+|--------------------------------------------------------------------------
+| Gestion du référentiel des corps et de leur état d'activation.
+*/
 Route::prefix('corps')->group(function () {
-
     Route::get('/', [CorpsController::class, 'index']);
-
     Route::post('/', [CorpsController::class, 'store']);
-
     Route::get('/{id}', [CorpsController::class, 'show']);
-
     Route::put('/{id}', [CorpsController::class, 'update']);
-
     Route::patch('/{id}', [CorpsController::class, 'update']);
-
     Route::delete('/{id}', [CorpsController::class, 'destroy']);
-
     Route::patch('/{id}/activate', [
         CorpsController::class,
         'activate',
@@ -98,9 +138,26 @@ Route::prefix('corps')->group(function () {
     ]);
 });
 
-
+/*
+|--------------------------------------------------------------------------
+| CATÉGORIES
+|--------------------------------------------------------------------------
+| Gestion du référentiel des catégories et de leur état d'activation.
+*/
 Route::apiResource('categories', CategorieController::class);
 
+Route::post('specialites', [SpecialiteController::class, 'store'])
+    ->middleware('permission:parametrage.specialites.manage');
+Route::get('specialites', [SpecialiteController::class, 'index'])
+    ->middleware('permission:parametrage.specialites.read');
+Route::put('specialites/{id}', [SpecialiteController::class, 'update'])
+    ->whereNumber('id')
+    ->middleware('permission:parametrage.specialites.manage');
+Route::patch('specialites/{id}/statut', [SpecialiteController::class, 'changeStatus'])
+    ->whereNumber('id')
+    ->middleware('permission:parametrage.specialites.manage');
+Route::get('specialites/actives', [SpecialiteController::class, 'actives'])
+    ->middleware('permission:parametrage.specialites.read');
 Route::patch(
     'categories/{id}/activate',
     [CategorieController::class, 'activate']
@@ -131,7 +188,6 @@ Route::patch(
     'annees-academiques/{id}/close',
     [AnneeAcademiqueController::class, 'close']
 );
-
 // Routes for the Syndicat resource.
 Route::prefix('syndicats')->group(function () {
     Route::get('/', [SyndicatController::class, 'index']);
@@ -148,34 +204,29 @@ Route::prefix('syndicats')->group(function () {
 
     Route::patch('/{id}/activate', [
         SyndicatController::class,
-        'activate',
+        'activate'
     ]);
-
-        Route::get('/', [IefController::class, 'index'])->middleware('permission:parametrage.ief.read');
-        Route::post('/', [IefController::class, 'store'])->middleware('permission:parametrage.ief.manage');
-        Route::get('/{id}', [IefController::class, 'show'])->middleware('permission:parametrage.ief.read');
-        Route::get('/{id}/iefs', [IefController::class, 'byIa'])->middleware('permission:parametrage.ief.read');
-        Route::put('/{id}', [IefController::class, 'update'])->middleware('permission:parametrage.ief.manage');
-        Route::patch('/{id}/statut', [IefController::class, 'changeStatus'])->middleware('permission:parametrage.ief.manage');
-        Route::patch('/{id}/ia', [IefController::class, 'rattacherIa'])->middleware('permission:parametrage.ief.manage');
-});    
- // ============================================================
-    // ROUTES  SPECIALITES 
-    // ============================================================
-     Route::prefix('specialites')->group(function () {
-
-        Route::get('/', [SpecialiteController::class, 'index'])->middleware('permission:parametrage.specialites.read');
-        Route::post('/', [SpecialiteController::class, 'store'])->middleware('permission:parametrage.specialites.manage');
-        Route::put('/{id}', [SpecialiteController::class, 'update'])->middleware('permission:parametrage.specialites.manage');
-        Route::patch('/{id}/statut', [SpecialiteController::class, 'changeStatus'])->middleware('permission:parametrage.specialites.manage');
-        Route::get('/actives', [SpecialiteController::class, 'actives'])->middleware('permission:parametrage.specialites.read');
-
-
-});
 
     Route::patch('/{id}/deactivate', [
         SyndicatController::class,
-        'deactivate',
+        'deactivate'
     ]);
 });
 
+Route::get('parametrage/institutions-financieres', [InstitutFinancierController::class, 'index'])
+    ->middleware('permission:parametrage.institutions_financieres.read');
+
+Route::post('parametrage/institutions-financieres', [InstitutFinancierController::class, 'store'])
+    ->middleware('permission:parametrage.institutions_financieres.manage');
+
+Route::put('parametrage/institutions-financieres/{institution}', [InstitutFinancierController::class, 'update'])
+    ->whereNumber('institution')
+    ->middleware('permission:parametrage.institutions_financieres.manage');
+
+Route::patch('parametrage/institutions-financieres/{institution}/statut', [InstitutFinancierController::class, 'updateStatut'])
+    ->whereNumber('institution')
+    ->middleware('permission:parametrage.institutions_financieres.manage');
+
+Route::post('enseignants/{enseignant}/comptes-bancaires', [CompteBancaireEnseignantController::class, 'store'])
+    ->whereNumber('enseignant')
+    ->middleware('permission:enseignants.comptes_bancaires.manage');
