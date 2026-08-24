@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Models\Indemnite;
+namespace App\Models\indemnite;
 
 use App\Helpers\Indemnites\HasOpaqueSlug;
 use Illuminate\Database\Eloquent\Model;
@@ -75,7 +75,7 @@ class Convocations extends Model
         )->withPivot('fonction', 'centre_id', 'centre_metier_id', 'provenance', 'categorie_personnel')->withTimestamps();
     }
 
-    
+
     public function centres(): HasMany
     {
         return $this->hasMany(ConvocationCentre::class, 'convocation_id');

@@ -9,10 +9,10 @@ use App\Http\Requests\Indemnites\UpdateIndemniteRequest;
 use App\Http\Requests\Indemnites\CalculerIndemniteRequest;
 use App\Http\Requests\Indemnites\ValiderCalculIndemniteRequest;
 use App\Http\Requests\Indemnites\AjouterFraisIndemniteRequest;
-use App\Models\Convocations;
-use App\Models\indemnites;
-use App\Models\Personnel\Enseignant;
-use App\Models\type_indemnites;
+use App\Models\indemnite\Convocations;
+use App\Models\indemnite\indemnites;
+use App\Models\Parametrage\Enseignant;
+use App\Models\indemnite\type_indemnites;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -99,7 +99,7 @@ class IndemnitesController extends Controller
         return $this->success('Indemnité supprimée avec succès.');
     }
 
-   
+
     public function calculer(CalculerIndemniteRequest $request)
     {
         $data = $request->validated();
@@ -174,7 +174,7 @@ class IndemnitesController extends Controller
         return $this->success('Calcul validé avec succès.', $indemnite);
     }
 
-   
+
     public function ajouterFrais(AjouterFraisIndemniteRequest $request, string $id)
     {
         $indemnite = indemnites::find($id);
@@ -212,7 +212,7 @@ class IndemnitesController extends Controller
         ]);
     }
 
-   
+
     private function resoudreTypeIndemnite(array $data): array
     {
         if (! empty($data['type_indemnite_id'])) {

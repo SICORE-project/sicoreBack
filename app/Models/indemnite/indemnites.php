@@ -1,7 +1,8 @@
 <?php
 
-namespace App\Models;
+namespace App\Models\indemnite;
 
+use App\Models\indemnite\Etat_paie_indemnites;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -12,7 +13,7 @@ class Indemnites extends Model
         'nombre_copies', 'ordre_de_mission', 'lieu_affectation', 'indice',
         'nombre_heures', 'nombre_kilometrages', 'utilisateur_id', 'type_indemnite_id',
         'bareme_id', 'valide_par', 'valide_at', 'commentaire_validation',
-        'etat_paie_indemnite_id', 
+        'etat_paie_indemnite_id',
     ];
 
     protected $casts = [
@@ -23,7 +24,7 @@ class Indemnites extends Model
         'valide_at' => 'datetime',
     ];
 
-   
+
     public function etatPaie(): BelongsTo
     {
         return $this->belongsTo(\App\Models\Indemnite\Etat_paie_indemnites::class, 'etat_paie_indemnite_id');
