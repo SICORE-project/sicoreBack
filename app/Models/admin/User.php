@@ -12,7 +12,6 @@ use App\Models\Parametrage\LieuService;
 use App\Models\Parametrage\Ief;
 use App\Models\Parametrage\Ia;
 use App\Models\Personnel\Enseignant;
-use App\Models\Administration\StructureOrganisationnelle;
 
 class User extends Authenticatable
 {
@@ -132,12 +131,6 @@ public function role()
 {
     return $this->belongsTo(Role::class);
 }
-
-public function structureOrganisationnelle()
-{
-    return $this->belongsTo(StructureOrganisationnelle::class, 'lieu_service_id');
-}
-
 
 public function hasRoleId($roleId)
 {

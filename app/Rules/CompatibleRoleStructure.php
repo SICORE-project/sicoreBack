@@ -3,7 +3,7 @@
 namespace App\Rules;
 
 use App\Models\Admin\Role;
-use App\Models\Administration\StructureOrganisationnelle;
+use App\Models\Parametrage\LieuService;
 use Closure;
 use Illuminate\Contracts\Validation\ValidationRule;
 
@@ -34,14 +34,16 @@ class CompatibleRoleStructure implements ValidationRule
         }
 
         $role = Role::query()->with('typeRole')->find($roleId);
-        $structure = StructureOrganisationnelle::query()->find($structureId);
+        $structure = LieuService::query()->find($structureId);
 
         if (! $role || ! $structure) {
             return;
         }
 
         $typeRoleCode = $role->typeRole?->code;
-        $allowedTypes = config("role_structure.allowed_structure_types.{$typeRoleCode}");
+        $allowedTypes = config("role_structure.role_slugs.{$role->slug}")
+            ?? config("role_structure.allowed_structure_types.{$typeRoleCode}");
+        $allowedTypes ??= ['DRH', 'DAGE', 'DECPC'];
 
         if ($allowedTypes !== null && ! in_array(strtoupper($structure->type), $allowedTypes, true)) {
             $fail("Le rôle {$typeRoleCode} n'est pas autorisé pour une structure de type {$structure->type}.");

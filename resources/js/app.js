@@ -54,14 +54,14 @@ if (root) {
     const updateStructureRequirement = (preferredStructureId = null) => {
         const role = selectedRole();
         const required = roleIsBusiness();
-        const previousValue = preferredStructureId ?? elements.form.structure_organisationnelle_id.value;
+        const previousValue = preferredStructureId ?? elements.form.lieu_service_id.value;
         const availableStructures = allowedStructures(role);
 
         elements.structure.classList.toggle('hidden', !required);
-        elements.form.structure_organisationnelle_id.required = Boolean(required);
-        elements.form.structure_organisationnelle_id.innerHTML = '<option value="">Sélectionner une structure</option>'
+        elements.form.lieu_service_id.required = Boolean(required);
+        elements.form.lieu_service_id.innerHTML = '<option value="">Sélectionner une structure</option>'
             + availableStructures.map(structure => `<option value="${structure.id}">${escape(structure.type)} — ${escape(structure.libelle)}</option>`).join('');
-        elements.form.structure_organisationnelle_id.value = required
+        elements.form.lieu_service_id.value = required
             && availableStructures.some(structure => String(structure.id) === String(previousValue))
             ? String(previousValue)
             : '';
@@ -72,7 +72,7 @@ if (root) {
     const render = () => {
         elements.empty.classList.toggle('hidden', users.length > 0);
         elements.rows.innerHTML = users.map(user => {
-            const structure = user.structure_organisationnelle;
+            const structure = user.lieu_service;
             return `<tr class="text-sm">
                 <td class="px-5 py-4"><div class="font-semibold">${escape(user.prenom)} ${escape(user.nom)}</div><div class="text-slate-500">${escape(user.email)}</div></td>
                 <td class="px-5 py-4">${escape(user.role?.nom || '—')}</td>
@@ -105,12 +105,12 @@ if (root) {
         elements.form.email.value = user?.email || '';
         elements.form.role_id.value = user?.role?.id || '';
         elements.form.statut.value = user?.statut || 'actif';
-        elements.form.perimetre.value = user?.structure_organisationnelle ? normalizePerimetre(user.structure_organisationnelle.perimetre || user.structure_organisationnelle.type) : 'national';
-        elements.form.structure_organisationnelle_id.value = user?.structure_organisationnelle?.id || '';
+        elements.form.perimetre.value = user?.lieu_service ? normalizePerimetre(user.lieu_service.perimetre || user.lieu_service.type) : 'national';
+        elements.form.lieu_service_id.value = user?.lieu_service?.id || '';
         elements.title.textContent = user ? 'Modifier l’utilisateur' : 'Nouvel utilisateur';
         elements.password.classList.toggle('hidden', Boolean(user));
         elements.form.password.required = !user;
-        updateStructureRequirement(user?.structure_organisationnelle?.id);
+        updateStructureRequirement(user?.lieu_service?.id);
         elements.dialog.showModal();
     };
     const load = async (reloadReferences = true) => {
@@ -125,7 +125,7 @@ if (root) {
             const [userResponse, roleResponse, structureResponse] = await Promise.all([
                 api.get('/users', { params }),
                 reloadReferences ? api.get('/roles/all') : Promise.resolve({ data: { data: roles } }),
-                reloadReferences ? api.get('/structures-organisationnelles') : Promise.resolve({ data: { data: structures } }),
+                reloadReferences ? api.get('/lieux-service') : Promise.resolve({ data: { data: structures } }),
             ]);
             users = userResponse.data.data;
             roles = roleResponse.data.data;
@@ -155,7 +155,7 @@ if (root) {
         const id = data.id;
         delete data.id;
         if (!data.password) delete data.password;
-        if (!roleIsBusiness()) data.structure_organisationnelle_id = null;
+        if (!roleIsBusiness()) data.lieu_service_id = null;
         elements.submit.disabled = true;
         elements.submit.textContent = 'Enregistrement…';
         try {

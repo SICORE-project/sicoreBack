@@ -44,11 +44,11 @@ class UserResource extends JsonResource
                 'slug' => $this->role?->slug,
             ],
 
-            'structure_organisationnelle' => $this->structureOrganisationnelle ? [
-                'id' => $this->structureOrganisationnelle->id,
-                'code' => $this->structureOrganisationnelle->code,
-                'type' => $this->structureOrganisationnelle->type,
-                'libelle' => $this->structureOrganisationnelle->libelle,
+            'lieu_service' => $this->lieuService ? [
+                'id' => $this->lieuService->id,
+                'code' => $this->lieuService->code,
+                'type' => $this->lieuService->type,
+                'libelle' => $this->lieuService->libelle,
             ] : null,
 
             'created_at' => $this->created_at?->format('d/m/Y H:i'),
