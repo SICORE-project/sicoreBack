@@ -114,12 +114,6 @@ jobs:
       DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
 
     steps:
-      # Option de récupération complète incluant tout l'historique Git (requis par le binaire drone-ssh sous-jacent)
-      - name: Recuperer le code complet
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
       - name: Deployer sur le VPS via SSH
         if: env.VPS_IP != '' && env.VPS_USERNAME != '' && env.VPS_KEY != '' && env.DEPLOY_PATH != ''
         uses: appleboy/ssh-action@v1.2.0
@@ -129,8 +123,8 @@ jobs:
           key: ${{ secrets.VPS_KEY }}
           port: ${{ secrets.VPS_PORT || 22 }}
           script_stop: true
-          # Force l'action à utiliser le dossier de travail contenant le .git cloné juste au-dessus
-          envs: GITHUB_WORKSPACE
+          # Empeche drone-ssh de chercher un dossier .git sur le runner éphémère
+          envs: GITHUB_SHA
           script: |
             cd "${{ secrets.DEPLOY_PATH }}"
             git pull --ff-only origin deploy
