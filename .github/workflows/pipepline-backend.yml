@@ -107,19 +107,19 @@ jobs:
       - ci
       - docker
     if: github.event_name == 'push' && github.ref == 'refs/heads/deploy'
+    # Les secrets sont mappés ici dans l'environnement pour pouvoir être testés dans le IF des étapes
     env:
-      # Correction ici : Utilisation de la fonction native "secret != ''" sans mélanger les opérateurs complexes
-      DEPLOY_ENABLED: ${{ secrets.VPS_IP != '' && secrets.VPS_USERNAME != '' && secrets.VPS_KEY != '' && secrets.DEPLOY_PATH != '' }}
+      VPS_IP: ${{ secrets.VPS_IP }}
+      VPS_USERNAME: ${{ secrets.VPS_USERNAME }}
+      VPS_KEY: ${{ secrets.VPS_KEY }}
+      DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
 
     steps:
-      - name: Ignorer le deploy si les secrets manquent
-        if: env.DEPLOY_ENABLED != 'true'
-        run: |
-          echo "Deploy ignore. Configurer VPS_IP, VPS_USERNAME, VPS_KEY et DEPLOY_PATH pour activer le CD."
-          exit 1
+      - name: Recuperer le code
+        uses: actions/checkout@v4
 
       - name: Deployer sur le VPS via SSH
-        if: env.DEPLOY_ENABLED == 'true'
+        if: env.VPS_IP != '' && env.VPS_USERNAME != '' && env.VPS_KEY != '' && env.DEPLOY_PATH != ''
         uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.VPS_IP }}
