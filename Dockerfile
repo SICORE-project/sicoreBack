@@ -13,14 +13,14 @@ RUN apk add --no-cache git unzip libzip-dev oniguruma-dev icu-dev \
 # Copie des fichiers de configuration de paquets (inclure le .lock si existant)
 COPY composer.json composer.lock* ./
 
-# Installation des dépendances (sans les scripts pour le moment)
-RUN composer install --no-dev --no-interaction --prefer-dist --no-progress --optimize-autoloader --no-scripts
+# Installation en ignorant les prérequis de plateforme (extensions PHP manquantes au build)
+RUN composer install --no-dev --no-interaction --prefer-dist --no-progress --optimize-autoloader --no-scripts --ignore-platform-reqs
 
 # Copie du reste du code de l'application
 COPY . .
 
 # Génération finale de l'autoloader optimisé
-RUN composer dump-autoload --optimize
+RUN composer dump-autoload --optimize --ignore-platform-reqs
 
 # Étape 2 : Image finale de production
 FROM php:8.2-fpm-alpine
@@ -38,7 +38,6 @@ COPY docker/nginx.conf /etc/nginx/http.d/default.conf
 COPY docker/supervisord.conf /etc/supervisord.conf
 
 # Laravel doit pouvoir ecrire dans storage et bootstrap/cache.
-# Création des dossiers s'ils n'existent pas pour éviter les erreurs de permissions
 RUN mkdir -p storage bootstrap/cache \
     && chown -R www-data:www-data storage bootstrap/cache
 
