@@ -3,10 +3,12 @@ name: CI/CD Backend
 on:
   push:
     branches:
-      - deploy
+      - main
+      - develop
   pull_request:
     branches:
-      - deploy
+      - main
+      - develop
 
 permissions:
   contents: read
@@ -60,6 +62,8 @@ jobs:
 
       - name: Installer les dependances PHP
         run: |
+          # composer.lock n'est pas encore present dans ce depot.
+          # Quand il sera versionne, composer install sera utilise automatiquement.
           if [ -f composer.lock ]; then
             composer install --no-interaction --prefer-dist --no-progress
           else
@@ -68,6 +72,7 @@ jobs:
 
       - name: Installer les dependances Node
         run: |
+          # npm install est utilise car package-lock.json n'est pas present.
           npm install
 
       - name: Compiler les assets
@@ -77,15 +82,10 @@ jobs:
         run: |
           cp .env.example .env
           php artisan key:generate --ansi
+          mkdir -p database
+          touch database/database.sqlite
 
       - name: Lancer les tests
-        env:
-          DB_CONNECTION: mysql
-          DB_HOST: 127.0.0.1
-          DB_PORT: 3306
-          DB_DATABASE: sicore_test
-          DB_USERNAME: sicore_user
-          DB_PASSWORD: sicore_password
         run: composer test
 
   docker:
@@ -106,20 +106,17 @@ jobs:
     needs:
       - ci
       - docker
-    if: github.event_name == 'push' && github.ref == 'refs/heads/deploy'
-    # Les secrets sont mappés ici dans l'environnement pour pouvoir être testés dans le IF des étapes
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     env:
-      VPS_IP: ${{ secrets.VPS_IP }}
-      VPS_USERNAME: ${{ secrets.VPS_USERNAME }}
-      VPS_KEY: ${{ secrets.VPS_KEY }}
-      DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+      DEPLOY_ENABLED: ${{ secrets.VPS_IP != '' && secrets.VPS_USERNAME != '' && secrets.VPS_KEY != '' && secrets.DEPLOY_PATH != '' }}
 
     steps:
-      - name: Recuperer le code
-        uses: actions/checkout@v4
+      - name: Ignorer le deploy si les secrets manquent
+        if: env.DEPLOY_ENABLED != 'true'
+        run: echo "Deploy ignore. Configurer VPS_IP, VPS_USERNAME, VPS_KEY et DEPLOY_PATH pour activer le CD."
 
       - name: Deployer sur le VPS via SSH
-        if: env.VPS_IP != '' && env.VPS_USERNAME != '' && env.VPS_KEY != '' && env.DEPLOY_PATH != ''
+        if: env.DEPLOY_ENABLED == 'true'
         uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.VPS_IP }}
@@ -129,7 +126,7 @@ jobs:
           script_stop: true
           script: |
             cd "${{ secrets.DEPLOY_PATH }}"
-            git pull --ff-only origin deploy
+            git pull --ff-only origin main
             composer install --no-dev --no-interaction --prefer-dist --optimize-autoloader
             npm install
             npm run build
