@@ -3,7 +3,6 @@
 use App\Http\Controllers\Api\Parametrage\CategorieController;
 use App\Http\Controllers\Api\Parametrage\AffectationLieuServiceController;
 use App\Http\Controllers\Api\Parametrage\AnneeAcademiqueController;
-use App\Http\Controllers\Api\Parametrage\CategorieController;
 use App\Http\Controllers\Api\Parametrage\CompteBancaireEnseignantController;
 use App\Http\Controllers\Api\Parametrage\CorpsController;
 use App\Http\Controllers\Api\Parametrage\DiplomeController;
