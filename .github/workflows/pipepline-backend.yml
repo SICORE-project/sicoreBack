@@ -12,10 +12,6 @@ permissions:
   contents: read
 
 jobs:
-
-  # ==========================================================
-  # 1. TESTS LARAVEL
-  # ==========================================================
   ci:
     name: Tests Laravel API
     runs-on: ubuntu-latest
@@ -60,8 +56,7 @@ jobs:
         with:
           path: ~/.composer/cache/files
           key: composer-${{ runner.os }}-${{ hashFiles('composer.lock', 'composer.json') }}
-          restore-keys: |
-            composer-${{ runner.os }}-
+          restore-keys: composer-${{ runner.os }}-
 
       - name: Installer les dependances PHP
         run: |
@@ -72,7 +67,8 @@ jobs:
           fi
 
       - name: Installer les dependances Node
-        run: npm install
+        run: |
+          npm install
 
       - name: Compiler les assets
         run: npm run build
@@ -92,43 +88,18 @@ jobs:
           DB_PASSWORD: sicore_password
         run: composer test
 
-  # ==========================================================
-  # 2. BUILD + PUSH IMAGE DOCKER (SUR DOCKER HUB)
-  # ==========================================================
   docker:
-    name: Build and Push Docker Image
+    name: Build image Docker
     runs-on: ubuntu-latest
     needs: ci
-    if: github.event_name == 'push' && github.ref == 'refs/heads/deploy'
 
     steps:
       - name: Recuperer le code
         uses: actions/checkout@v4
 
-      - name: Verifier Dockerfile
-        run: |
-          echo "Vérification Dockerfile :"
-          test -f ./Dockerfile
+      - name: Construire l'image backend
+        run: docker build -t sicore-backend:ci .
 
-      - name: Connexion à Docker Hub
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-
-      - name: Construire et pousser l'image backend
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: ./Dockerfile
-          push: true
-          tags: |
-            olalesam/sicore-backend:latest
-            olalesam/sicore-backend:${{ github.sha }}
-
-  # ==========================================================
-  # 3. DEPLOY VPS
-  # ==========================================================
   deploy:
     name: Deploy VPS
     runs-on: ubuntu-latest
@@ -136,52 +107,31 @@ jobs:
       - ci
       - docker
     if: github.event_name == 'push' && github.ref == 'refs/heads/deploy'
+    env:
+      VPS_IP: ${{ secrets.VPS_IP }}
+      VPS_USERNAME: ${{ secrets.VPS_USERNAME }}
+      VPS_KEY: ${{ secrets.VPS_KEY }}
+      DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
 
     steps:
-      - name: Deployer sur le VPS
+      # Plus besoin de actions/checkout ici, ce qui évite le conflit Node 24 / Git
+      - name: Deployer sur le VPS via SSH
+        if: env.VPS_IP != '' && env.VPS_USERNAME != '' && env.VPS_KEY != '' && env.DEPLOY_PATH != ''
         uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.VPS_IP }}
           username: ${{ secrets.VPS_USERNAME }}
           key: ${{ secrets.VPS_KEY }}
-          port: 22
-          timeout: 30s
-          command_timeout: 10m
+          port: ${{ secrets.VPS_PORT || 22 }}
           script_stop: true
+          debug: true # Force l'action à contourner la recherche automatique des métadonnées Git locales
           script: |
-            echo "======================================"
-            echo "Déploiement SICORE Backend via Docker Hub"
-            echo "======================================"
-
             cd "${{ secrets.DEPLOY_PATH }}"
-
-            # 1. Gestion automatique de l'arborescence Git locale sur le VPS
-            if [ ! -d ".git" ]; then
-              git init
-              git remote add origin https://github.com{{ github.repository }}.git
-            fi
-
-            git fetch origin deploy
-            git reset --hard origin/deploy
-
-            # 2. Connexion sécurisée à Docker Hub depuis le VPS
-            echo "Connexion à Docker Hub..."
-            echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
-
-            # 3. Télécharger la nouvelle image
-            echo "Téléchargement de la nouvelle image..."
-            docker compose -f docker-compose-backend.yml pull
-
-            # 4. Relancer les conteneurs (sans compiler localement)
-            echo "Démarrage des conteneurs..."
-            docker compose -f docker-compose-backend.yml up -d --no-build
-
-            # 5. Nettoyage de l'espace disque
-            docker image prune -f
-
-            # 6. Rafraîchissement des migrations et exécution des seeders Laravel
-            echo "Réinitialisation de la base de données (Refresh Migrations)..."
-            docker compose -f docker-compose-backend.yml exec -T backend php artisan migrate:refresh --force
-
-            echo "Exécution des Seeders..."
-            docker compose -f docker-compose-backend.yml exec -T backend php artisan db:seed --force
+            git pull --ff-only origin deploy
+            composer install --no-dev --no-interaction --prefer-dist --optimize-autoloader
+            npm install
+            npm run build
+            php artisan migrate --force
+            php artisan config:cache
+            php artisan route:cache
+            php artisan view:cache
