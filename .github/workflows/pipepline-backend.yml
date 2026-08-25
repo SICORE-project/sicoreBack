@@ -107,7 +107,6 @@ jobs:
       - ci
       - docker
     if: github.event_name == 'push' && github.ref == 'refs/heads/deploy'
-    # Les secrets sont mappés ici dans l'environnement pour pouvoir être testés dans le IF des étapes
     env:
       VPS_IP: ${{ secrets.VPS_IP }}
       VPS_USERNAME: ${{ secrets.VPS_USERNAME }}
@@ -115,8 +114,11 @@ jobs:
       DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
 
     steps:
-      - name: Recuperer le code
+      # Option de récupération complète incluant tout l'historique Git (requis par le binaire drone-ssh sous-jacent)
+      - name: Recuperer le code complet
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Deployer sur le VPS via SSH
         if: env.VPS_IP != '' && env.VPS_USERNAME != '' && env.VPS_KEY != '' && env.DEPLOY_PATH != ''
@@ -127,6 +129,8 @@ jobs:
           key: ${{ secrets.VPS_KEY }}
           port: ${{ secrets.VPS_PORT || 22 }}
           script_stop: true
+          # Force l'action à utiliser le dossier de travail contenant le .git cloné juste au-dessus
+          envs: GITHUB_WORKSPACE
           script: |
             cd "${{ secrets.DEPLOY_PATH }}"
             git pull --ff-only origin deploy
