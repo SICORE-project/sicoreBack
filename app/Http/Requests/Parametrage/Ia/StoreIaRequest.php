@@ -64,6 +64,10 @@ class StoreIaRequest extends FormRequest
         $data['code'] = strtoupper(trim($this->code));
     }
 
+    if ($this->filled('libelle')) {
+        $data['libelle'] = trim((string) $this->input('libelle'));
+    }
+
     $this->merge($data);
 }
 }

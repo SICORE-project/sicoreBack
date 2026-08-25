@@ -8,8 +8,6 @@ use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Hash;
 use App\Models\Parametrage\Ia;
 use App\Models\Parametrage\Ief;
-use Illuminate\Contracts\Pagination\LengthAwarePaginator;
-use Illuminate\Support\Facades\Hash;
 
 class UserService
 {

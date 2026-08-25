@@ -28,22 +28,13 @@ class IefService
             $query->where('ia_id', $filters['ia_id']);
         }
 
-        if (isset($filters['est_actif']) && $filters['est_actif'] !== '') {
-            $query->where(
-                'est_actif',
-                filter_var(
-                    $filters['est_actif'],
-                    FILTER_VALIDATE_BOOLEAN
-                )
-            );
-        }
-
         $allowedSorts = [
             'code',
             'libelle',
+            'created_at',
         ];
 
-        $sortBy = $filters['sort_by'] ?? 'libelle';
+        $sortBy = $filters['sort_by'] ?? 'created_at';
 
         if (!in_array($sortBy, $allowedSorts, true)) {
             $sortBy = 'libelle';
@@ -57,7 +48,7 @@ class IefService
             $sortDirection = 'asc';
         }
 
-        $query->orderBy($sortBy, $sortDirection);
+        $query->orderBy($sortBy, $sortDirection)->orderByDesc('id');
 
         $perPage = (int) ($filters['per_page'] ?? 15);
 
@@ -87,14 +78,6 @@ class IefService
     {
         $ia = Ia::findOrFail($data['ia_id']);
 
-        if (!$ia->est_actif) {
-            throw new \DomainException(
-                'Impossible de créer une IEF rattachée à une IA inactive.'
-            );
-        }
-
-        $data['est_actif'] = true;
-
         $ief = Ief::create($data);
 
         return $ief->fresh(['ia']);
@@ -112,16 +95,6 @@ class IefService
             $q->where('code', 'like', '%' . $search . '%')
                 ->orWhere('libelle', 'like', '%' . $search . '%');
         });
-    }
-
-    if (isset($filters['est_actif']) && $filters['est_actif'] !== '') {
-        $query->where(
-            'est_actif',
-            filter_var(
-                $filters['est_actif'],
-                FILTER_VALIDATE_BOOLEAN
-            )
-        );
     }
 
     $allowedSorts = [
@@ -168,13 +141,6 @@ public function update(int $id, array $data): Ief
 
     // Vérifier que l'IA sélectionnée existe
     $ia = Ia::findOrFail($data['ia_id']);
-
-    // Vérifier que l'IA sélectionnée est active
-    if (!$ia->est_actif) {
-        throw new \DomainException(
-            'Impossible de rattacher une IEF à une IA inactive.'
-        );
-    }
 
     /*
     | Vérifier s'il y a un changement d'IA
@@ -229,6 +195,11 @@ public function update(int $id, array $data): Ief
     return $ief->fresh(['ia']);
 }
 
+public function delete(int $id): void
+{
+    $this->findById($id)->delete();
+}
+
 public function changeStatus(int $id, bool $newStatus): Ief
 {
     // Vérifier l'existence de l'IEF
@@ -275,12 +246,6 @@ public function rattacherIa(int $iefId, int $nouvelleIaId): array
     if (!$nouvelleIa) {
         throw (new ModelNotFoundException())
             ->setModel(Ia::class, [$nouvelleIaId]);
-    }
-
-    if (!$nouvelleIa->est_actif) {
-        throw new \DomainException(
-            'Impossible de transférer cette IEF vers une IA inactive.'
-        );
     }
 
     if ((int) $ief->ia_id === (int) $nouvelleIaId) {

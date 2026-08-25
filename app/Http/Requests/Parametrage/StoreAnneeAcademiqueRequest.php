@@ -11,6 +11,14 @@ class StoreAnneeAcademiqueRequest extends FormRequest
         return true;
     }
 
+    protected function prepareForValidation(): void
+    {
+        $this->merge([
+            'libelle' => is_string($this->libelle) ? trim($this->libelle) : $this->libelle,
+            'observations' => is_string($this->observations) ? trim($this->observations) : $this->observations,
+        ]);
+    }
+
     public function rules(): array
     {
         return [
@@ -35,6 +43,7 @@ class StoreAnneeAcademiqueRequest extends FormRequest
             'observations' => [
                 'nullable',
                 'string',
+                'max:1000',
             ],
         ];
     }

@@ -57,4 +57,15 @@ class UpdateIaRequest extends FormRequest
 
         ];
     }
+
+    protected function prepareForValidation(): void
+    {
+        if ($this->filled('code')) {
+            $this->merge(['code' => strtoupper(trim((string) $this->input('code')))]);
+        }
+
+        if ($this->filled('libelle')) {
+            $this->merge(['libelle' => trim((string) $this->input('libelle'))]);
+        }
+    }
 }

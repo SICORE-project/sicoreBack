@@ -24,6 +24,7 @@ class InstitutFinancier extends Model
         'code_banque',
         'code_guichet',
         'iban_exemple',
+        'est_actif',
     ];
 
     public function scopeActif($query)

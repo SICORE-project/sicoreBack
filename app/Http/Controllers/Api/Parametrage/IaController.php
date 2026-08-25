@@ -129,18 +129,11 @@ class IaController extends Controller
 
     /**
      * Suppression logique d'une IA.
-     * Seul le Super Admin peut supprimer.
+     * L'autorisation est centralisée dans le middleware de la route.
      */
     public function destroy(int $id)
     {
         $user = request()->user();
-
-        if (!$user || !$user->hasRole('super_admin')) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Vous n’êtes pas autorisé à supprimer une IA.',
-            ], 403);
-        }
 
         // Récupérer les données avant suppression
         $ia = $this->iaService->findById($id);

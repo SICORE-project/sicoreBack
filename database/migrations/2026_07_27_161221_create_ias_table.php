@@ -13,13 +13,8 @@ return new class extends Migration
             $table->string('code', 20)->unique();
             $table->string('libelle', 100);
             $table->string('region_id', 50)->nullable();
-            $table->string('departement_id', 50)->nullable();
-            $table->string('adresse', 255)->nullable();
-            $table->string('telephone', 20)->nullable();
-            $table->string('email', 100)->nullable();
-            $table->string('responsable', 100)->nullable();
-            $table->boolean('est_actif')->default(true);
             $table->timestamps();
+            $table->softDeletes();
         });
     }
 

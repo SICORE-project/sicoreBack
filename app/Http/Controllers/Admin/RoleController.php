@@ -5,20 +5,22 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Admin\Role;
 use App\Models\Admin\Permission;
+use App\Models\Admin\TypeRole;
 use Illuminate\Http\Request;
 
 class RoleController extends Controller
 {
     public function index()
     {
-        $roles = Role::withCount('users')->get();
+        $roles = Role::with('typeRole')->withCount('users')->get();
         return view('admin.roles.index', compact('roles'));
     }
 
     public function create()
     {
         $permissions = Permission::all()->groupBy('module');
-        return view('admin.roles.create', compact('permissions'));
+        $typeRoles = TypeRole::where('est_actif', true)->orderBy('libelle')->get();
+        return view('admin.roles.create', compact('permissions', 'typeRoles'));
     }
 
     public function store(Request $request)
@@ -27,11 +29,11 @@ class RoleController extends Controller
             'nom' => 'required|string|max:50|unique:roles',
             'slug' => 'required|string|max:50|unique:roles',
             'description' => 'nullable|string',
-            'niveau' => 'required|in:systeme,admin,gestion,consultation',
+            'type_role_id' => 'required|exists:type_roles,id',
             'permissions' => 'array',
         ]);
 
-        $role = Role::create($request->only(['nom', 'slug', 'description', 'niveau']));
+        $role = Role::create($request->only(['nom', 'slug', 'description', 'type_role_id']));
 
         if ($request->has('permissions')) {
             $role->permissions()->attach($request->permissions);
@@ -44,7 +46,8 @@ class RoleController extends Controller
     {
         $permissions = Permission::all()->groupBy('module');
         $rolePermissions = $role->permissions->pluck('id')->toArray();
-        return view('admin.roles.edit', compact('role', 'permissions', 'rolePermissions'));
+        $typeRoles = TypeRole::where('est_actif', true)->orderBy('libelle')->get();
+        return view('admin.roles.edit', compact('role', 'permissions', 'rolePermissions', 'typeRoles'));
     }
 
     public function update(Request $request, Role $role)
@@ -53,11 +56,11 @@ class RoleController extends Controller
             'nom' => 'required|string|max:50|unique:roles,nom,' . $role->id,
             'slug' => 'required|string|max:50|unique:roles,slug,' . $role->id,
             'description' => 'nullable|string',
-            'niveau' => 'required|in:systeme,admin,gestion,consultation',
+            'type_role_id' => 'required|exists:type_roles,id',
             'permissions' => 'array',
         ]);
 
-        $role->update($request->only(['nom', 'slug', 'description', 'niveau']));
+        $role->update($request->only(['nom', 'slug', 'description', 'type_role_id']));
 
         if ($request->has('permissions')) {
             $role->permissions()->sync($request->permissions);

@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Models\Parametrage;
+namespace App\Models\Paie;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -28,4 +28,9 @@ class AnneeAcademique extends Model
         'est_active' => 'boolean',
         'est_cloturee' => 'boolean',
     ];
+
+    public function periodesPaie()
+    {
+        return $this->hasMany(PeriodePaie::class, 'annee_academique_id');
+    }
 }

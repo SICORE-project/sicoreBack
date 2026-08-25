@@ -2,9 +2,9 @@
 
 namespace App\Models\Paie;
 
+use App\Models\Parametrage\CorpsEnseignant;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use App\Models\Parametrage\CorpsEnseignant;
 
 class RubriquePaie extends Model
 {
@@ -16,7 +16,6 @@ class RubriquePaie extends Model
         'code',
         'libelle',
         'type',
-        'sens',
         'periodicite',
         'est_cotisable',
         'est_imposable',
@@ -40,9 +39,14 @@ class RubriquePaie extends Model
     // === RELATIONS ===
     public function corps()
     {
-        return $this->belongsToMany(CorpsEnseignant::class, 'rubrique_par_corps')
-                    ->withPivot('taux_personnalise', 'montant_personnalise', 'est_applicable', 'formule_personnalisee', 'est_actif')
-                    ->withTimestamps();
+        return $this->belongsToMany(
+            CorpsEnseignant::class,
+            'rubrique_par_corps',
+            'rubrique_paie_id',
+            'corps_id',
+        )
+            ->withPivot('taux_personnalise', 'montant_personnalise', 'est_applicable', 'formule_personnalisee', 'est_actif')
+            ->withTimestamps();
     }
 
     // === SCOPES ===
@@ -56,40 +60,10 @@ class RubriquePaie extends Model
         return $query->where('type', $type);
     }
 
-    public function scopeCrediteur($query)
-    {
-        return $query->where('sens', 'crediteur');
-    }
-
-    public function scopeDebiteur($query)
-    {
-        return $query->where('sens', 'debiteur');
-    }
-
-    // === ACCESSORS ===
     public function getTypeLibelleAttribute()
     {
-        $types = [
-            'salaire_base' => 'Salaire de base',
-            'indemnite_logement' => 'Indemnité de logement',
-            'indemnite_transport' => 'Indemnité de transport',
-            'indemnite_sujetion' => 'Indemnité de sujétion',
-            'prime_rendement' => 'Prime de rendement',
-            'prime_anciennete' => "Prime d'ancienneté",
-            'prime_expatriation' => "Prime d'expatriation",
-            'avantage_en_nature' => 'Avantage en nature',
-            'retenue_cnss' => 'Retenue CNSS',
-            'retenue_impot' => "Retenue d'impôt",
-            'retenue_syndicale' => 'Retenue syndicale',
-            'cotisation_pension' => 'Cotisation pension',
-            'cotisation_assurance' => 'Cotisation assurance',
-            'autre' => 'Autre',
-        ];
-        return $types[$this->type] ?? $this->type;
-    }
+        $types = ['gain' => 'Gain', 'retenue' => 'Retenue'];
 
-    public function getSensLibelleAttribute()
-    {
-        return $this->sens === 'crediteur' ? 'Créditeur' : 'Débiteur';
+        return $types[$this->type] ?? $this->type;
     }
 }

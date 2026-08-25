@@ -29,7 +29,6 @@ class IefController extends Controller
             request()->only([
                 'search',
                 'ia_id',
-                'est_actif',
                 'sort_by',
                 'sort_direction',
                 'per_page',
@@ -140,7 +139,6 @@ public function byIa(int $id)
         $ia->id,
         request()->only([
             'search',
-            'est_actif',
             'sort_by',
             'sort_direction',
             'per_page',
@@ -190,7 +188,6 @@ public function update(UpdateIefRequest $request, int $id)
             'telephone',
             'email',
             'responsable',
-            'est_actif',
         ]);
 
         // Modification
@@ -207,7 +204,6 @@ public function update(UpdateIefRequest $request, int $id)
             'telephone',
             'email',
             'responsable',
-            'est_actif',
         ]);
 
     } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
@@ -383,6 +379,29 @@ public function rattacherIa(RattacherIefIaRequest $request, int $id)
                 'libelle' => $nouvelleIa->libelle,
             ],
         ],
+    ]);
+}
+
+public function destroy(int $id)
+{
+    $user = request()->user();
+    $ief = $this->iefService->findById($id);
+
+    $this->iefService->delete($id);
+
+    Log::warning('Suppression IEF', [
+        'action' => 'DELETE_IEF',
+        'user_id' => $user->id,
+        'ief_id' => $ief->id,
+        'code' => $ief->code,
+        'libelle' => $ief->libelle,
+        'ia_id' => $ief->ia_id,
+        'ip' => request()->ip(),
+    ]);
+
+    return response()->json([
+        'success' => true,
+        'message' => 'IEF supprimée avec succès.',
     ]);
 }
 }

@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Parametrage\StoreCategorieRequest;
 use App\Http\Requests\Parametrage\UpdateCategorieRequest;
 use App\Services\Parametrage\CategorieService;
+use Illuminate\Http\Request;
 
 class CategorieController extends Controller
 {
@@ -14,11 +15,11 @@ class CategorieController extends Controller
     ) {
     }
 
-    public function index()
+    public function index(Request $request)
     {
         return response()->json([
             'message' => 'Liste des catégories récupérée avec succès.',
-            'data' => $this->categorieService->getAll(),
+            'data' => $this->categorieService->getAll($request->only(['search', 'corps_id', 'per_page'])),
         ]);
     }
 
@@ -90,39 +91,4 @@ class CategorieController extends Controller
         ]);
     }
 
-    public function activate($id)
-    {
-        $categorie = $this->categorieService->findById($id);
-
-        if (!$categorie) {
-            return response()->json([
-                'message' => 'Catégorie introuvable.',
-            ], 404);
-        }
-
-        $categorie = $this->categorieService->activate($categorie);
-
-        return response()->json([
-            'message' => 'Catégorie activée avec succès.',
-            'data' => $categorie,
-        ]);
-    }
-
-    public function deactivate($id)
-    {
-        $categorie = $this->categorieService->findById($id);
-
-        if (!$categorie) {
-            return response()->json([
-                'message' => 'Catégorie introuvable.',
-            ], 404);
-        }
-
-        $categorie = $this->categorieService->deactivate($categorie);
-
-        return response()->json([
-            'message' => 'Catégorie désactivée avec succès.',
-            'data' => $categorie,
-        ]);
-    }
 }

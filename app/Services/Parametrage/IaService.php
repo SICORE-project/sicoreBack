@@ -28,14 +28,6 @@ class IaService
             $query->where('region_id', $filters['region_id']);
         }
 
-        // Filtre actif / inactif
-        if (isset($filters['est_actif']) && $filters['est_actif'] !== '') {
-            $query->where(
-                'est_actif',
-                filter_var($filters['est_actif'], FILTER_VALIDATE_BOOLEAN)
-            );
-        }
-
         // Champs autorisés pour le tri
         $allowedSorts = [
             'code',
@@ -55,7 +47,8 @@ class IaService
             $sortDirection = 'asc';
         }
 
-        $query->orderBy($sortBy, $sortDirection);
+        $query->orderBy($sortBy, $sortDirection)
+            ->orderByDesc('id');
 
         // Pagination
         $perPage = (int) ($filters['per_page'] ?? 15);

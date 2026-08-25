@@ -39,15 +39,17 @@ class CorpsEnseignant extends Model
     {
         return $this->belongsToMany(
             RubriquePaie::class,
-            'rubrique_par_corps'
+            'rubrique_par_corps',
+            'corps_id',
+            'rubrique_paie_id',
         )
-        ->withPivot(
-            'taux_personnalise',
-            'montant_personnalise',
-            'est_applicable',
-            'formule_personnalisee',
-            'est_actif'
-        )
-        ->withTimestamps();
+            ->withPivot(
+                'taux_personnalise',
+                'montant_personnalise',
+                'est_applicable',
+                'formule_personnalisee',
+                'est_actif'
+            )
+            ->withTimestamps();
     }
 }

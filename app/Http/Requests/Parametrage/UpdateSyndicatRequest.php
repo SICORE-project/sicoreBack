@@ -4,6 +4,7 @@ namespace App\Http\Requests\Parametrage;
 
 use App\Models\Parametrage\Syndicat;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
 class UpdateSyndicatRequest extends FormRequest
@@ -16,6 +17,10 @@ class UpdateSyndicatRequest extends FormRequest
     protected function prepareForValidation(): void
     {
         $data = [];
+
+        if ($this->has('code')) {
+            $data['code'] = is_string($this->code) ? Str::upper(trim($this->code)) : $this->code;
+        }
 
         if ($this->has('libelle')) {
             $data['libelle'] = is_string($this->libelle) ? trim($this->libelle) : $this->libelle;
@@ -37,7 +42,13 @@ class UpdateSyndicatRequest extends FormRequest
         $syndicatId = $syndicat instanceof Syndicat ? $syndicat->getKey() : $syndicat;
 
         return [
-            'code' => ['prohibited'],
+            'code' => [
+                'sometimes',
+                'required',
+                'string',
+                'max:20',
+                Rule::unique('syndicats', 'code')->ignore($syndicatId),
+            ],
             'libelle' => [
                 'sometimes',
                 'required',
@@ -54,7 +65,9 @@ class UpdateSyndicatRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'code.prohibited' => 'Le code du syndicat ne peut pas être modifié.',
+            'code.required' => 'Le code du syndicat est obligatoire.',
+            'code.max' => 'Le code du syndicat ne doit pas dépasser 20 caractères.',
+            'code.unique' => 'Ce code de syndicat existe déjà.',
             'libelle.required' => 'Le libellé du syndicat est obligatoire.',
             'libelle.max' => 'Le libellé du syndicat ne doit pas dépasser 100 caractères.',
             'libelle.unique' => 'Ce libellé de syndicat existe déjà.',

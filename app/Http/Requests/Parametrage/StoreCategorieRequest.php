@@ -17,7 +17,7 @@ class StoreCategorieRequest extends FormRequest
             'code' => [
                 'required',
                 'string',
-                'max:50',
+                'max:10',
                 'unique:categories,code',
             ],
 
@@ -56,5 +56,13 @@ class StoreCategorieRequest extends FormRequest
             'corps_id.required' => 'Le corps enseignant est obligatoire.',
             'corps_id.exists' => 'Le corps enseignant sélectionné est invalide.',
         ];
+    }
+
+    protected function prepareForValidation(): void
+    {
+        $this->merge([
+            'code' => strtoupper(trim((string) $this->input('code'))),
+            'libelle' => trim((string) $this->input('libelle')),
+        ]);
     }
 }

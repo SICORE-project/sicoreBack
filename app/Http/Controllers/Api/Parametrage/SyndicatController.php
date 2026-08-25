@@ -10,16 +10,14 @@ use Illuminate\Support\Facades\Log;
 
 class SyndicatController extends Controller
 {
-    public function __construct(private SyndicatService $syndicatService)
-    {
-    }
+    public function __construct(private SyndicatService $syndicatService) {}
 
     public function index()
     {
         return response()->json($this->syndicatService->getAllSyndicats());
     }
 
-    public function show($id)
+    public function show(int $id)
     {
         return response()->json($this->syndicatService->getSyndicatById($id));
     }
@@ -140,9 +138,12 @@ class SyndicatController extends Controller
         ]);
     }
 
-    public function destroy($id)
+    public function destroy(int $id)
     {
         $this->syndicatService->deleteSyndicat($id);
-        return response()->json(null, 204);
+
+        return response()->json([
+            'message' => 'Syndicat supprimé avec succès.',
+        ]);
     }
 }
