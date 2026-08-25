@@ -94,7 +94,6 @@ jobs:
     needs: ci
 
     steps:
-      # Solution du bug : Récupère les fichiers (incluant le Dockerfile) avant le build
       - name: Recuperer le code
         uses: actions/checkout@v4
 
@@ -108,16 +107,14 @@ jobs:
       - ci
       - docker
     if: github.event_name == 'push' && github.ref == 'refs/heads/deploy'
-    env:
-      DEPLOY_ENABLED: ${{ secrets.VPS_IP != '' && secrets.VPS_USERNAME != '' && secrets.VPS_KEY != '' && secrets.DEPLOY_PATH != '' }}
 
     steps:
       - name: Ignorer le deploy si les secrets manquent
-        if: env.DEPLOY_ENABLED != 'true'
+        if: ${{ !secrets.VPS_IP || !secrets.VPS_USERNAME || !secrets.VPS_KEY || !secrets.DEPLOY_PATH }}
         run: echo "Deploy ignore. Configurer VPS_IP, VPS_USERNAME, VPS_KEY et DEPLOY_PATH pour activer le CD."
 
       - name: Deployer sur le VPS via SSH
-        if: env.DEPLOY_ENABLED == 'true'
+        if: ${{ secrets.VPS_IP && secrets.VPS_USERNAME && secrets.VPS_KEY && secrets.DEPLOY_PATH }}
         uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.VPS_IP }}
