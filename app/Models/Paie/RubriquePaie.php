@@ -17,23 +17,6 @@ class RubriquePaie extends Model
         'libelle',
         'type',
         'periodicite',
-        'est_cotisable',
-        'est_imposable',
-        'est_afficher_bulletin',
-        'taux_defaut',
-        'montant_defaut',
-        'formule_calcul',
-        'description',
-        'est_actif',
-    ];
-
-    protected $casts = [
-        'est_actif' => 'boolean',
-        'est_cotisable' => 'boolean',
-        'est_imposable' => 'boolean',
-        'est_afficher_bulletin' => 'boolean',
-        'taux_defaut' => 'decimal:2',
-        'montant_defaut' => 'decimal:2',
     ];
 
     // === RELATIONS ===
@@ -50,11 +33,6 @@ class RubriquePaie extends Model
     }
 
     // === SCOPES ===
-    public function scopeActif($query)
-    {
-        return $query->where('est_actif', true);
-    }
-
     public function scopeByType($query, $type)
     {
         return $query->where('type', $type);

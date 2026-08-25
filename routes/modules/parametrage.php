@@ -57,6 +57,10 @@ Route::patch('parametrage/institutions-financieres/{institution}/statut', [Insti
     ->whereNumber('institution')
     ->middleware('permission:parametrage.institutions_financieres.manage');
 
+Route::delete('parametrage/institutions-financieres/{institution}', [InstitutFinancierController::class, 'destroy'])
+    ->whereNumber('institution')
+    ->middleware('permission:parametrage.institutions_financieres.manage');
+
 Route::post('enseignants/{enseignant}/comptes-bancaires', [CompteBancaireEnseignantController::class, 'store'])
     ->whereNumber('enseignant')
     ->middleware('permission:enseignants.comptes_bancaires.manage');

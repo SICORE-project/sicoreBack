@@ -9,6 +9,9 @@ use App\Http\Requests\Parametrage\UpdateInstitutFinancierRequest;
 use App\Http\Requests\Parametrage\UpdateStatutInstitutFinancierRequest;
 use App\Http\Resources\Parametrage\InstitutFinancierResource;
 use App\Models\Parametrage\InstitutFinancier;
+use Illuminate\Database\QueryException;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class InstitutFinancierController extends Controller
 {
@@ -83,5 +86,42 @@ class InstitutFinancierController extends Controller
                 'success' => true,
                 'message' => $message,
             ]);
+    }
+
+    public function destroy(InstitutFinancier $institution)
+    {
+        $dependencies = array_values(array_filter([
+            Schema::hasTable('comptes_bancaires_enseignants')
+                && DB::table('comptes_bancaires_enseignants')->where('institut_financier_id', $institution->id)->exists()
+                    ? 'des comptes bancaires d’enseignants' : null,
+            Schema::hasTable('lieux_paiement')
+                && DB::table('lieux_paiement')->where('institut_financier_id', $institution->id)->exists()
+                    ? 'des lieux de paiement' : null,
+            Schema::hasTable('enseignant_institut_financier')
+                && DB::table('enseignant_institut_financier')->where('institut_financier_id', $institution->id)->exists()
+                    ? 'des enseignants' : null,
+        ]));
+
+        if ($dependencies !== []) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Cette institution financière est associée à '.implode(', ', $dependencies).' et ne peut pas être supprimée.',
+                'dependencies' => $dependencies,
+            ], 409);
+        }
+
+        try {
+            $institution->delete();
+        } catch (QueryException) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Cette institution financière est utilisée par d’autres données et ne peut pas être supprimée.',
+            ], 409);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Institution financière supprimée avec succès.',
+        ]);
     }
 }

@@ -19,7 +19,6 @@ class RubriquePaieController extends Controller
             'search' => ['nullable', 'string', 'max:100'],
             'type' => ['nullable', Rule::in(['gain', 'retenue'])],
             'periodicite' => ['nullable', Rule::in(['mensuelle', 'ponctuelle', 'annuelle'])],
-            'est_actif' => ['nullable', 'boolean'],
             'page' => ['nullable', 'integer', 'min:1'],
             'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],
         ]);
@@ -29,13 +28,11 @@ class RubriquePaieController extends Controller
                 $term = '%'.mb_strtolower($search).'%';
                 $query->where(function ($query) use ($term): void {
                     $query->whereRaw('LOWER(code) LIKE ?', [$term])
-                        ->orWhereRaw('LOWER(libelle) LIKE ?', [$term])
-                        ->orWhereRaw('LOWER(description) LIKE ?', [$term]);
+                        ->orWhereRaw('LOWER(libelle) LIKE ?', [$term]);
                 });
             })
             ->when($filters['type'] ?? null, fn ($query, string $type) => $query->where('type', $type))
             ->when($filters['periodicite'] ?? null, fn ($query, string $periodicite) => $query->where('periodicite', $periodicite))
-            ->when(array_key_exists('est_actif', $filters), fn ($query) => $query->where('est_actif', $filters['est_actif']))
             ->orderByDesc('id');
 
         $rubriques = $query->paginate((int) ($filters['per_page'] ?? 10))->withQueryString();
@@ -46,7 +43,6 @@ class RubriquePaieController extends Controller
                 'total' => RubriquePaie::query()->count(),
                 'gains' => RubriquePaie::query()->where('type', 'gain')->count(),
                 'retenues' => RubriquePaie::query()->where('type', 'retenue')->count(),
-                'actives' => RubriquePaie::query()->where('est_actif', true)->count(),
             ],
         ]);
     }

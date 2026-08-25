@@ -309,4 +309,34 @@ class InstitutFinancierApiTest extends TestCase
             'est_actif' => true,
         ])->assertNotFound();
     }
+
+    public function test_supprime_une_institution_sans_dependance(): void
+    {
+        $this->deleteJson('/api/parametrage/institutions-financieres/2')
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('message', 'Institution financière supprimée avec succès.');
+
+        $this->assertDatabaseMissing('instituts_financieres', ['id' => 2]);
+    }
+
+    public function test_refuse_la_suppression_d_une_institution_associee(): void
+    {
+        DB::table('comptes_bancaires_enseignants')->insert([
+            'enseignant_id' => 1,
+            'institut_financier_id' => 1,
+            'numero_compte' => 'SN001234567890',
+            'rib' => 'RIB-ASSOCIE',
+            'est_actif' => true,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $this->deleteJson('/api/parametrage/institutions-financieres/1')
+            ->assertStatus(409)
+            ->assertJsonPath('success', false)
+            ->assertJsonPath('message', 'Cette institution financière est associée à des comptes bancaires d’enseignants et ne peut pas être supprimée.');
+
+        $this->assertDatabaseHas('instituts_financieres', ['id' => 1]);
+    }
 }
