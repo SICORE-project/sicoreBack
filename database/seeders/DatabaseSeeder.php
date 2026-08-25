@@ -35,6 +35,7 @@ class DatabaseSeeder extends Seeder
 
         // Appel des seeders pour les rôles et permissions
         $this->call([
+            RegionSeeder::class,
             TypeRoleSeeder::class,
             RoleSeeder::class,
             PermissionSeeder::class,

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\Parametrage;
 
 use App\Http\Controllers\Controller;
 use App\Models\Parametrage\CorpsEnseignant;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
 
 class CorpsController extends Controller
@@ -11,11 +12,19 @@ class CorpsController extends Controller
     /**
      * Liste des corps enseignants
      */
-    public function index()
+    public function index(Request $request)
     {
-        $corps = CorpsEnseignant::with('categorie')
-            ->orderBy('libelle')
-            ->get();
+        $corps = CorpsEnseignant::query()
+            ->when($request->filled('search'), function ($query) use ($request): void {
+                $search = trim((string) $request->input('search'));
+                $query->where(function ($query) use ($search): void {
+                    $query->where('code', 'ilike', "%{$search}%")
+                        ->orWhere('libelle', 'ilike', "%{$search}%");
+                });
+            })
+            ->orderByDesc('created_at')
+            ->orderByDesc('id')
+            ->paginate(min(100, max(1, $request->integer('per_page', 10))));
 
         return response()->json([
             'message' => 'Liste des corps enseignants récupérée avec succès.',
@@ -28,6 +37,11 @@ class CorpsController extends Controller
      */
     public function store(Request $request)
     {
+        $request->merge([
+            'code' => strtoupper(trim((string) $request->input('code'))),
+            'libelle' => trim((string) $request->input('libelle')),
+        ]);
+
         $data = $request->validate([
             'code' => [
                 'required',
@@ -63,7 +77,7 @@ class CorpsController extends Controller
      */
     public function show($id)
     {
-        $corps = CorpsEnseignant::with('categorie')->find($id);
+        $corps = CorpsEnseignant::find($id);
 
         if (!$corps) {
             return response()->json([
@@ -89,6 +103,11 @@ class CorpsController extends Controller
                 'message' => 'Corps enseignant introuvable.',
             ], 404);
         }
+
+        $request->merge([
+            'code' => strtoupper(trim((string) $request->input('code'))),
+            'libelle' => trim((string) $request->input('libelle')),
+        ]);
 
         $data = $request->validate([
             'code' => [
@@ -116,7 +135,7 @@ class CorpsController extends Controller
 
         return response()->json([
             'message' => 'Corps enseignant modifié avec succès.',
-            'data' => $corps->fresh('categorie'),
+            'data' => $corps->fresh(),
         ], 200);
     }
 
@@ -125,7 +144,7 @@ class CorpsController extends Controller
      */
     public function destroy($id)
     {
-        $corps = CorpsEnseignant::find($id);
+        $corps = CorpsEnseignant::query()->find($id);
 
         if (!$corps) {
             return response()->json([
@@ -133,7 +152,26 @@ class CorpsController extends Controller
             ], 404);
         }
 
-        $corps->delete();
+        $dependances = array_values(array_filter([
+            $corps->categories()->exists() ? 'des catégories' : null,
+            $corps->enseignants()->exists() ? 'des enseignants' : null,
+            $corps->rubriques()->exists() ? 'des rubriques de paie' : null,
+        ]));
+
+        if ($dependances !== []) {
+            return response()->json([
+                'message' => 'Ce corps enseignant est associé à '.implode(', ', $dependances).' et ne peut pas être supprimé.',
+                'dependencies' => $dependances,
+            ], 409);
+        }
+
+        try {
+            $corps->delete();
+        } catch (QueryException) {
+            return response()->json([
+                'message' => 'Ce corps enseignant est utilisé par d’autres données et ne peut pas être supprimé.',
+            ], 409);
+        }
 
         return response()->json([
             'message' => 'Corps enseignant supprimé avec succès.',

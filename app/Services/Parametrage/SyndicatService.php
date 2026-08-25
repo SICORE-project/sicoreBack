@@ -3,26 +3,29 @@
 namespace App\Services\Parametrage;
 
 use App\Models\Parametrage\Syndicat;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 use Symfony\Component\HttpKernel\Exception\ConflictHttpException;
 
 class SyndicatService
 {
-    public function __construct(private Syndicat $syndicat)
+    public function __construct(private Syndicat $syndicat) {}
+
+    public function getAllSyndicats(): Collection
     {
+        return $this->syndicat
+            ->newQuery()
+            ->latest('created_at')
+            ->latest('id')
+            ->get();
     }
 
-    public function getAllSyndicats()
-    {
-        return $this->syndicat->all();
-    }
-
-    public function getSyndicatById($id)
+    public function getSyndicatById(int $id): Syndicat
     {
         return $this->syndicat->findOrFail($id);
     }
 
-    public function createSyndicat(array $data)
+    public function createSyndicat(array $data): Syndicat
     {
         return $this->syndicat->create($data);
     }
@@ -57,10 +60,9 @@ class SyndicatService
         });
     }
 
-    public function deleteSyndicat($id)
+    public function deleteSyndicat(int $id): void
     {
         $syndicat = $this->getSyndicatById($id);
         $syndicat->delete();
     }
-    
 }

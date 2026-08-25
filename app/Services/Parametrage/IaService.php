@@ -28,33 +28,27 @@ class IaService
             $query->where('region_id', $filters['region_id']);
         }
 
-        // Filtre actif / inactif
-        if (isset($filters['est_actif']) && $filters['est_actif'] !== '') {
-            $query->where(
-                'est_actif',
-                filter_var($filters['est_actif'], FILTER_VALIDATE_BOOLEAN)
-            );
-        }
-
         // Champs autorisés pour le tri
         $allowedSorts = [
             'code',
             'libelle',
+            'created_at',
         ];
 
-        $sortBy = $filters['sort_by'] ?? 'libelle';
+        $sortBy = $filters['sort_by'] ?? 'created_at';
 
         if (!in_array($sortBy, $allowedSorts, true)) {
             $sortBy = 'libelle';
         }
 
-        $sortDirection = strtolower($filters['sort_direction'] ?? 'asc');
+        $sortDirection = strtolower($filters['sort_direction'] ?? 'desc');
 
         if (!in_array($sortDirection, ['asc', 'desc'], true)) {
             $sortDirection = 'asc';
         }
 
-        $query->orderBy($sortBy, $sortDirection);
+        $query->orderBy($sortBy, $sortDirection)
+            ->orderByDesc('id');
 
         // Pagination
         $perPage = (int) ($filters['per_page'] ?? 15);
@@ -83,9 +77,7 @@ class IaService
      */
     public function create(array $data): Ia
     {
-        $data['est_actif'] = $data['est_actif'] ?? true;
-
-        return Ia::create($data);
+        return Ia::create($data)->load('region');
     }
 
     /**
@@ -110,24 +102,4 @@ class IaService
         $ia->delete();
     }
 
-    /**
-     * Activer ou désactiver une IA.
-     */
-    public function changeStatus(int $id, bool $newStatus): Ia
-{
-    $ia = $this->findById($id);
-
-    if ($ia->est_actif === $newStatus) {
-        throw new \DomainException(
-            $newStatus
-                ? 'Cette IA est déjà active.'
-                : 'Cette IA est déjà inactive.'
-        );
-    }
-
-    $ia->est_actif = $newStatus;
-    $ia->save();
-
-    return $ia->fresh(['region']);
-}
 }

@@ -12,6 +12,21 @@ class UpdateAnneeAcademiqueRequest extends FormRequest
         return true;
     }
 
+    protected function prepareForValidation(): void
+    {
+        $data = [];
+
+        if ($this->has('libelle')) {
+            $data['libelle'] = is_string($this->libelle) ? trim($this->libelle) : $this->libelle;
+        }
+
+        if ($this->has('observations')) {
+            $data['observations'] = is_string($this->observations) ? trim($this->observations) : $this->observations;
+        }
+
+        $this->merge($data);
+    }
+
     public function rules(): array
     {
         $id = $this->route('annees_academique')
@@ -42,6 +57,7 @@ class UpdateAnneeAcademiqueRequest extends FormRequest
             'observations' => [
                 'nullable',
                 'string',
+                'max:1000',
             ],
         ];
     }

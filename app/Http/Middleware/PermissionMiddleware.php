@@ -19,6 +19,12 @@ class PermissionMiddleware
             ], 401);
         }
 
+        // Le super administrateur dispose toujours de toutes les permissions,
+        // même si la table pivot n'a pas encore été resynchronisée.
+        if ($user->hasRole('super_admin')) {
+            return $next($request);
+        }
+
         if (!$user->hasPermission($permission)) {
             return response()->json([
                 'success' => false,

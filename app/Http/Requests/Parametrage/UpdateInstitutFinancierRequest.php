@@ -34,7 +34,7 @@ class UpdateInstitutFinancierRequest extends FormRequest
             'adresse' => ['nullable', 'string', 'max:255'],
             'telephone' => ['nullable', 'string', 'max:20'],
             'email' => ['nullable', 'email:rfc', 'max:100'],
-            'est_actif' => ['prohibited'],
+            'est_actif' => ['required', 'boolean'],
         ];
     }
 
@@ -43,7 +43,6 @@ class UpdateInstitutFinancierRequest extends FormRequest
         return [
             'code.unique' => 'Ce code est déjà utilisé par une institution financière.',
             'email.email' => 'L’adresse email doit être valide.',
-            'est_actif.prohibited' => 'Le statut ne peut pas être modifié depuis cet endpoint.',
         ];
     }
 }

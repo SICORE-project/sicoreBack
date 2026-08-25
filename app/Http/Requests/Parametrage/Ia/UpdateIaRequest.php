@@ -36,33 +36,6 @@ class UpdateIaRequest extends FormRequest
                 'exists:regions,id',
             ],
 
-            'adresse' => [
-                'nullable',
-                'string',
-                'max:255',
-            ],
-
-            'telephone' => [
-                'nullable',
-                'string',
-                'max:20',
-            ],
-
-            'email' => [
-                'nullable',
-                'email',
-                'max:100',
-            ],
-
-            'responsable' => [
-                'nullable',
-                'string',
-                'max:100',
-            ],
-            'est_actif' => [
-                'nullable',
-                'boolean',
-            ],
         ];
     }
 
@@ -82,17 +55,17 @@ class UpdateIaRequest extends FormRequest
             'region_id.integer' => 'La région sélectionnée est invalide.',
             'region_id.exists' => 'La région sélectionnée n’existe pas.',
 
-            'adresse.string' => 'L’adresse doit être une chaîne de caractères.',
-            'adresse.max' => 'L’adresse ne doit pas dépasser 255 caractères.',
-
-            'telephone.string' => 'Le numéro de téléphone doit être une chaîne de caractères.',
-            'telephone.max' => 'Le numéro de téléphone ne doit pas dépasser 20 caractères.',
-
-            'email.email' => 'L’adresse email n’est pas valide.',
-            'email.max' => 'L’adresse email ne doit pas dépasser 100 caractères.',
-
-            'responsable.string' => 'Le responsable doit être une chaîne de caractères.',
-            'responsable.max' => 'Le nom du responsable ne doit pas dépasser 100 caractères.',
         ];
+    }
+
+    protected function prepareForValidation(): void
+    {
+        if ($this->filled('code')) {
+            $this->merge(['code' => strtoupper(trim((string) $this->input('code')))]);
+        }
+
+        if ($this->filled('libelle')) {
+            $this->merge(['libelle' => trim((string) $this->input('libelle'))]);
+        }
     }
 }

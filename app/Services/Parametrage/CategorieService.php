@@ -6,12 +6,20 @@ use App\Models\Parametrage\Categorie;
 
 class CategorieService
 {
-    public function getAll()
+    public function getAll(array $filters = [])
     {
         return Categorie::with('corps')
-            ->orderBy('ordre')
-            ->orderBy('libelle')
-            ->get();
+            ->when(! empty($filters['search']), function ($query) use ($filters): void {
+                $search = trim($filters['search']);
+                $query->where(function ($query) use ($search): void {
+                    $query->where('code', 'ilike', "%{$search}%")
+                        ->orWhere('libelle', 'ilike', "%{$search}%");
+                });
+            })
+            ->when(! empty($filters['corps_id']), fn ($query) => $query->where('corps_id', $filters['corps_id']))
+            ->orderByDesc('created_at')
+            ->orderByDesc('id')
+            ->paginate(min(100, max(1, (int) ($filters['per_page'] ?? 10))));
     }
 
     public function findById(int $id): ?Categorie
@@ -21,8 +29,6 @@ class CategorieService
 
     public function create(array $data): Categorie
     {
-        $data['est_actif'] = true;
-
         return Categorie::create($data);
     }
 
@@ -38,19 +44,4 @@ class CategorieService
         $categorie->delete();
     }
 
-    public function activate(Categorie $categorie): Categorie
-    {
-        $categorie->est_actif = true;
-        $categorie->save();
-
-        return $categorie->fresh('corps');
-    }
-
-    public function deactivate(Categorie $categorie): Categorie
-    {
-        $categorie->est_actif = false;
-        $categorie->save();
-
-        return $categorie->fresh('corps');
-    }
 }

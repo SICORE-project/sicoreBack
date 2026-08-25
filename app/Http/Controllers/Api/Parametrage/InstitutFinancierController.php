@@ -33,7 +33,8 @@ class InstitutFinancierController extends Controller
             $query->where('est_actif', $request->boolean('est_actif'));
         }
 
-        $institutions = $query->orderBy('libelle')
+        $institutions = $query->orderByDesc('created_at')
+            ->orderByDesc('id')
             ->paginate($validated['per_page'] ?? 15)
             ->withQueryString();
 

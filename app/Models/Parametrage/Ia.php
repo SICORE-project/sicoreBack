@@ -15,13 +15,6 @@ class Ia extends Model
         'code',
         'libelle',
         'region_id',
-        'departement_id',
-        'adresse',
-        'telephone',
-        'email',
-        'responsable',
-        'responsable_titre',
-        'est_actif',
     ];
 
     protected $casts = [

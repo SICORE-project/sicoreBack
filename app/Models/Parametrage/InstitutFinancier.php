@@ -25,12 +25,7 @@ class InstitutFinancier extends Model
         'code_banque',
         'code_guichet',
         'iban_exemple',
-        'bic',
         'est_actif',
-    ];
-
-    protected $casts = [
-        'est_actif' => 'boolean',
     ];
 
     public function scopeActif($query)

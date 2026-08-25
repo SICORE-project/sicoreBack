@@ -29,8 +29,6 @@ class IefResource extends JsonResource
             'email' => $this->email,
             'responsable' => $this->responsable,
 
-            'est_actif' => (bool) $this->est_actif,
-
             'nom_complet' => $this->nom_complet,
 
             'created_at' => $this->created_at,

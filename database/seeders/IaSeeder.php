@@ -2,175 +2,47 @@
 
 namespace Database\Seeders;
 
-use Illuminate\Database\Seeder;
 use App\Models\Parametrage\Ia;
+use App\Models\Parametrage\Region;
+use Illuminate\Database\Seeder;
+use RuntimeException;
 
 class IaSeeder extends Seeder
 {
     public function run(): void
     {
         $ias = [
-            [
-                'code' => 'IA-DKR',
-                'libelle' => 'Inspection d\'Académie de Dakar',
-                'region_id' => 'DK',
-                'departement_id' => null,
-                'adresse' => 'Avenue Cheikh Anta Diop, Dakar',
-                'telephone' => '338600001',
-                'email' => 'ia.dakar@education.sn',
-                'responsable' => null,
-                'est_actif' => true,
-            ],
-            [
-                'code' => 'IA-THS',
-                'libelle' => 'Inspection d\'Académie de Thiès',
-                'region_id' => 'TH',
-                'departement_id' => null,
-                'adresse' => 'Thiès',
-                'telephone' => '338600002',
-                'email' => 'ia.thies@education.sn',
-                'responsable' => null,
-                'est_actif' => true,
-            ],
-            [
-                'code' => 'IA-DBB',
-                'libelle' => 'Inspection d\'Académie de Diourbel',
-                'region_id' => 'DB',
-                'departement_id' => null,
-                'adresse' => 'Diourbel',
-                'telephone' => '338600003',
-                'email' => 'ia.diourbel@education.sn',
-                'responsable' => null,
-                'est_actif' => true,
-            ],
-            [
-                'code' => 'IA-FTK',
-                'libelle' => 'Inspection d\'Académie de Fatick',
-                'region_id' => 'FK',
-                'departement_id' => null,
-                'adresse' => 'Fatick',
-                'telephone' => '338600004',
-                'email' => 'ia.fatick@education.sn',
-                'responsable' => null,
-                'est_actif' => true,
-            ],
-            [
-                'code' => 'IA-KLK',
-                'libelle' => 'Inspection d\'Académie de Kaolack',
-                'region_id' => 'KL',
-                'departement_id' => null,
-                'adresse' => 'Kaolack',
-                'telephone' => '338600005',
-                'email' => 'ia.kaolack@education.sn',
-                'responsable' => null,
-                'est_actif' => true,
-            ],
-            [
-                'code' => 'IA-KLD',
-                'libelle' => 'Inspection d\'Académie de Kaffrine',
-                'region_id' => 'KF',
-                'departement_id' => null,
-                'adresse' => 'Kaffrine',
-                'telephone' => '338600006',
-                'email' => 'ia.kaffrine@education.sn',
-                'responsable' => null,
-                'est_actif' => true,
-            ],
-            [
-                'code' => 'IA-KLG',
-                'libelle' => 'Inspection d\'Académie de Kolda',
-                'region_id' => 'KD',
-                'departement_id' => null,
-                'adresse' => 'Kolda',
-                'telephone' => '338600007',
-                'email' => 'ia.kolda@education.sn',
-                'responsable' => null,
-                'est_actif' => true,
-            ],
-            [
-                'code' => 'IA-SDR',
-                'libelle' => 'Inspection d\'Académie de Sédhiou',
-                'region_id' => 'SD',
-                'departement_id' => null,
-                'adresse' => 'Sédhiou',
-                'telephone' => '338600008',
-                'email' => 'ia.sedhiou@education.sn',
-                'responsable' => null,
-                'est_actif' => true,
-            ],
-            [
-                'code' => 'IA-ZGN',
-                'libelle' => 'Inspection d\'Académie de Ziguinchor',
-                'region_id' => 'ZG',
-                'departement_id' => null,
-                'adresse' => 'Ziguinchor',
-                'telephone' => '338600009',
-                'email' => 'ia.ziguinchor@education.sn',
-                'responsable' => null,
-                'est_actif' => true,
-            ],
-            [
-                'code' => 'IA-TBA',
-                'libelle' => 'Inspection d\'Académie de Tambacounda',
-                'region_id' => 'TB',
-                'departement_id' => null,
-                'adresse' => 'Tambacounda',
-                'telephone' => '338600010',
-                'email' => 'ia.tambacounda@education.sn',
-                'responsable' => null,
-                'est_actif' => true,
-            ],
-            [
-                'code' => 'IA-KDG',
-                'libelle' => 'Inspection d\'Académie de Kédougou',
-                'region_id' => 'KG',
-                'departement_id' => null,
-                'adresse' => 'Kédougou',
-                'telephone' => '338600011',
-                'email' => 'ia.kedougou@education.sn',
-                'responsable' => null,
-                'est_actif' => true,
-            ],
-            [
-                'code' => 'IA-LGA',
-                'libelle' => 'Inspection d\'Académie de Louga',
-                'region_id' => 'LG',
-                'departement_id' => null,
-                'adresse' => 'Louga',
-                'telephone' => '338600012',
-                'email' => 'ia.louga@education.sn',
-                'responsable' => null,
-                'est_actif' => true,
-            ],
-            [
-                'code' => 'IA-MTM',
-                'libelle' => 'Inspection d\'Académie de Matam',
-                'region_id' => 'MT',
-                'departement_id' => null,
-                'adresse' => 'Matam',
-                'telephone' => '338600013',
-                'email' => 'ia.matam@education.sn',
-                'responsable' => null,
-                'est_actif' => true,
-            ],
-            [
-                'code' => 'IA-SLS',
-                'libelle' => 'Inspection d\'Académie de Saint-Louis',
-                'region_id' => 'SL',
-                'departement_id' => null,
-                'adresse' => 'Saint-Louis',
-                'telephone' => '338600014',
-                'email' => 'ia.saintlouis@education.sn',
-                'responsable' => null,
-                'est_actif' => true,
-            ],
+            ['code' => 'IA-DKR', 'libelle' => 'Inspection d’Académie de Dakar', 'region_code' => 'DK'],
+            ['code' => 'IA-DBL', 'libelle' => 'Inspection d’Académie de Diourbel', 'region_code' => 'DB'],
+            ['code' => 'IA-FTK', 'libelle' => 'Inspection d’Académie de Fatick', 'region_code' => 'FK'],
+            ['code' => 'IA-KFR', 'libelle' => 'Inspection d’Académie de Kaffrine', 'region_code' => 'KA'],
+            ['code' => 'IA-KLK', 'libelle' => 'Inspection d’Académie de Kaolack', 'region_code' => 'KL'],
+            ['code' => 'IA-KDG', 'libelle' => 'Inspection d’Académie de Kédougou', 'region_code' => 'KE'],
+            ['code' => 'IA-KLD', 'libelle' => 'Inspection d’Académie de Kolda', 'region_code' => 'KD'],
+            ['code' => 'IA-LGA', 'libelle' => 'Inspection d’Académie de Louga', 'region_code' => 'LG'],
+            ['code' => 'IA-MTM', 'libelle' => 'Inspection d’Académie de Matam', 'region_code' => 'MT'],
+            ['code' => 'IA-SLS', 'libelle' => 'Inspection d’Académie de Saint-Louis', 'region_code' => 'SL'],
+            ['code' => 'IA-SDH', 'libelle' => 'Inspection d’Académie de Sédhiou', 'region_code' => 'SE'],
+            ['code' => 'IA-TBA', 'libelle' => 'Inspection d’Académie de Tambacounda', 'region_code' => 'TC'],
+            ['code' => 'IA-THS', 'libelle' => 'Inspection d’Académie de Thiès', 'region_code' => 'TH'],
+            ['code' => 'IA-ZGN', 'libelle' => 'Inspection d’Académie de Ziguinchor', 'region_code' => 'ZG'],
         ];
 
-        foreach ($ias as $ia) {
-            Ia::withTrashed()->updateOrCreate(
-                ['code' => $ia['code']],
-                $ia + ['deleted_at' => null]
+        foreach ($ias as $data) {
+            $regionId = Region::query()->where('code', $data['region_code'])->value('id');
+
+            if ($regionId === null) {
+                throw new RuntimeException("Région introuvable pour le code {$data['region_code']}.");
+            }
+
+            $ia = Ia::withTrashed()->updateOrCreate(
+                ['code' => $data['code']],
+                ['libelle' => $data['libelle'], 'region_id' => $regionId],
             );
+
+            if ($ia->trashed()) {
+                $ia->restore();
+            }
         }
     }
 }

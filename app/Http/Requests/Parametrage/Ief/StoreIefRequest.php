@@ -90,7 +90,9 @@ class StoreIefRequest extends FormRequest
 
     protected function prepareForValidation(): void
     {
-        $data = [];
+        $data = [
+            'libelle' => trim((string) $this->input('libelle')),
+        ];
 
         if ($this->filled('code')) {
             $data['code'] = strtoupper(trim($this->code));

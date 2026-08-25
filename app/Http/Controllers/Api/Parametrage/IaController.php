@@ -5,8 +5,8 @@ namespace App\Http\Controllers\Api\Parametrage;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Parametrage\Ia\StoreIaRequest;
 use App\Http\Requests\Parametrage\Ia\UpdateIaRequest;
-use App\Http\Requests\Parametrage\Ia\ChangeIaStatusRequest;
 use App\Http\Resources\Parametrage\IaResource;
+use App\Models\Parametrage\Region;
 use App\Services\Parametrage\IaService;
 use Illuminate\Support\Facades\Log;
 
@@ -25,7 +25,6 @@ class IaController extends Controller
         request()->only([
             'search',
             'region_id',
-            'est_actif',
             'sort_by',
             'sort_direction',
             'per_page',
@@ -47,6 +46,14 @@ class IaController extends Controller
         return response()->json([
             'success' => true,
             'data' => new IaResource($ia),
+        ]);
+    }
+
+    public function regionOptions()
+    {
+        return response()->json([
+            'success' => true,
+            'data' => Region::query()->actif()->orderBy('nom')->get(['id', 'code', 'nom']),
         ]);
     }
 
@@ -89,10 +96,6 @@ class IaController extends Controller
             'code',
             'libelle',
             'region_id',
-            'adresse',
-            'telephone',
-            'email',
-            'responsable',
         ]);
 
         // Modification
@@ -105,10 +108,6 @@ class IaController extends Controller
             'code',
             'libelle',
             'region_id',
-            'adresse',
-            'telephone',
-            'email',
-            'responsable',
         ]);
 
         // Journalisation de la modification
@@ -130,18 +129,11 @@ class IaController extends Controller
 
     /**
      * Suppression logique d'une IA.
-     * Seul le Super Admin peut supprimer.
+     * L'autorisation est centralisée dans le middleware de la route.
      */
     public function destroy(int $id)
     {
         $user = request()->user();
-
-        if (!$user || !$user->hasRole('super_admin')) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Vous n’êtes pas autorisé à supprimer une IA.',
-            ], 403);
-        }
 
         // Récupérer les données avant suppression
         $ia = $this->iaService->findById($id);
@@ -151,10 +143,6 @@ class IaController extends Controller
             'code',
             'libelle',
             'region_id',
-            'adresse',
-            'telephone',
-            'email',
-            'responsable',
         ]);
 
         // Soft delete
@@ -175,41 +163,4 @@ class IaController extends Controller
         ]);
     }
 
-    public function changeStatus(ChangeIaStatusRequest $request, int $id)
-{
-    $ancienStatut = $this->iaService
-        ->findById($id)
-        ->est_actif;
-
-    try {
-        $ia = $this->iaService->changeStatus(
-            $id,
-            $request->boolean('est_actif')
-        );
-    } catch (\DomainException $e) {
-        return response()->json([
-            'success' => false,
-            'message' => $e->getMessage(),
-        ], 422);
-    }
-
-    Log::info('Changement statut IA', [
-        'action' => $ia->est_actif
-            ? 'ACTIVATE_IA'
-            : 'DEACTIVATE_IA',
-        'user_id' => $request->user()?->id,
-        'ia_id' => $ia->id,
-        'ancien_statut' => $ancienStatut,
-        'nouveau_statut' => $ia->est_actif,
-        'ip' => $request->ip(),
-    ]);
-
-    return response()->json([
-        'success' => true,
-        'message' => $ia->est_actif
-            ? 'IA activée avec succès.'
-            : 'IA désactivée avec succès.',
-        'data' => new IaResource($ia),
-    ]);
-}
 }
