@@ -158,6 +158,18 @@ Route::prefix('annees-academiques')->middleware('role:admin,super_admin')->group
     Route::patch('/{id}/close', [AnneeAcademiqueController::class, 'close'])->whereNumber('id');
 });
 
+Route::prefix('parametrage/institutions-financieres')->group(function (): void {
+    Route::get('/', [InstitutFinancierController::class, 'index']);
+
+    Route::post('/', [InstitutFinancierController::class, 'store']);
+
+    Route::put('/{institution}', [InstitutFinancierController::class, 'update'])
+        ->whereNumber('institution');
+
+    Route::patch('/{institution}/statut', [InstitutFinancierController::class, 'updateStatut'])
+        ->whereNumber('institution');
+});
+
 /*
 |--------------------------------------------------------------------------
 | RUBRIQUES DE PAIE
