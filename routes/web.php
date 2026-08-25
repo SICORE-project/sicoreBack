@@ -12,9 +12,6 @@ Route::get('/', function () {
     return view('welcome');
 });
 
-Route::view('/admin/utilisateurs', 'admin.users.index')
-    ->name('admin.users.index');
-
 // ============================================
 // ROUTES AUTH (gérées par une autre équipe)
 // ============================================

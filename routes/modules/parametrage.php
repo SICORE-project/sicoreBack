@@ -11,6 +11,7 @@ use App\Http\Controllers\Api\Parametrage\IaController;
 use App\Http\Controllers\Api\Parametrage\IefController;
 use App\Http\Controllers\Api\Parametrage\InstitutFinancierController;
 use App\Http\Controllers\Api\Parametrage\LieuServiceController;
+use App\Http\Controllers\Api\Parametrage\PeriodePaieController;
 use App\Http\Controllers\Api\Parametrage\RubriquePaieController;
 use App\Http\Controllers\Api\Parametrage\SpecialiteController;
 use App\Http\Controllers\Api\Parametrage\SyndicatController;
@@ -119,6 +120,14 @@ Route::prefix('rubriques-paie')->middleware('role:admin,super_admin')->group(fun
     Route::get('/{id}', [RubriquePaieController::class, 'show'])->whereNumber('id');
     Route::match(['put', 'patch'], '/{id}', [RubriquePaieController::class, 'update'])->whereNumber('id');
     Route::delete('/{id}', [RubriquePaieController::class, 'destroy'])->whereNumber('id');
+});
+
+Route::prefix('periodes-paie')->middleware('role:admin,super_admin')->group(function () {
+    Route::get('/', [PeriodePaieController::class, 'index']);
+    Route::post('/', [PeriodePaieController::class, 'store']);
+    Route::get('/{id}', [PeriodePaieController::class, 'show'])->whereNumber('id');
+    Route::match(['put', 'patch'], '/{id}', [PeriodePaieController::class, 'update'])->whereNumber('id');
+    Route::delete('/{id}', [PeriodePaieController::class, 'destroy'])->whereNumber('id');
 });
 
 Route::prefix('syndicats')->group(function () {

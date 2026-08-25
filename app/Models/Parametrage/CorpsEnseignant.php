@@ -31,7 +31,7 @@ class CorpsEnseignant extends Model
     {
         return $this->hasMany(
             Enseignant::class,
-            'corps_enseignant_id'
+            'corps_id'
         );
     }
 

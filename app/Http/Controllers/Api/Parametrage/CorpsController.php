@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\Parametrage;
 
 use App\Http\Controllers\Controller;
 use App\Models\Parametrage\CorpsEnseignant;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
 
 class CorpsController extends Controller
@@ -143,7 +144,7 @@ class CorpsController extends Controller
      */
     public function destroy($id)
     {
-        $corps = CorpsEnseignant::find($id);
+        $corps = CorpsEnseignant::query()->find($id);
 
         if (!$corps) {
             return response()->json([
@@ -151,7 +152,26 @@ class CorpsController extends Controller
             ], 404);
         }
 
-        $corps->delete();
+        $dependances = array_values(array_filter([
+            $corps->categories()->exists() ? 'des catégories' : null,
+            $corps->enseignants()->exists() ? 'des enseignants' : null,
+            $corps->rubriques()->exists() ? 'des rubriques de paie' : null,
+        ]));
+
+        if ($dependances !== []) {
+            return response()->json([
+                'message' => 'Ce corps enseignant est associé à '.implode(', ', $dependances).' et ne peut pas être supprimé.',
+                'dependencies' => $dependances,
+            ], 409);
+        }
+
+        try {
+            $corps->delete();
+        } catch (QueryException) {
+            return response()->json([
+                'message' => 'Ce corps enseignant est utilisé par d’autres données et ne peut pas être supprimé.',
+            ], 409);
+        }
 
         return response()->json([
             'message' => 'Corps enseignant supprimé avec succès.',
