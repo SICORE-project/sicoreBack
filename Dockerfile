@@ -1,25 +1,25 @@
-FROM php:8.2-fpm-alpine
-
-# Installer les dépendances système et extensions PHP requises
-RUN apk add --no-cache unzip libpq-dev libpng-dev libjpeg-turbo-dev freetype-dev
-RUN docker-php-ext-install pdo pdo_mysql gd
-
-# Récupérer Composer depuis l'image officielle
-COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
-
-WORKDIR /var/www
-
-# CORRECTION : On force la copie des fichiers de configuration en premier
-COPY composer.json composer.lock* ./
-
-# Installer les dépendances PHP
-RUN composer install --no-dev --no-interaction --prefer-dist --optimize-autoloader --no-scripts
-
-# Copier le reste de l'application
+# Image PHP-FPM + Nginx pour servir le frontend Laravel SICORE.
+# Le frontend ne compile pas d'assets avec Node: les CSS/JS sont deja dans public/assets.
+FROM composer:2 AS vendor
+WORKDIR /app
+COPY composer.json ./
+RUN composer install --no-dev --no-interaction --prefer-dist --no-progress --optimize-autoloader --no-scripts
 COPY . .
+RUN composer dump-autoload --optimize
 
-# Configurer les permissions indispensables pour Laravel
-RUN chown -R www-data:www-data /var/www/storage /var/www/bootstrap/cache
+FROM php:8.2-fpm-alpine
+WORKDIR /var/www/html
 
-EXPOSE 9000
-CMD ["php-fpm"]
+# Extensions PHP utiles a Laravel et au client API.
+RUN apk add --no-cache nginx supervisor bash icu-dev libzip-dev oniguruma-dev \
+    && docker-php-ext-install intl mbstring pdo pdo_mysql zip opcache
+
+COPY --from=vendor /app /var/www/html
+COPY docker/nginx.conf /etc/nginx/http.d/default.conf
+COPY docker/supervisord.conf /etc/supervisord.conf
+
+# Laravel doit pouvoir ecrire dans storage et bootstrap/cache.
+RUN chown -R www-data:www-data storage bootstrap/cache
+
+EXPOSE 8080
+CMD ["/usr/bin/supervisord", "-c", "/etc/supervisord.conf"]
