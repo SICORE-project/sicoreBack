@@ -1,22 +1,45 @@
-FROM php:8.2-fpm-alpine
+# Image PHP-FPM + Nginx pour servir le frontend Laravel SICORE.
+# Le frontend ne compile pas d'assets avec Node: les CSS/JS sont deja dans public/assets.
 
-# Installer les dépendances système et extensions PHP requises
-RUN apk add --no-cache unzip libpq-dev libpng-dev libjpeg-turbo-dev freetype-dev
-RUN docker-php-ext-install pdo pdo_mysql gd
+# Étape 1 : Installation des dépendances avec une image PHP complète
+FROM php:8.2-alpine AS vendor
+WORKDIR /app
 
-# Récupérer Composer depuis l'image officielle
-COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
+# Installation de Composer et des outils système requis pour extraire les paquets
+COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
+RUN apk add --no-cache git unzip libzip-dev oniguruma-dev icu-dev \
+    && docker-php-ext-install zip mbstring intl
 
-WORKDIR /var/www/sicoreback
+# Copie des fichiers de configuration de paquets (inclure le .lock si existant)
+COPY composer.json composer.lock* ./
 
-# Copier l'intégralité du code de l'application
+# Installation en ignorant les prérequis de plateforme (extensions PHP manquantes au build)
+RUN composer install --no-dev --no-interaction --prefer-dist --no-progress --optimize-autoloader --no-scripts --ignore-platform-reqs
+
+# Copie du reste du code de l'application
 COPY . .
 
-# Installer les dépendances PHP sans les outils de développement
-RUN composer install --no-dev --no-interaction --prefer-dist --optimize-autoloader
+# Génération finale de l'autoloader optimisé
+RUN composer dump-autoload --optimize --ignore-platform-reqs
 
-# Configurer les permissions indispensables pour Laravel
-RUN chown -R www-data:www-data /var/www/storage /var/www/bootstrap/cache
+# Étape 2 : Image finale de production
+FROM php:8.2-fpm-alpine
+WORKDIR /var/www/html
 
-EXPOSE 9000
-CMD ["php-fpm"]
+# Extensions PHP utiles a Laravel et au client API.
+RUN apk add --no-cache nginx supervisor bash icu-dev libzip-dev oniguruma-dev \
+    && docker-php-ext-install intl mbstring pdo pdo_mysql zip opcache
+
+# Récupération du code propre depuis l'étape vendor
+COPY --from=vendor /app /var/www/html
+
+# Configuration des services
+COPY docker/nginx.conf /etc/nginx/http.d/default.conf
+COPY docker/supervisord.conf /etc/supervisord.conf
+
+# Laravel doit pouvoir ecrire dans storage et bootstrap/cache.
+RUN mkdir -p storage bootstrap/cache \
+    && chown -R www-data:www-data storage bootstrap/cache
+
+EXPOSE 8080
+CMD ["/usr/bin/supervisord", "-c", "/etc/supervisord.conf"]
