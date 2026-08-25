@@ -9,7 +9,6 @@ on:
     branches:
       - deploy
 
-# Permissions nécessaires pour publier l'image dans GHCR
 permissions:
   contents: read
   packages: write
@@ -44,10 +43,15 @@ jobs:
 
     steps:
 
+      # ------------------------------------------------------
+      # Récupération du code
+      # ------------------------------------------------------
       - name: Recuperer le code
         uses: actions/checkout@v4
 
+      # ------------------------------------------------------
       # PHP
+      # ------------------------------------------------------
       - name: Installer PHP
         uses: shivammathur/setup-php@v2
         with:
@@ -55,13 +59,17 @@ jobs:
           extensions: mbstring, dom, fileinfo, pdo, sqlite, pdo_sqlite, pdo_mysql
           coverage: none
 
-      # Node
+      # ------------------------------------------------------
+      # Node.js
+      # ------------------------------------------------------
       - name: Installer Node
         uses: actions/setup-node@v4
         with:
           node-version: '22'
 
+      # ------------------------------------------------------
       # Composer
+      # ------------------------------------------------------
       - name: Verifier composer.json
         run: composer validate --no-check-publish --strict
 
@@ -70,37 +78,37 @@ jobs:
         with:
           path: ~/.composer/cache/files
           key: composer-${{ runner.os }}-${{ hashFiles('composer.lock', 'composer.json') }}
-          restore-keys: composer-${{ runner.os }}-
+          restore-keys: |
+            composer-${{ runner.os }}-
 
       - name: Installer les dependances PHP
         run: |
           if [ -f composer.lock ]; then
-            composer install \
-              --no-interaction \
-              --prefer-dist \
-              --no-progress
+            composer install --no-interaction --prefer-dist --no-progress
           else
-            composer update \
-              --no-interaction \
-              --prefer-dist \
-              --no-progress
+            composer update --no-interaction --prefer-dist --no-progress
           fi
 
-      # Node
+      # ------------------------------------------------------
+      # NPM
+      # ------------------------------------------------------
       - name: Installer les dependances Node
         run: npm install
 
-      # Vite
       - name: Compiler les assets
         run: npm run build
 
+      # ------------------------------------------------------
       # Laravel
+      # ------------------------------------------------------
       - name: Preparer Laravel pour les tests
         run: |
           cp .env.example .env
           php artisan key:generate --ansi
 
+      # ------------------------------------------------------
       # Tests
+      # ------------------------------------------------------
       - name: Lancer les tests
         env:
           DB_CONNECTION: mysql
@@ -122,14 +130,30 @@ jobs:
 
     needs: ci
 
-    # On pousse l'image uniquement après un push sur deploy
     if: github.event_name == 'push' && github.ref == 'refs/heads/deploy'
 
     steps:
 
+      # ------------------------------------------------------
+      # Récupération du code
+      # ------------------------------------------------------
       - name: Recuperer le code
         uses: actions/checkout@v4
 
+      # ------------------------------------------------------
+      # Vérifier le Dockerfile
+      # ------------------------------------------------------
+      - name: Verifier Dockerfile
+        run: |
+          echo "Contenu du repository :"
+          ls -la
+
+          echo "Vérification Dockerfile :"
+          test -f ./Dockerfile
+
+      # ------------------------------------------------------
+      # Connexion GHCR
+      # ------------------------------------------------------
       - name: Connexion à GHCR
         uses: docker/login-action@v3
         with:
@@ -137,12 +161,15 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      # ------------------------------------------------------
+      # Build + Push
+      # ------------------------------------------------------
       - name: Construire et pousser l'image backend
         uses: docker/build-push-action@v6
         with:
           context: .
+          file: ./Dockerfile
           push: true
-
           tags: |
             ghcr.io/sicore-project/sicore-backend:latest
             ghcr.io/sicore-project/sicore-backend:${{ github.sha }}
@@ -163,6 +190,9 @@ jobs:
 
     steps:
 
+      # ------------------------------------------------------
+      # Déploiement SSH
+      # ------------------------------------------------------
       - name: Deployer sur le VPS
         uses: appleboy/ssh-action@v1.2.0
 
@@ -172,6 +202,8 @@ jobs:
           key: ${{ secrets.VPS_KEY }}
           port: 22
 
+          timeout: 30s
+          command_timeout: 10m
           script_stop: true
 
           script: |
@@ -180,32 +212,66 @@ jobs:
             echo "Déploiement SICORE Backend"
             echo "======================================"
 
+            # ------------------------------------------------
+            # Dossier du projet
+            # ------------------------------------------------
             cd "${{ secrets.DEPLOY_PATH }}"
 
+            echo "Répertoire courant :"
+            pwd
+
+            echo "Contenu :"
+            ls -la
+
+            # ------------------------------------------------
+            # Vérification Docker
+            # ------------------------------------------------
             echo "Vérification Docker..."
 
             docker --version
             docker compose version
 
+            # ------------------------------------------------
+            # Connexion GHCR
+            # ------------------------------------------------
             echo "Connexion à GHCR..."
 
             echo "${{ secrets.GHCR_TOKEN }}" | docker login ghcr.io \
               -u "${{ secrets.GHCR_USERNAME }}" \
               --password-stdin
 
+            # ------------------------------------------------
+            # Télécharger la nouvelle image
+            # ------------------------------------------------
             echo "Téléchargement de la nouvelle image..."
 
             docker compose -f docker-compose-backend.yml pull
 
+            # ------------------------------------------------
+            # Démarrer les conteneurs
+            # ------------------------------------------------
             echo "Démarrage des conteneurs..."
 
             docker compose -f docker-compose-backend.yml up -d
 
+            # ------------------------------------------------
+            # Vérifier les conteneurs
+            # ------------------------------------------------
+            echo "État des conteneurs..."
+
+            docker compose -f docker-compose-backend.yml ps
+
+            # ------------------------------------------------
+            # Migration Laravel
+            # ------------------------------------------------
             echo "Migration Laravel..."
 
             docker compose -f docker-compose-backend.yml exec -T backend \
               php artisan migrate --force
 
+            # ------------------------------------------------
+            # Cache Laravel
+            # ------------------------------------------------
             echo "Cache configuration..."
 
             docker compose -f docker-compose-backend.yml exec -T backend \
@@ -221,10 +287,13 @@ jobs:
             docker compose -f docker-compose-backend.yml exec -T backend \
               php artisan view:cache
 
-            echo "Nettoyage..."
+            # ------------------------------------------------
+            # Nettoyage
+            # ------------------------------------------------
+            echo "Nettoyage des anciennes images..."
 
             docker image prune -f
 
             echo "======================================"
-            echo "Déploiement terminé"
+            echo "Déploiement terminé avec succès"
             echo "======================================"
