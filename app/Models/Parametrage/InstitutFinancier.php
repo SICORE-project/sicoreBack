@@ -21,6 +21,7 @@ class InstitutFinancier extends Model
         'adresse',
         'telephone',
         'email',
+        'site_web',
         'code_banque',
         'code_guichet',
         'iban_exemple',
@@ -33,6 +34,11 @@ class InstitutFinancier extends Model
     }
 
     // === RELATIONS ===
+
+    public function lieuxPaiement()
+    {
+        return $this->hasMany(LieuPaiement::class);
+    }
 
     public function comptesBancairesEnseignants()
     {

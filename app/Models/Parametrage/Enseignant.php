@@ -3,6 +3,7 @@
 namespace App\Models\Parametrage;
 
 use App\Models\Admin\User;
+use App\Services\Administration\OrganizationalScope;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -221,6 +222,11 @@ class Enseignant extends Model
     public function scopeActif($query)
     {
         return $query->where('est_actif', true);
+    }
+
+    public function scopeVisibleTo($query, User $user)
+    {
+        return app(OrganizationalScope::class)->apply($query, $user);
     }
 
     public function scopeByIef($query, $iefId)
