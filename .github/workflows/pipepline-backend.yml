@@ -4,20 +4,14 @@ on:
   push:
     branches:
       - deploy
-
   pull_request:
     branches:
       - deploy
 
 permissions:
   contents: read
-  packages: write
 
 jobs:
-
-  # ==========================================================
-  # 1. CI : TESTS LARAVEL
-  # ==========================================================
   ci:
     name: Tests Laravel API
     runs-on: ubuntu-latest
@@ -30,10 +24,8 @@ jobs:
           MYSQL_USER: sicore_user
           MYSQL_PASSWORD: sicore_password
           MYSQL_ROOT_PASSWORD: root_password
-
         ports:
           - 3306:3306
-
         options: >-
           --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -proot_password"
           --health-interval=10s
@@ -41,11 +33,9 @@ jobs:
           --health-retries=10
 
     steps:
-
       - name: Recuperer le code
         uses: actions/checkout@v4
 
-      # PHP
       - name: Installer PHP
         uses: shivammathur/setup-php@v2
         with:
@@ -53,13 +43,11 @@ jobs:
           extensions: mbstring, dom, fileinfo, pdo, sqlite, pdo_sqlite, pdo_mysql
           coverage: none
 
-      # Node
       - name: Installer Node
         uses: actions/setup-node@v4
         with:
           node-version: '22'
 
-      # Composer
       - name: Verifier composer.json
         run: composer validate --no-check-publish --strict
 
@@ -73,32 +61,23 @@ jobs:
       - name: Installer les dependances PHP
         run: |
           if [ -f composer.lock ]; then
-            composer install \
-              --no-interaction \
-              --prefer-dist \
-              --no-progress
+            composer install --no-interaction --prefer-dist --no-progress
           else
-            composer update \
-              --no-interaction \
-              --prefer-dist \
-              --no-progress
+            composer update --no-interaction --prefer-dist --no-progress
           fi
 
-      # Node
       - name: Installer les dependances Node
-        run: npm install
+        run: |
+          npm install
 
-      # Vite
       - name: Compiler les assets
         run: npm run build
 
-      # Laravel
       - name: Preparer Laravel pour les tests
         run: |
           cp .env.example .env
           php artisan key:generate --ansi
 
-      # Tests
       - name: Lancer les tests
         env:
           DB_CONNECTION: mysql
@@ -107,98 +86,54 @@ jobs:
           DB_DATABASE: sicore_test
           DB_USERNAME: sicore_user
           DB_PASSWORD: sicore_password
-
         run: composer test
 
-
-  # ==========================================================
-  # 2. BUILD + PUSH IMAGE DOCKER
-  # ==========================================================
   docker:
-    name: Build and Push Docker Image
-
+    name: Build image Docker
     runs-on: ubuntu-latest
-
     needs: ci
 
-    if: github.event_name == 'push' && github.ref == 'refs/heads/deploy'
-
     steps:
-
       - name: Recuperer le code
         uses: actions/checkout@v4
 
-      - name: Connexion à GHCR
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Construire l'image backend
+        run: docker build -t sicore-backend:ci .
 
-      - name: Construire et pousser l'image
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          push: true
-
-          tags: |
-            ghcr.io/${{ github.repository_owner }}/sicore-backend:latest
-            ghcr.io/${{ github.repository_owner }}/sicore-backend:${{ github.sha }}
-
-
-  # ==========================================================
-  # 3. DEPLOY VPS
-  # ==========================================================
   deploy:
     name: Deploy VPS
-
     runs-on: ubuntu-latest
-
     needs:
       - ci
       - docker
-
     if: github.event_name == 'push' && github.ref == 'refs/heads/deploy'
+    env:
+      VPS_IP: ${{ secrets.VPS_IP }}
+      VPS_USERNAME: ${{ secrets.VPS_USERNAME }}
+      VPS_KEY: ${{ secrets.VPS_KEY }}
+      DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
 
     steps:
+      # Crée le répertoire de travail Git minimal pour satisfaire la validation de drone-ssh
+      - name: Recuperer le code (Requis pour initialiser le contexte Git)
+        uses: actions/checkout@v4
 
-      - name: Deployer sur le VPS
+      - name: Deployer sur le VPS via SSH
+        if: env.VPS_IP != '' && env.VPS_USERNAME != '' && env.VPS_KEY != '' && env.DEPLOY_PATH != ''
         uses: appleboy/ssh-action@v1.2.0
-
         with:
           host: ${{ secrets.VPS_IP }}
           username: ${{ secrets.VPS_USERNAME }}
           key: ${{ secrets.VPS_KEY }}
-          port: 22
-          debug: true
+          port: ${{ secrets.VPS_PORT || 22 }}
           script_stop: true
-
           script: |
-
-            echo "======================================"
-            echo "Déploiement du backend"
-            echo "======================================"
-
-            cd /var/www/sicoreBack
-
-            echo "Connexion au registry GHCR..."
-
-            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io \
-              -u "${{ github.actor }}" \
-              --password-stdin
-
-            echo "Pull de la nouvelle image..."
-
-            docker compose -f docker-compose-backend.yml pull
-
-            echo "Redémarrage des conteneurs..."
-
-            docker compose -f docker-compose-backend.yml up -d
-
-            echo "Nettoyage des anciennes images..."
-
-            docker image prune -f
-
-            echo "======================================"
-            echo "Déploiement terminé"
-            echo "======================================"
+            cd "${{ secrets.DEPLOY_PATH }}"
+            git pull --ff-only origin deploy
+            composer install --no-dev --no-interaction --prefer-dist --optimize-autoloader
+            npm install
+            npm run build
+            php artisan migrate --force
+            php artisan config:cache
+            php artisan route:cache
+            php artisan view:cache
