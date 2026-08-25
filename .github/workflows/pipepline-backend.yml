@@ -107,7 +107,6 @@ jobs:
       - ci
       - docker
     if: github.event_name == 'push' && github.ref == 'refs/heads/deploy'
-    # Les secrets sont mappés ici dans l'environnement pour pouvoir être testés dans le IF des étapes
     env:
       VPS_IP: ${{ secrets.VPS_IP }}
       VPS_USERNAME: ${{ secrets.VPS_USERNAME }}
@@ -117,6 +116,10 @@ jobs:
     steps:
       - name: Recuperer le code
         uses: actions/checkout@v4
+
+      # ÉTAPE CORRECTIVE : Autorise Git à lire le dossier actuel sans lever d'erreur de sécurité
+      - name: Fixer les permissions de securite Git
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
 
       - name: Deployer sur le VPS via SSH
         if: env.VPS_IP != '' && env.VPS_USERNAME != '' && env.VPS_KEY != '' && env.DEPLOY_PATH != ''
