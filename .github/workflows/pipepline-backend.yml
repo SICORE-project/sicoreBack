@@ -4,14 +4,20 @@ on:
   push:
     branches:
       - deploy
+
   pull_request:
     branches:
       - deploy
 
 permissions:
   contents: read
+  packages: write
 
 jobs:
+
+  # ==========================================================
+  # 1. TESTS LARAVEL
+  # ==========================================================
   ci:
     name: Tests Laravel API
     runs-on: ubuntu-latest
@@ -19,13 +25,16 @@ jobs:
     services:
       mysql:
         image: mysql:8.4
+
         env:
           MYSQL_DATABASE: sicore_test
           MYSQL_USER: sicore_user
           MYSQL_PASSWORD: sicore_password
           MYSQL_ROOT_PASSWORD: root_password
+
         ports:
           - 3306:3306
+
         options: >-
           --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -proot_password"
           --health-interval=10s
@@ -33,8 +42,13 @@ jobs:
           --health-retries=10
 
     steps:
+
       - name: Recuperer le code
         uses: actions/checkout@v4
+
+      # ------------------------------------------------------
+      # PHP
+      # ------------------------------------------------------
 
       - name: Installer PHP
         uses: shivammathur/setup-php@v2
@@ -43,10 +57,18 @@ jobs:
           extensions: mbstring, dom, fileinfo, pdo, sqlite, pdo_sqlite, pdo_mysql
           coverage: none
 
+      # ------------------------------------------------------
+      # Node
+      # ------------------------------------------------------
+
       - name: Installer Node
         uses: actions/setup-node@v4
         with:
           node-version: '22'
+
+      # ------------------------------------------------------
+      # Composer
+      # ------------------------------------------------------
 
       - name: Verifier composer.json
         run: composer validate --no-check-publish --strict
@@ -56,7 +78,8 @@ jobs:
         with:
           path: ~/.composer/cache/files
           key: composer-${{ runner.os }}-${{ hashFiles('composer.lock', 'composer.json') }}
-          restore-keys: composer-${{ runner.os }}-
+          restore-keys: |
+            composer-${{ runner.os }}-
 
       - name: Installer les dependances PHP
         run: |
@@ -66,17 +89,28 @@ jobs:
             composer update --no-interaction --prefer-dist --no-progress
           fi
 
+      # ------------------------------------------------------
+      # NPM
+      # ------------------------------------------------------
+
       - name: Installer les dependances Node
-        run: |
-          npm install
+        run: npm install
 
       - name: Compiler les assets
         run: npm run build
+
+      # ------------------------------------------------------
+      # Laravel
+      # ------------------------------------------------------
 
       - name: Preparer Laravel pour les tests
         run: |
           cp .env.example .env
           php artisan key:generate --ansi
+
+      # ------------------------------------------------------
+      # Tests
+      # ------------------------------------------------------
 
       - name: Lancer les tests
         env:
@@ -86,52 +120,189 @@ jobs:
           DB_DATABASE: sicore_test
           DB_USERNAME: sicore_user
           DB_PASSWORD: sicore_password
+
         run: composer test
 
+
+  # ==========================================================
+  # 2. BUILD + PUSH IMAGE DOCKER
+  # ==========================================================
   docker:
-    name: Build image Docker
+    name: Build and Push Docker Image
     runs-on: ubuntu-latest
+
     needs: ci
 
+    if: github.event_name == 'push' && github.ref == 'refs/heads/deploy'
+
     steps:
+
       - name: Recuperer le code
         uses: actions/checkout@v4
 
-      - name: Construire l'image backend
-        run: docker build -t sicore-backend:ci .
+      # ------------------------------------------------------
+      # Vérifier Dockerfile
+      # ------------------------------------------------------
 
+      - name: Verifier Dockerfile
+        run: |
+          echo "Contenu du repository :"
+          ls -la
+
+          echo "Vérification du Dockerfile :"
+          test -f ./Dockerfile
+
+      # ------------------------------------------------------
+      # Login GHCR
+      # ------------------------------------------------------
+
+      - name: Connexion à GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # ------------------------------------------------------
+      # Build + Push
+      # ------------------------------------------------------
+
+      - name: Construire et pousser l'image backend
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: |
+            ghcr.io/sicore-project/sicore-backend:latest
+            ghcr.io/sicore-project/sicore-backend:${{ github.sha }}
+
+
+  # ==========================================================
+  # 3. DEPLOY VPS
+  # ==========================================================
   deploy:
     name: Deploy VPS
     runs-on: ubuntu-latest
+
     needs:
       - ci
       - docker
+
     if: github.event_name == 'push' && github.ref == 'refs/heads/deploy'
-    env:
-      VPS_IP: ${{ secrets.VPS_IP }}
-      VPS_USERNAME: ${{ secrets.VPS_USERNAME }}
-      VPS_KEY: ${{ secrets.VPS_KEY }}
-      DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
 
     steps:
-      # Plus besoin de actions/checkout ici, ce qui évite le conflit Node 24 / Git
-      - name: Deployer sur le VPS via SSH
-        if: env.VPS_IP != '' && env.VPS_USERNAME != '' && env.VPS_KEY != '' && env.DEPLOY_PATH != ''
+
+      - name: Deployer sur le VPS
         uses: appleboy/ssh-action@v1.2.0
+
         with:
           host: ${{ secrets.VPS_IP }}
           username: ${{ secrets.VPS_USERNAME }}
           key: ${{ secrets.VPS_KEY }}
           port: ${{ secrets.VPS_PORT || 22 }}
+
+          timeout: 30s
+          command_timeout: 10m
           script_stop: true
-          debug: true # Force l'action à contourner la recherche automatique des métadonnées Git locales
+
           script: |
+
+            echo "======================================"
+            echo "Déploiement SICORE Backend"
+            echo "======================================"
+
+            # ------------------------------------------------
+            # Dossier du projet
+            # ------------------------------------------------
+
             cd "${{ secrets.DEPLOY_PATH }}"
-            git pull --ff-only origin deploy
-            composer install --no-dev --no-interaction --prefer-dist --optimize-autoloader
-            npm install
-            npm run build
-            php artisan migrate --force
-            php artisan config:cache
-            php artisan route:cache
-            php artisan view:cache
+
+            echo "Répertoire courant :"
+            pwd
+
+            echo "Contenu :"
+            ls -la
+
+            # ------------------------------------------------
+            # Vérification Docker
+            # ------------------------------------------------
+
+            echo "Vérification Docker..."
+
+            docker --version
+            docker compose version
+
+            # ------------------------------------------------
+            # Connexion GHCR
+            # ------------------------------------------------
+
+            echo "Connexion à GHCR..."
+
+            echo "${{ secrets.GHCR_TOKEN }}" | docker login ghcr.io \
+              -u "${{ secrets.GHCR_USERNAME }}" \
+              --password-stdin
+
+            # ------------------------------------------------
+            # Télécharger la nouvelle image
+            # ------------------------------------------------
+
+            echo "Téléchargement de la nouvelle image..."
+
+            docker compose -f docker-compose-backend.yml pull
+
+            # ------------------------------------------------
+            # Démarrer les conteneurs
+            # ------------------------------------------------
+
+            echo "Démarrage des conteneurs..."
+
+            docker compose -f docker-compose-backend.yml up -d
+
+            # ------------------------------------------------
+            # Vérifier les conteneurs
+            # ------------------------------------------------
+
+            echo "État des conteneurs..."
+
+            docker compose -f docker-compose-backend.yml ps
+
+            # ------------------------------------------------
+            # Migration
+            # ------------------------------------------------
+
+            echo "Migration Laravel..."
+
+            docker compose -f docker-compose-backend.yml exec -T backend \
+              php artisan migrate --force
+
+            # ------------------------------------------------
+            # Cache Laravel
+            # ------------------------------------------------
+
+            echo "Cache configuration..."
+
+            docker compose -f docker-compose-backend.yml exec -T backend \
+              php artisan config:cache
+
+            echo "Cache routes..."
+
+            docker compose -f docker-compose-backend.yml exec -T backend \
+              php artisan route:cache
+
+            echo "Cache vues..."
+
+            docker compose -f docker-compose-backend.yml exec -T backend \
+              php artisan view:cache
+
+            # ------------------------------------------------
+            # Nettoyage
+            # ------------------------------------------------
+
+            echo "Nettoyage des anciennes images..."
+
+            docker image prune -f
+
+            echo "======================================"
+            echo "Déploiement terminé avec succès"
+            echo "======================================"
