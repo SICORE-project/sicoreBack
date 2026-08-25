@@ -197,9 +197,8 @@ class ConvocationEnvoiController extends Controller
         }
 
         // "informer officiellement" : une fois au moins un envoi reussi,
-        // la convocation n'est plus un brouillon — sauf si deja cloturee
-        // (on ne rouvre pas un dossier ferme).
-        if ($envoyes > 0 && $convocation->statut !== 'cloturee') {
+        // la convocation n'est plus un brouillon.
+        if ($envoyes > 0) {
             $convocation->update(['statut' => 'envoyee']);
         }
 

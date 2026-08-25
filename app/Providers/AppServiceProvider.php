@@ -2,14 +2,11 @@
 
 namespace App\Providers;
 
-use App\Events\ConvocationCreated;
-use App\Listeners\NotifierAdminsNouvelleConvocation;
 use App\Models\indemnite\Convocations;
 use App\Observers\ConvocationObserver;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 
@@ -36,6 +33,13 @@ class AppServiceProvider extends ServiceProvider
 
         Convocations::observe(ConvocationObserver::class);
 
-        //Event::listen(ConvocationCreated::class, NotifierAdminsNouvelleConvocation::class);
+        // Event::listen(ConvocationCreated::class, NotifierAdminsNouvelleConvocation::class)
+        // est volontairement absent : Laravel découvre déjà automatiquement
+        // NotifierAdminsNouvelleConvocation::handle(ConvocationCreated $event)
+        // (auto-discovery des listeners par signature de handle()) —
+        // l'ajouter ici aussi enregistre le même listener DEUX fois
+        // (constaté : 2 entrées dans Event::getListeners(), une notification
+        // dupliquée par convocation créée). Le vrai blocage était ailleurs
+        // (voir NotifierAdminsNouvelleConvocation, ShouldQueue retiré).
     }
 }

@@ -4,7 +4,6 @@ namespace Database\Seeders;
 
 use App\Models\Indemnite\Convocations;
 use App\Models\Indemnite\Etat_paie_indemnites;
-use App\Models\Parametrage\Enseignant;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -19,9 +18,9 @@ use Illuminate\Support\Str;
  * correspondre à une convocation réelle pour être atteignable depuis
  * l'interface).
  *
- * Limité aux convocations "cloturee"/"envoyee" (déjà traitées, cf.
- * ConvocationSeeder) : générer un état de paie pour une session encore en
- * brouillon n'aurait pas de sens narratif.
+ * Limité aux convocations "envoyee" (déjà traitées, cf. ConvocationSeeder) :
+ * générer un état de paie pour une session encore en brouillon n'aurait pas
+ * de sens narratif.
  *
  * NB pour l'utilisatrice : les 4 cartes de stats en haut de la page
  * États de paie (générées/validées/en attente/transmises) sont câblées en
@@ -32,9 +31,10 @@ use Illuminate\Support\Str;
  * existants" après avoir choisi type + objet/session.
  *
  * Doit être exécuté APRÈS ConvocationSeeder, ConvocationCentreSeeder,
- * ConvocationEnseignantSeeder, IndemniteCorrectionSeeder ET
- * IndemniteSurveillanceSeeder (a besoin de leurs données réelles pour
- * construire des lignes "details" cohérentes).
+ * ConvocationEnseignantSeeder, IndemniteCorrectionSeeder,
+ * IndemniteSurveillanceSeeder ET FraisDeplacementSeeder (a besoin de leurs
+ * données réelles — y compris les vraies fiches missions_deplacement —
+ * pour construire des lignes "details" cohérentes).
  *
  * Utilisation : php artisan db:seed --class=EtatPaieIndemniteSeeder
  */
@@ -45,7 +45,7 @@ class EtatPaieIndemniteSeeder extends Seeder
     public function run(): void
     {
         $convocations = Convocations::with('centres')
-            ->whereIn('statut', ['cloturee', 'envoyee'])
+            ->where('statut', 'envoyee')
             ->orderBy('id')
             ->get();
 
@@ -76,25 +76,54 @@ class EtatPaieIndemniteSeeder extends Seeder
                 )->all());
             }
 
-            // Pas de fiche de frais de deplacement reellement creee (hors
-            // perimetre de ce jeu de seeders) : lignes "details" construites
-            // directement a partir du chef de centre/president du jury de
-            // CE centre, avec un montant plausible mais synthetique.
-            if ($centre && ($centre->chef_centre_id || $centre->president_jury_id)) {
-                $responsables = Enseignant::whereIn('id', array_filter([$centre->chef_centre_id, $centre->president_jury_id]))->get();
+            // Lignes "details" construites a partir des VRAIES fiches de
+            // deplacement deja creees par FraisDeplacementSeeder — montant
+            // = missions_deplacement.montant_calcule reel, jamais invente.
+            // Avant ce correctif, un montant synthetique etait attribue au
+            // chef de centre/president du jury meme quand aucune fiche
+            // n'existait reellement pour eux sur cette convocation : la
+            // modale "Voir état" affichait alors un montant different de
+            // celui (0 F) affiche par la liste live des membres, qui lit
+            // elle la vraie fiche (voir EtatPaieIndemnitesController::
+            // lignesFraisDeplacement() cote front) — incoherence constatee
+            // par l'utilisatrice entre les deux.
+            $fichesDeplacement = DB::table('missions_deplacement')
+                ->join('enseignants', 'enseignants.id', '=', 'missions_deplacement.beneficiaire_id')
+                ->where('missions_deplacement.convocation_id', $convocation->id)
+                ->select(
+                    'missions_deplacement.beneficiaire_id',
+                    'missions_deplacement.montant_calcule',
+                    'enseignants.nom',
+                    'enseignants.prenom',
+                    'enseignants.categorie_personnel'
+                )
+                ->get();
 
-                $details = $responsables->map(function (Enseignant $enseignant) use ($centre) {
-                    $estChef = $enseignant->id === $centre->chef_centre_id;
+            if ($fichesDeplacement->isNotEmpty() && $centre) {
+                // Fonction de chaque beneficiaire pour l'affichage — meme
+                // priorite que FraisDeplacementController::construireLigne()
+                // cote back : role dedie du centre (chef/president), sinon
+                // fonction du pivot, sinon "Membre du jury" par defaut.
+                $pivotFonctions = DB::table('convocation_enseignant')
+                    ->where('convocation_id', $convocation->id)
+                    ->pluck('fonction', 'enseignant_id');
+
+                $details = $fichesDeplacement->map(function ($ligne) use ($centre, $pivotFonctions) {
+                    $fonction = match ((int) $ligne->beneficiaire_id) {
+                        (int) $centre->chef_centre_id => 'Chef de centre',
+                        (int) $centre->president_jury_id => 'Président de jury',
+                        default => $pivotFonctions[$ligne->beneficiaire_id] ?? 'Membre du jury',
+                    };
 
                     return $this->ligneDetail(
                         (object) [
-                            'enseignant_id' => $enseignant->id,
-                            'nom' => $enseignant->nom,
-                            'prenom' => $enseignant->prenom,
-                            'categorie_personnel' => $enseignant->categorie_personnel,
-                            'montant' => random_int(15, 45) * 1000,
+                            'enseignant_id' => $ligne->beneficiaire_id,
+                            'nom' => $ligne->nom,
+                            'prenom' => $ligne->prenom,
+                            'categorie_personnel' => $ligne->categorie_personnel,
+                            'montant' => $ligne->montant_calcule,
                         ],
-                        fonction: $estChef ? 'Chef de centre' : 'Président du jury',
+                        fonction: $fonction,
                         metier: null,
                     );
                 })->all();
@@ -125,10 +154,9 @@ class EtatPaieIndemniteSeeder extends Seeder
     {
         $totalMontant = array_sum(array_column($details, 'montant'));
 
-        // Une session deja cloturee a, narrativement, deja fini son cycle
-        // de paie (valide) ; une session juste envoyee est encore en
-        // brouillon — coherent avec ConvocationSeeder.
-        $statut = $convocation->statut === 'cloturee' ? 'valide' : 'brouillon';
+        // Seules des convocations "envoyee" arrivent ici (voir run()) : leur
+        // cycle de paie est encore en cours, jamais deja finalise.
+        $statut = 'brouillon';
 
         Etat_paie_indemnites::create([
             'reference' => 'EP-'.strtoupper(Str::random(8)),

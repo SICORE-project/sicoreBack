@@ -9,17 +9,25 @@ use Illuminate\Database\Seeder;
 /**
  * Membres du jury "ordinaires" (hors chef de centre / president du jury,
  * deja rattaches par ConvocationCentreSeeder) : 4 par convocation — 2
- * correcteurs, 1 surveillant, 1 membre sans fonction speciale — pris dans
- * les 10 DERNIERS enseignants seedes par EnseignantSeeder (le pool
- * "direction" des 10 premiers est reserve aux chefs de centre/presidents
- * de jury, voir ConvocationCentreSeeder). Cette table pivot alimente :
+ * correcteurs, 2 surveillants — pris dans les 10 DERNIERS enseignants
+ * seedes par EnseignantSeeder (le pool "direction" des 10 premiers est
+ * reserve aux chefs de centre/presidents de jury, voir
+ * ConvocationCentreSeeder). Cette table pivot alimente :
  * - la page "Calcul des indemnités" (fonction = "Correction")
  * - la page "Indemnité de surveillance" (fonction contenant "surveill")
  * - la page "Pièces justificatives" (chaque membre y a son propre dossier)
  *
+ * Demande utilisatrice : "il ne doit pas recuperer membre de jury il doit
+ * etre soit surveillant correction ou president de jury ou chef de centre,
+ * Membre de jury n'existe pas" — un membre présent sur une convocation y
+ * est forcément pour l'une de ces 4 raisons (les 2 dernières gérées par
+ * ConvocationCentreSeeder, pas ici) ; ce seeder n'affecte donc plus jamais
+ * 'fonction' à null (voir EtatPaieIndemnitesController::genererFichePdf()
+ * côté back, qui affichait "Membre du jury" pour ce cas avant ce correctif).
+ *
  * "fonction" est un champ texte libre (voir migration
  * add_fonction_to_convocation_enseignant_table) — pas d'enum a respecter,
- * mais ces 3 valeurs sont celles deja utilisees ailleurs dans le code
+ * mais ces valeurs sont celles deja utilisees ailleurs dans le code
  * (FraisDeplacementController, IndemniteCorrectionController,
  * IndemniteSurveillanceController).
  *
@@ -67,10 +75,7 @@ class ConvocationEnseignantSeeder extends Seeder
                 ['fonction' => 'Correction'],
                 ['fonction' => 'Correction'],
                 ['fonction' => 'Surveillant'],
-                // Membre du jury "simple" : pas de fonction speciale — le
-                // front (PiecesJustificativesController::determinerTypeConvocation())
-                // retombe alors sur le libelle par defaut "Membre du jury".
-                ['fonction' => null],
+                ['fonction' => 'Surveillant'],
             ];
 
             foreach ($affectations as $i => $affectation) {

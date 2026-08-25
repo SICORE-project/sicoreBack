@@ -212,7 +212,6 @@ class ConvocationsController extends Controller
             ['value' => 'brouillon', 'label' => 'Brouillon'],
             ['value' => 'emise', 'label' => 'Émise'],
             ['value' => 'envoyee', 'label' => 'Envoyée'],
-            ['value' => 'cloturee', 'label' => 'Clôturée'],
         ];
 
         return $this->success('Options de filtres.', [

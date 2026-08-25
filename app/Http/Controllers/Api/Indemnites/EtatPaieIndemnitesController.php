@@ -114,9 +114,8 @@ class EtatPaieIndemnitesController extends Controller
 
         $session = $request->input('session');
         $typeLibelle = $request->input('type_libelle') ?: 'Indemnité';
-        $libelleGeneral = $request->input('libelle_operation') ?: trim($typeLibelle.' '.($session ?? ''));
 
-        $lignes = collect($details)->map(function (array $ligne) use ($ribParEnseignant, $ribDejaSaisiParId, $ribDejaSaisiParNom, $libelleGeneral) {
+        $lignes = collect($details)->map(function (array $ligne) use ($ribParEnseignant, $ribDejaSaisiParId, $ribDejaSaisiParNom) {
             // Priorité : RIB déjà saisi à la main sur un état de paie
             // existant (voir "Ajouter état de paie") > fiche permanente de
             // l'enseignant > vide — demande utilisatrice : "tu n'a pas
@@ -140,14 +139,21 @@ class EtatPaieIndemnitesController extends Controller
                 'metier' => $ligne['metier'] ?? null,
                 'fonction' => $ligne['fonction'] ?? null,
                 'montant' => (float) ($ligne['montant'] ?? 0),
-                // Le libellé décrit le TYPE d'opération pour CE membre —
-                // Correction/Surveillance/Chef de centre/Président de jury
-                // (sa 'fonction'), pas le métier : le métier est déjà
-                // l'en-tête du tableau qui regroupe la ligne (voir $groupes
-                // plus bas), le répéter ici ferait doublon — demande
-                // utilisatrice : "tu dois recuperer ci c'est correction ou
-                // surveillant ou president de jury ou president de centre".
-                'libelle' => $ligne['fonction'] ?? $libelleGeneral,
+                // Le libellé décrit le RÔLE de CE membre — Correction/
+                // Surveillance/Chef de centre/Président de jury (sa
+                // 'fonction'), pas le métier : le métier est déjà l'en-tête
+                // du tableau qui regroupe la ligne (voir $groupes plus bas),
+                // le répéter ici ferait doublon — demande utilisatrice :
+                // "tu dois recuperer ci c'est correction ou surveillant ou
+                // president de jury ou president de centre". Pas de
+                // fallback "Membre du jury" : demande utilisatrice
+                // explicite ("Membre de jury n'existe pas") — un membre
+                // présent sur une convocation y est forcément pour l'une de
+                // ces 4 raisons (voir ConvocationEnseignantSeeder, qui
+                // n'affecte plus jamais 'fonction' à null) ; si 'fonction'
+                // est malgré tout absente, la vue affiche déjà "—" plutôt
+                // que d'inventer un rôle qui n'existe pas.
+                'libelle' => $ligne['fonction'] ?: null,
                 'code_banque' => $ligne['code_banque'] ?? $rib['code_banque'] ?? $ribProfil?->code_banque,
                 'code_guichet' => $ligne['code_guichet'] ?? $rib['code_guichet'] ?? $ribProfil?->code_guichet,
                 'numero_compte_bancaire' => $ligne['numero_compte_bancaire'] ?? $rib['numero_compte_bancaire'] ?? $ribProfil?->numero_compte_bancaire,
@@ -187,6 +193,11 @@ class EtatPaieIndemnitesController extends Controller
             'reference' => $request->input('reference'),
             'dateGeneration' => now()->translatedFormat('d/m/Y'),
             'titre' => $titre,
+            // Demande utilisatrice : "je voudrais que tu specifiie le type
+            // d'indemnité dans le fichier pdf" — $typeLibelle était déjà
+            // calculé plus haut (utilisé pour le libellé par défaut de
+            // chaque ligne) mais jamais transmis à la vue elle-même.
+            'typeLibelle' => $typeLibelle,
             'centre' => $centre ?: null,
             'groupes' => $groupes,
             'totalMontant' => $lignes->sum('montant'),

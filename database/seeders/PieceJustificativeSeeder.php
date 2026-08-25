@@ -17,7 +17,7 @@ use Illuminate\Support\Str;
  * traite ces 3 rôles à égalité (chacun dépose ses propres pièces).
  *
  * Le taux de complétude des dossiers suit le statut de la convocation
- * (donnée cohérente, pas aléatoire pure) : une convocation clôturée a des
+ * (donnée cohérente, pas aléatoire pure) : une convocation envoyée a des
  * dossiers presque complets, une convocation encore en brouillon a des
  * dossiers à peine entamés — comme un vrai suivi de dépôt de pièces qui
  * progresse avec l'avancement de la session.
@@ -38,15 +38,14 @@ class PieceJustificativeSeeder extends Seeder
     /**
      * Profil de complétude (probabilité qu'UNE pièce donnée soit déjà
      * déposée) par statut de convocation — voir le commentaire de classe.
-     * Volontairement très élevé pour cloturee/envoyee : "complet" exige les
+     * Volontairement très élevé pour envoyee : "complet" exige les
      * 6 pièces à la fois (voir tirerStatut()) — un taux par pièce trop bas
      * laisserait presque aucun dossier réellement complet, alors qu'une
-     * session clôturée doit, côté récit, avoir déjà fini ce travail (et
+     * session déjà envoyée doit, côté récit, avoir déjà fini ce travail (et
      * alimenter des bénéficiaires "éligibles" sur la page Frais de
      * déplacement, qui exige un dossier 100% complet et sans rejet).
      */
     private const TAUX_DEPOT_PAR_STATUT = [
-        'cloturee' => 0.98,
         'envoyee' => 0.94,
         'emise' => 0.6,
         'brouillon' => 0.25,
@@ -54,12 +53,11 @@ class PieceJustificativeSeeder extends Seeder
 
     /**
      * Probabilité qu'une pièce déposée soit rejetée, par statut de
-     * convocation — une session déjà clôturée/envoyée a eu le temps de
-     * corriger ses rejets (peu en restent), une session encore en cours
-     * en a proportionnellement plus.
+     * convocation — une session déjà envoyée a eu le temps de corriger ses
+     * rejets (peu en restent), une session encore en cours en a
+     * proportionnellement plus.
      */
     private const TAUX_REJET_PAR_STATUT = [
-        'cloturee' => 0.02,
         'envoyee' => 0.05,
         'emise' => 0.15,
         'brouillon' => 0.15,

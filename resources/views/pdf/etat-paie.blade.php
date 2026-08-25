@@ -134,6 +134,10 @@
 
     <h1>États de paiement {{ $titre }}</h1>
 
+    @if (! empty($typeLibelle))
+        <p class="centre">Type d'indemnité : {{ $typeLibelle }}</p>
+    @endif
+
     @if (! empty($centre))
         <p class="centre">Établissement : {{ $centre }}</p>
     @endif

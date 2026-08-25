@@ -8,14 +8,13 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class TypeConvocation extends Model
 {
     protected $table = 'types_convocation';
-
     protected $fillable = [
         'code',
         'libelle',
         'description',
         'est_actif',
     ];
-
+    
     protected $casts = [
         'est_actif' => 'boolean',
     ];

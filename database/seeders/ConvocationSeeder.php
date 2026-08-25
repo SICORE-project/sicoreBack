@@ -9,9 +9,9 @@ use Illuminate\Support\Carbon;
 /**
  * 10 convocations de démonstration, réparties sur 5 sessions (Juin à
  * Octobre 2026) avec une progression de statut cohérente dans le temps :
- * les sessions les plus anciennes sont clôturées/envoyées, les plus
- * récentes restent brouillon/émise — comme un vrai calendrier d'examens en
- * cours de traitement, pas un jeu de données figé au hasard.
+ * les sessions les plus anciennes sont envoyées, les plus récentes
+ * restent brouillon/émise — comme un vrai calendrier d'examens en cours
+ * de traitement, pas un jeu de données figé au hasard.
  *
  * Doit être exécuté APRÈS EnseignantSeeder (aucune dépendance directe ici,
  * mais ConvocationCentreSeeder/ConvocationEnseignantSeeder qui suivent en
@@ -56,11 +56,11 @@ class ConvocationSeeder extends Seeder
 
     /**
      * Statut par index de session (0 = la plus ancienne, 9 = la plus
-     * recente) : progression realiste cloturee -> envoyee -> emise ->
-     * brouillon au fil du calendrier.
+     * recente) : progression realiste envoyee -> emise -> brouillon au
+     * fil du calendrier.
      */
     private const STATUTS = [
-        'cloturee', 'cloturee',
+        'envoyee', 'envoyee',
         'envoyee', 'envoyee',
         'envoyee', 'emise',
         'emise', 'emise',

@@ -20,7 +20,7 @@ class ConvocationWordTemplateService
         'Objet' => 'objet',
         'Session' => 'session',
         "Date d'émission (jj/mm/aaaa)" => 'date_emission',
-        'Statut de la convocation (brouillon, emise, envoyee, cloturee)' => 'statut',
+        'Statut de la convocation (brouillon, emise, envoyee)' => 'statut',
         'Date début (jj/mm/aaaa)' => 'date_debut',
         'Date fin (jj/mm/aaaa)' => 'date_fin',
         'Heure début (hh:mm)' => 'heure_debut',
@@ -302,18 +302,18 @@ class ConvocationWordTemplateService
         }
 
         // Le tableau "Informations générales" indique la casse exacte
-        // attendue ("brouillon, emise, envoyee, cloturee") mais un
-        // utilisateur qui remplit le document tape naturellement "Émise" /
-        // "Envoyée" / "Clôturée" — sans normalisation, StoreConvocationRequest
-        // (règle "in:brouillon,emise,envoyee,cloturee", sensible à la casse
-        // et aux accents) rejetait toute la convocation, statut compris.
+        // attendue ("brouillon, emise, envoyee") mais un utilisateur qui
+        // remplit le document tape naturellement "Émise" / "Envoyée" —
+        // sans normalisation, StoreConvocationRequest (règle
+        // "in:brouillon,emise,envoyee", sensible à la casse et aux
+        // accents) rejetait toute la convocation, statut compris.
         if (isset($donnees['statut'])) {
             $statut = $this->normaliserStatut($donnees['statut']);
 
             if ($statut) {
                 $donnees['statut'] = $statut;
             } else {
-                $avertissements[] = "« statut » : valeur « {$donnees['statut']} » non reconnue (attendu : brouillon, émise, envoyée ou clôturée) — laissé au défaut « brouillon ».";
+                $avertissements[] = "« statut » : valeur « {$donnees['statut']} » non reconnue (attendu : brouillon, émise ou envoyée) — laissé au défaut « brouillon ».";
                 unset($donnees['statut']);
             }
         }
@@ -329,7 +329,6 @@ class ConvocationWordTemplateService
             str_starts_with($normalise, 'brouillon') => 'brouillon',
             str_starts_with($normalise, 'emise') => 'emise',
             str_starts_with($normalise, 'envoyee') => 'envoyee',
-            str_starts_with($normalise, 'cloturee') => 'cloturee',
             default => null,
         };
     }

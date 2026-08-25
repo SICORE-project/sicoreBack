@@ -55,7 +55,7 @@ class IndemniteCorrectionSeeder extends Seeder
                 'nombre_copies' => $nombreCopies,
                 'taux_copie' => self::TAUX_COPIE,
                 'montant' => $montant,
-                'statut' => in_array($convocation->statut, ['cloturee', 'envoyee'], true) ? 'valide' : 'calcule',
+                'statut' => $convocation->statut === 'envoyee' ? 'valide' : 'calcule',
             ]);
         }
     }

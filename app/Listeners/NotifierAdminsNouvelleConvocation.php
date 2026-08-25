@@ -6,9 +6,15 @@ use App\Events\ConvocationCreated;
 use App\Models\Admin\Role;
 use App\Models\indemnite\Convocations;
 use App\Services\Indemnites\NotificationService;
-use Illuminate\Contracts\Queue\ShouldQueue;
 
-class NotifierAdminsNouvelleConvocation implements ShouldQueue
+/**
+ * Volontairement PAS ShouldQueue : QUEUE_CONNECTION=database dans cet
+ * environnement, mais aucun worker (`php artisan queue:work`) ne tourne en
+ * permanence — un listener en file d'attente y resterait indéfiniment
+ * (constaté : 53 jobs jamais traités dans la table `jobs`). Exécution
+ * synchrone, immédiate à la création de la convocation.
+ */
+class NotifierAdminsNouvelleConvocation
 {
     public function __construct(protected NotificationService $notificationService) {}
 

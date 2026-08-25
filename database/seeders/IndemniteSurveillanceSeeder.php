@@ -52,7 +52,7 @@ class IndemniteSurveillanceSeeder extends Seeder
                 'nombre_heures' => $nombreHeures,
                 'tarif_horaire' => self::TARIF_HORAIRE,
                 'montant' => $montant,
-                'statut' => in_array($convocation->statut, ['cloturee', 'envoyee'], true) ? 'valide' : 'calcule',
+                'statut' => $convocation->statut === 'envoyee' ? 'valide' : 'calcule',
             ]);
         }
     }
