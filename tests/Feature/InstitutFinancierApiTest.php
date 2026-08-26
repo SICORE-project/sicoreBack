@@ -51,6 +51,12 @@ class InstitutFinancierApiTest extends TestCase
             $table->timestamps();
         });
 
+        Schema::create('lieux_paiement', function (Blueprint $table) {
+            $table->id();
+            $table->unsignedBigInteger('institut_financier_id')->nullable();
+            $table->timestamps();
+        });
+
         DB::table('instituts_financieres')->insert([
             ['code' => 'B001', 'libelle' => 'Banque Atlantique', 'sigle' => 'BA', 'type_institution' => 'banque', 'est_actif' => true, 'telephone' => '330000001', 'email' => 'ba@example.sn', 'adresse' => 'Dakar', 'created_at' => now(), 'updated_at' => now()],
             ['code' => 'M001', 'libelle' => 'Mutuelle du Sénégal', 'sigle' => 'MS', 'type_institution' => 'microfinance', 'est_actif' => false, 'telephone' => null, 'email' => null, 'adresse' => null, 'created_at' => now(), 'updated_at' => now()],
@@ -243,6 +249,34 @@ class InstitutFinancierApiTest extends TestCase
         $this->patchJson('/api/parametrage/institutions-financieres/999/statut', [
             'est_actif' => false,
         ])->assertNotFound();
+    }
+
+    public function test_supprime_une_institution_non_utilisee(): void
+    {
+        $this->deleteJson('/api/parametrage/institutions-financieres/2')
+            ->assertOk()
+            ->assertJsonPath('message', 'Institution financière supprimée avec succès.');
+
+        $this->assertDatabaseMissing('instituts_financieres', ['id' => 2]);
+    }
+
+    public function test_refuse_de_supprimer_une_institution_utilisee(): void
+    {
+        DB::table('comptes_bancaires_enseignants')->insert([
+            'enseignant_id' => 1,
+            'institut_financier_id' => 1,
+            'numero_compte' => 'SN001234567890',
+            'rib' => 'SN08 00001 00002 123456789 01',
+            'est_actif' => true,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $this->deleteJson('/api/parametrage/institutions-financieres/1')
+            ->assertStatus(409)
+            ->assertJsonPath('message', 'Cette institution financière est utilisée et ne peut pas être supprimée.');
+
+        $this->assertDatabaseHas('instituts_financieres', ['id' => 1]);
     }
 
     public function test_associe_une_institution_active_au_compte_bancaire_d_un_enseignant(): void

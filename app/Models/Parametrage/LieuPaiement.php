@@ -9,6 +9,8 @@ class LieuPaiement extends Model
 {
     use HasFactory;
 
+    protected $table = 'lieux_paiement';
+
     protected $fillable = [
         'code',
         'libelle',

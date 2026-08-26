@@ -13,7 +13,6 @@ class UpdateRubriquePaieRequest extends StoreRubriquePaieRequest
             'required',
             'string',
             'max:20',
-            'regex:/^[A-Z0-9]+(?:[-_][A-Z0-9]+)*$/',
             Rule::unique('rubrique_paies', 'code')->ignore($this->route('id')),
         ];
 

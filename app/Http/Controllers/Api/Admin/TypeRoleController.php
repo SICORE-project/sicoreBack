@@ -11,7 +11,9 @@ class TypeRoleController extends Controller
 {
     public function index(Request $request)
     {
-        $query = TypeRole::query()->withCount('roles');
+        $query = TypeRole::query()
+            ->with(['roles:id,type_role_id,nom'])
+            ->withCount('roles');
 
         if ($request->filled('search')) {
             $search = $request->string('search')->toString();
@@ -35,7 +37,11 @@ class TypeRoleController extends Controller
     {
         return response()->json([
             'success' => true,
-            'data' => TypeRole::where('est_actif', true)->withCount('roles')->orderBy('libelle')->get(),
+            'data' => TypeRole::where('est_actif', true)
+                ->with(['roles:id,type_role_id,nom'])
+                ->withCount('roles')
+                ->orderBy('libelle')
+                ->get(),
         ]);
     }
 
@@ -55,7 +61,7 @@ class TypeRoleController extends Controller
     {
         return response()->json([
             'success' => true,
-            'data' => $typeRole->loadCount('roles'),
+            'data' => $typeRole->load(['roles:id,type_role_id,nom'])->loadCount('roles'),
         ]);
     }
 

@@ -9,6 +9,8 @@ use App\Http\Requests\Parametrage\UpdateInstitutFinancierRequest;
 use App\Http\Requests\Parametrage\UpdateStatutInstitutFinancierRequest;
 use App\Http\Resources\Parametrage\InstitutFinancierResource;
 use App\Models\Parametrage\InstitutFinancier;
+use Illuminate\Database\QueryException;
+use Illuminate\Http\JsonResponse;
 
 class InstitutFinancierController extends Controller
 {
@@ -83,5 +85,26 @@ class InstitutFinancierController extends Controller
                 'success' => true,
                 'message' => $message,
             ]);
+    }
+
+    public function destroy(InstitutFinancier $institution): JsonResponse
+    {
+        if ($institution->comptesBancairesEnseignants()->exists() || $institution->lieuxPaiement()->exists()) {
+            return response()->json([
+                'message' => 'Cette institution financière est utilisée et ne peut pas être supprimée.',
+            ], 409);
+        }
+
+        try {
+            $institution->delete();
+        } catch (QueryException) {
+            return response()->json([
+                'message' => 'Cette institution financière est utilisée et ne peut pas être supprimée.',
+            ], 409);
+        }
+
+        return response()->json([
+            'message' => 'Institution financière supprimée avec succès.',
+        ]);
     }
 }

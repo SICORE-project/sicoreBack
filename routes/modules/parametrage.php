@@ -168,6 +168,9 @@ Route::prefix('parametrage/institutions-financieres')->group(function (): void {
 
     Route::patch('/{institution}/statut', [InstitutFinancierController::class, 'updateStatut'])
         ->whereNumber('institution');
+
+    Route::delete('/{institution}', [InstitutFinancierController::class, 'destroy'])
+        ->whereNumber('institution');
 });
 
 /*
