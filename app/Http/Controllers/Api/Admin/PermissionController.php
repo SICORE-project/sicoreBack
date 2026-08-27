@@ -4,6 +4,8 @@ namespace App\Http\Controllers\Api\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Admin\Permission;
+use App\Models\Admin\PermissionGroupe;
+use App\Models\Admin\PermissionModule;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 
@@ -78,16 +80,77 @@ class PermissionController extends Controller
      */
     public function getModules()
     {
-        $modules = Permission::select('module', 'groupe')
-            ->distinct()
-            ->orderBy('groupe')
-            ->orderBy('module')
-            ->get();
+        $modules = PermissionModule::with([
+                'groupe:id,code,libelle',
+                'permissions:id,nom,module,est_actif',
+            ])
+            ->withCount([
+                'permissions',
+                'permissions as permissions_actives_count' => fn ($query) => $query->where('est_actif', true),
+            ])
+            ->orderBy('libelle')->get()
+            ->map(fn (PermissionModule $module) => [
+                'id' => $module->id,
+                'code' => $module->code,
+                'libelle' => $module->libelle,
+                'nom' => $module->libelle,
+                // Conservation du format historique consommé par le frontend.
+                'module' => $module->code,
+                'groupe' => $module->groupe?->code,
+                'groupe_id' => $module->groupe_id,
+                'permissions_count' => $module->permissions_count,
+                'permissions_actives_count' => $module->permissions_actives_count,
+                'permissions' => $module->permissions->pluck('nom')->values(),
+                'permissions_actives' => $module->permissions->where('est_actif', true)->pluck('nom')->values(),
+                'statut_utilisation' => $module->permissions_count > 0 ? 'Utilisé' : 'Non utilisé',
+                'est_actif' => $module->est_actif,
+            ]);
 
         return response()->json([
             'success' => true,
             'data' => $modules,
         ], 200);
+    }
+
+    /** Liste des groupes utilisables dans les filtres et formulaires. */
+    public function getGroupes()
+    {
+        return response()->json([
+            'success' => true,
+            'data' => PermissionGroupe::orderBy('libelle')->get(),
+        ]);
+    }
+
+    /**
+     * Toutes les options du formulaire de permission.
+     * Les paramètres groupe et module permettent d'alimenter des listes liées.
+     */
+    public function getOptions(Request $request)
+    {
+        $modules = PermissionModule::with('groupe:id,code,libelle')
+            ->where('est_actif', true)
+            ->when($request->filled('groupe'), function ($query) use ($request) {
+                $query->whereHas('groupe', fn ($q) => $q->where('code', $request->groupe));
+            })
+            ->orderBy('libelle')
+            ->get();
+
+        $actions = Permission::query()
+            ->whereNotNull('action')
+            ->where('action', '<>', '')
+            ->when($request->filled('module'), fn ($query) => $query->where('module', $request->module))
+            ->distinct()
+            ->orderBy('action')
+            ->pluck('action');
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'groupes' => PermissionGroupe::where('est_actif', true)->orderBy('libelle')->get(),
+                'modules' => $modules,
+                'actions' => $actions,
+            ],
+        ]);
     }
 
     /**
@@ -156,8 +219,8 @@ class PermissionController extends Controller
         $validator = Validator::make($request->all(), [
             'nom' => 'required|string|max:100|unique:permissions',
             'slug' => 'required|string|max:100|unique:permissions',
-            'groupe' => 'required|string|max:50',
-            'module' => 'required|string|max:50',
+            'groupe' => 'required|string|max:50|exists:permission_groupes,code',
+            'module' => 'required|string|max:50|exists:permission_modules,code',
             'action' => 'required|string|max:50',
             'description' => 'nullable|string',
             'est_actif' => 'nullable|boolean',
@@ -226,8 +289,8 @@ class PermissionController extends Controller
         $validator = Validator::make($request->all(), [
             'nom' => 'required|string|max:100|unique:permissions,nom,' . $id,
             'slug' => 'required|string|max:100|unique:permissions,slug,' . $id,
-            'groupe' => 'required|string|max:50',
-            'module' => 'required|string|max:50',
+            'groupe' => 'required|string|max:50|exists:permission_groupes,code',
+            'module' => 'required|string|max:50|exists:permission_modules,code',
             'action' => 'required|string|max:50',
             'description' => 'nullable|string',
             'est_actif' => 'nullable|boolean',
@@ -332,6 +395,19 @@ class PermissionController extends Controller
         $updated = 0;
 
         foreach ($defaultPermissions as $perm) {
+            $groupe = PermissionGroupe::firstOrCreate(
+                ['code' => $perm['groupe']],
+                ['libelle' => ucfirst(str_replace(['_', '-'], ' ', $perm['groupe'])), 'est_actif' => true]
+            );
+            PermissionModule::firstOrCreate(
+                ['code' => $perm['module']],
+                [
+                    'libelle' => ucfirst(str_replace(['_', '-'], ' ', $perm['module'])),
+                    'groupe_id' => $groupe->id,
+                    'est_actif' => true,
+                ]
+            );
+
             $existing = Permission::where('slug', $perm['slug'])->first();
             if ($existing) {
                 $existing->update($perm);
@@ -398,4 +474,5 @@ class PermissionController extends Controller
             ],
         ], 200);
     }
+
 }

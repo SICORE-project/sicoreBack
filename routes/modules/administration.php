@@ -4,6 +4,8 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\Api\Admin\RoleController;
 use App\Http\Controllers\Api\Admin\PermissionController;
+use App\Http\Controllers\Api\Admin\PermissionGroupeController;
+use App\Http\Controllers\Api\Admin\PermissionModuleController;
 use App\Http\Controllers\Api\Admin\RolePermissionController;
 use App\Http\Controllers\Api\Admin\TypeRoleController;
 use App\Http\Controllers\Api\Admin\Personnel\EnseignantController;
@@ -16,6 +18,18 @@ use App\Http\Controllers\Api\Admin\Personnel\EnseignantController;
 */
 
 Route::prefix('admin')->group(function () {
+
+    Route::apiResource('permission-groupes', PermissionGroupeController::class)
+        ->only(['index', 'store', 'update', 'destroy'])
+        ->parameters(['permission-groupes' => 'groupe'])
+        ->middlewareFor(['index'], 'permission:administration.permissions.read')
+        ->middlewareFor(['store', 'update', 'destroy'], 'permission:administration.permissions.manage');
+
+    Route::apiResource('permission-modules', PermissionModuleController::class)
+        ->only(['index', 'store', 'update', 'destroy'])
+        ->parameters(['permission-modules' => 'module'])
+        ->middlewareFor(['index'], 'permission:administration.permissions.read')
+        ->middlewareFor(['store', 'update', 'destroy'], 'permission:administration.permissions.manage');
 
     Route::prefix('type-roles')->group(function () {
         Route::get('/', [TypeRoleController::class, 'index'])
@@ -123,6 +137,12 @@ Route::prefix('admin')->group(function () {
             'getModules'
         ])
         ->middleware('permission:administration.permissions.read');
+
+        Route::get('/groupes', [PermissionController::class, 'getGroupes'])
+            ->middleware('permission:administration.permissions.read');
+
+        Route::get('/options', [PermissionController::class, 'getOptions'])
+            ->middleware('permission:administration.permissions.read');
 
 
         Route::get('/module/{module}', [
