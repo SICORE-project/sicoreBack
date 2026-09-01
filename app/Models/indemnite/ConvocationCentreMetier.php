@@ -29,7 +29,17 @@ class ConvocationCentreMetier extends Model
         return $this->belongsTo(ConvocationCentre::class, 'convocation_centre_id');
     }
 
-  
+    /**
+     * 'categorie_personnel' est une colonne du pivot
+     * `convocation_enseignant` depuis la migration
+     * 2026_08_15_100000_add_categorie_personnel_to_convocation_enseignant_table
+     * (avant elle, l'ajouter ici cassait tout eager-load
+     * "centres.metiers.enseignants" avec SQLSTATE 42S22, colonne
+     * inexistante — d'où l'avertissement précédent). Sans elle dans
+     * withPivot(), la colonne "Statut" de la fiche convocation restait vide
+     * même quand la valeur était bien enregistrée en base — même bug
+     * corrigé sur Convocations::enseignants() et ConvocationCentre::enseignants().
+     */
     public function enseignants(): BelongsToMany
     {
         return $this->belongsToMany(

@@ -23,7 +23,6 @@ class StoreConvocationRequest extends FormRequest
             // Session d'examen (ex: "BFEM 2026") — colonne ajoutée pour la
             // liste DAGE du cahier des charges "Transmission des convocations".
             'session' => ['nullable', 'string', 'max:150'],
-            'lieu_examen' => ['nullable', 'string', 'max:255'],
             'ordre_de_mission' => ['nullable', 'boolean'],
             'lieu_affectation' => ['nullable', 'string', 'max:255'],
             'statut' => ['nullable', 'in:brouillon,emise,envoyee,cloturee'],

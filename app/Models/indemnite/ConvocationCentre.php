@@ -21,8 +21,12 @@ class ConvocationCentre extends Model
         'metier',
         'chef_centre_id',
         'chef_centre_telephone',
+        'chef_centre_provenance',
+        'chef_centre_categorie_personnel',
         'president_jury_id',
         'president_jury_telephone',
+        'president_jury_provenance',
+        'president_jury_categorie_personnel',
     ];
 
     public function convocation(): BelongsTo
@@ -47,6 +51,16 @@ class ConvocationCentre extends Model
     /**
      * Membres du jury affectes a CE centre precis, au sein de la
      * convocation (voir la colonne centre_id sur convocation_enseignant).
+     *
+     * 'categorie_personnel' est une colonne du pivot
+     * `convocation_enseignant` depuis la migration
+     * 2026_08_15_100000_add_categorie_personnel_to_convocation_enseignant_table
+     * (avant elle, l'ajouter ici cassait tout eager-load "centres.enseignants"
+     * avec SQLSTATE 42S22, colonne inexistante — d'où l'avertissement
+     * précédent). Sans elle dans withPivot(), la colonne "Statut" de la
+     * fiche convocation restait vide même quand la valeur était bien
+     * enregistrée en base — même bug corrigé sur Convocations::enseignants()
+     * et ConvocationCentreMetier::enseignants().
      */
     public function enseignants(): BelongsToMany
     {

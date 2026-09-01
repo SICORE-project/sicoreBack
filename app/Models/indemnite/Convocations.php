@@ -23,7 +23,6 @@ class Convocations extends Model
         'heure_debut',
         'objet',
         'session',
-        'lieu_examen',
         'ordre_de_mission',
         'lieu_affectation',
         'fichier_chemin',
@@ -56,6 +55,15 @@ class Convocations extends Model
 
     /**
      * Bénéficiaires affectés à la convocation.
+     *
+     * 'categorie_personnel' est bien une colonne du pivot
+     * `convocation_enseignant` (voir migration
+     * 2026_08_15_100000_add_categorie_personnel_to_convocation_enseignant_table,
+     * qui a remplacé une tentative précédente et annulée de l'ajouter sur
+     * `enseignants`) : la catégorie est saisie par convocation, pas comme
+     * attribut permanent de l'enseignant. Sans elle dans withPivot(), la
+     * colonne "Statut" de la fiche convocation (show.blade.php) restait
+     * vide même quand la valeur était bien enregistrée en base.
      */
     public function enseignants(): BelongsToMany
     {
@@ -101,6 +109,16 @@ class Convocations extends Model
                 ->delete();
 
             DB::table('convocation_enseignant')
+                ->where('convocation_id', $convocation->id)
+                ->delete();
+
+            // indemnites_correction est en MyISAM comme le reste de ces
+            // tables (cascadeOnDelete() declare en migration mais ignore
+            // silencieusement par ce moteur) — meme nettoyage manuel que
+            // pour convocation_centre_metiers/convocation_enseignant
+            // ci-dessus, sans quoi supprimer une convocation laisserait des
+            // indemnites de correction orphelines.
+            DB::table('indemnites_correction')
                 ->where('convocation_id', $convocation->id)
                 ->delete();
 

@@ -84,8 +84,12 @@ class ConvocationCentreController extends Controller
             'metier' => ['nullable', 'string', 'max:255'],
             'chef_centre_id' => ['nullable', 'integer', 'exists:enseignants,id'],
             'chef_centre_telephone' => ['nullable', 'string', 'max:30'],
+            'chef_centre_provenance' => ['nullable', 'string', 'max:255'],
+            'chef_centre_categorie_personnel' => ['nullable', 'in:fonctionnaire,contractuel,vacataire'],
             'president_jury_id' => ['nullable', 'integer', 'exists:enseignants,id'],
             'president_jury_telephone' => ['nullable', 'string', 'max:30'],
+            'president_jury_provenance' => ['nullable', 'string', 'max:255'],
+            'president_jury_categorie_personnel' => ['nullable', 'in:fonctionnaire,contractuel,vacataire'],
         ]);
 
         $centre->update($data);
@@ -93,25 +97,7 @@ class ConvocationCentreController extends Controller
         return $this->success('Centre mis à jour avec succès.', $centre);
     }
 
-    /**
-     * Supprime UN centre d'une convocation, sans toucher aux AUTRES centres
-     * (voir demande utilisateur : "je ne veux pas que la suppression d'une
-     * convocation entraine la suppression de tous les centres differents").
-     * Les membres du jury rattaches a ce centre ne sont pas supprimes de la
-     * convocation, seul leur rattachement au centre/metier est retire.
-     *
-     * Si c'etait le DERNIER centre de la convocation, la convocation
-     * elle-meme est supprimee avec : la laisser exister sans aucun centre
-     * ne sert a rien et ne fait que trainer dans la liste avec un tiret
-     * dans la colonne Centre — voir retour utilisateur (capture d'ecran
-     * d'une convocation "fantome" apres suppression de son unique centre).
-     *
-     * Nettoyage fait explicitement ici (pas de cascade au niveau base) car
-     * convocation_centres/convocation_centre_metiers/convocation_enseignant
-     * sont en MyISAM, moteur qui n'applique pas les contraintes de cle
-     * etrangere declarees dans les migrations (cascadeOnDelete/nullOnDelete
-     * y sont silencieusement ignorees).
-     */
+   
     public function destroy(string $id, string $centreId)
     {
         $convocation = ConvocationModel::trouverParSlugOuId($id);

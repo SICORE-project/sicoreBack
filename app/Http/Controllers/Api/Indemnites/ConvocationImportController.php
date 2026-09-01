@@ -25,17 +25,18 @@ class ConvocationImportController extends Controller
     public function store(ImportConvocationsRequest $request)
     {
         $utilisateurId = (int) $request->validated('utilisateur_id');
-        $typeConvocationId = (int) $request->validated('type_convocation_id');
 
         $donnees = $this->modeles->lire($request->file('fichier')->getRealPath());
         $avertissements = $donnees['avertissements'];
 
-        // Le type est choisi dans le formulaire d'import (pas dans le
-        // document Word) : il prime sur toute valeur eventuellement issue
-        // du fichier.
+        // Plus de type de convocation choisi dans le formulaire d'import :
+        // chaque membre a son propre type (président de jury, président de
+        // centre, correction, surveillant), déduit de son rôle dans le
+        // document Word — voir resoudreMembre()/resoudreCentre() côté
+        // ConvocationWordTemplateService. type_convocation_id reste nullable
+        // sur la table convocations (StoreConvocationRequest).
         $dataConvocation = array_merge($donnees['convocation'], [
             'utilisateur_id' => $utilisateurId,
-            'type_convocation_id' => $typeConvocationId,
         ]);
 
         $validateurConvocation = Validator::make($dataConvocation, (new StoreConvocationRequest())->rules());

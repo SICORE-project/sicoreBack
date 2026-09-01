@@ -40,7 +40,6 @@ class ConvocationSyncController extends Controller
                 'heure_debut',
                 'objet',
                 'session',
-                'lieu_examen',
                 'ordre_de_mission',
                 'lieu_affectation',
                 'statut',
@@ -55,8 +54,8 @@ class ConvocationSyncController extends Controller
                 $centreId = $centreDonnees['id'] ?? null;
 
                 $champsCentre = collect($centreDonnees)->only([
-                    'centre', 'jury', 'chef_centre_id', 'chef_centre_telephone',
-                    'president_jury_id', 'president_jury_telephone',
+                    'centre', 'jury', 'chef_centre_id', 'chef_centre_telephone', 'chef_centre_provenance', 'chef_centre_categorie_personnel',
+                    'president_jury_id', 'president_jury_telephone', 'president_jury_provenance', 'president_jury_categorie_personnel',
                 ])->all();
 
                 if ($centreId && $convocation->centres()->where('id', $centreId)->exists()) {
@@ -96,16 +95,10 @@ class ConvocationSyncController extends Controller
                     $metierIdParIndexParCentre[$centreIndex][$metierIndex] = $metier->id;
                 }
 
-                // Metiers de CE centre absents de la requete = retires par
-                // l'utilisatrice dans le wizard -> supprimes (les membres
-                // qui y etaient rattaches restent, seul centre_metier_id
-                // repasse a null, cf. migration nullOnDelete).
                 $centre->metiers()->whereNotIn('id', $metiersSoumisIds)->delete();
             }
 
-            // Centres absents de la requete = retires dans le wizard ->
-            // supprimes (cascadeOnDelete sur leurs metiers, nullOnDelete
-            // sur les membres qui y etaient rattaches).
+            
             $convocation->centres()->whereNotIn('id', $centresSoumisIds)->delete();
 
             // Membres du jury : remplacement complet (sync(), pas

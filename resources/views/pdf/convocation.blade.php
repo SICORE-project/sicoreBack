@@ -71,11 +71,17 @@
 
     <h1>Convocation — {{ $convocation->objet ?? '—' }}</h1>
 
+    {{--
+        Pas de "type de convocation" global ici : chaque membre a
+        désormais le sien (Président de jury / Chef de centre / Correction
+        / Surveillance), déduit de sa fonction — voir la colonne "Type de
+        convocation" du tableau des membres plus bas. La relation
+        typeConvocation() (type_convocation_id) est un champ hérité de
+        l'ancien modèle "un seul type pour toute la convocation", toujours
+        vide pour une convocation importée.
+    --}}
     <p class="meta">
         Émise le {{ optional($convocation->date_emission)->format('d/m/Y') ?? '—' }}
-        @if ($convocation->typeConvocation)
-            &middot; {{ $convocation->typeConvocation->libelle }}
-        @endif
     </p>
 
     <table class="info-grid">
@@ -98,10 +104,10 @@
             <td>{{ $convocation->heure_debut ?? '—' }}</td>
         </tr>
         <tr>
-            <td class="info-label">Lieu d'examen</td>
-            <td>{{ $convocation->lieu_examen ?? '—' }}</td>
             <td class="info-label">Lieu d'affectation</td>
             <td>{{ $convocation->lieu_affectation ?? '—' }}</td>
+            <td class="info-label">Ordre de mission</td>
+            <td>{{ $convocation->ordre_de_mission ? 'Oui' : 'Non' }}</td>
         </tr>
     </table>
 
@@ -119,6 +125,28 @@
                 'contractuel' => 'Contractuelle',
                 'vacataire' => 'Vacataire',
             ];
+
+            // Même logique que PiecesJustificativesController::
+            // determinerTypeConvocation() côté front (page Pièces
+            // justificatives) — dupliquée ici faute de code métier partagé
+            // entre les deux applications. "Membre du jury" n'a pas de type
+            // dédié (retourne null, affiché "—").
+            $determinerTypeConvocation = function (?string $fonction): ?string {
+                if (! $fonction) {
+                    return null;
+                }
+
+                $normalisee = \Illuminate\Support\Str::of($fonction)->lower()->ascii()->toString();
+
+                return match (true) {
+                    str_contains($normalisee, 'president') && str_contains($normalisee, 'jury') => 'Président de jury',
+                    str_contains($normalisee, 'chef') && str_contains($normalisee, 'centre') => 'Président de centre',
+                    str_contains($normalisee, 'president') && str_contains($normalisee, 'centre') => 'Président de centre',
+                    str_contains($normalisee, 'correct') => 'Correction',
+                    str_contains($normalisee, 'surveill') => 'Surveillance',
+                    default => null,
+                };
+            };
         @endphp
 
         @foreach ($convocation->centres as $centre)
@@ -166,6 +194,7 @@
                                     <th>Nom</th>
                                     <th>Prénoms</th>
                                     <th>Fonction</th>
+                                    <th>Type de convocation</th>
                                     <th>Statut</th>
                                     <th>Provenance</th>
                                     <th>Téléphone</th>
@@ -177,6 +206,7 @@
                                         <td>{{ $enseignant->nom ?? '—' }}</td>
                                         <td>{{ $enseignant->prenom ?? '—' }}</td>
                                         <td>{{ $enseignant->pivot->fonction ?? '—' }}</td>
+                                        <td>{{ $determinerTypeConvocation($enseignant->pivot->fonction ?? null) ?? '—' }}</td>
                                         <td>{{ $statutsPersonnel[$enseignant->categorie_personnel ?? null] ?? '—' }}</td>
                                         <td>{{ $enseignant->pivot->provenance ?? '—' }}</td>
                                         <td>{{ $enseignant->telephone ?? '—' }}</td>

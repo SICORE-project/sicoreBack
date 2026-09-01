@@ -24,9 +24,7 @@ class ConvocationWordTemplateService
         'Date début (jj/mm/aaaa)' => 'date_debut',
         'Date fin (jj/mm/aaaa)' => 'date_fin',
         'Heure début (hh:mm)' => 'heure_debut',
-        "Lieu d'examen" => 'lieu_examen',
         "Lieu d'affectation" => 'lieu_affectation',
-        'Ordre de mission (Oui/Non)' => 'ordre_de_mission',
     ];
 
     private const CHAMPS_CENTRE = [
@@ -35,19 +33,27 @@ class ConvocationWordTemplateService
         'Métier / spécialité' => 'metier',
         'Chef de centre (nom complet)' => 'chef_centre',
         'Téléphone du chef de centre' => 'chef_centre_telephone',
-      
+        // Lieu où le chef de centre / le président du jury exerce
+        // habituellement (utilisé par le calcul des frais de déplacement
+        // pour l'ajustement ÷4 — même principe que la colonne "Provenance"
+        // du tableau Membres du jury ci-dessous).
+        'Provenance du chef de centre' => 'chef_centre_provenance',
+        'Catégorie de personnel du chef de centre (Fonctionnaire, Contractuelle, Vacataire)' => 'chef_centre_categorie_personnel',
+
         'Président du jury (nom complet)' => 'president_jury',
         'Téléphone du président du jury' => 'president_jury_telephone',
+        'Provenance du président du jury' => 'president_jury_provenance',
+        'Catégorie de personnel du président du jury (Fonctionnaire, Contractuelle, Vacataire)' => 'president_jury_categorie_personnel',
     ];
 
     private const CHAMPS_MEMBRE = [
         "Centre de rattachement (nom exact d'un centre ci-dessus)" => 'centre_nom',
         'Prénom' => 'prenom',
         'Nom' => 'nom',
-        'Fonction' => 'fonction',
+        'Fonction (Correction ou Surveillant)' => 'fonction',
         'Catégorie de personnel (Fonctionnaire, Contractuelle, Vacataire)' => 'categorie_personnel',
         'Provenance' => 'provenance',
-        
+
         'Téléphone' => 'telephone',
     ];
 
@@ -72,12 +78,6 @@ class ConvocationWordTemplateService
         $phpWord = new PhpWord();
         $section = $phpWord->addSection();
 
-        $section->addTitle('Modèle de convocation', 1);
-        $section->addText(
-            "Remplissez une ligne du tableau « Informations générales » (une seule convocation par document). Ajoutez une ligne par centre d'examen dans le deuxième tableau et une ligne par membre du jury dans le troisième — vous pouvez insérer des lignes supplémentaires si besoin. La colonne « Centre de rattachement » du tableau des membres doit reprendre exactement le nom saisi dans la colonne « Centre d'examen » du tableau des centres."
-        );
-
-        $section->addTextBreak();
         $section->addText('Informations générales', ['bold' => true]);
         $this->ajouterTableau($section, array_keys(self::CHAMPS_INFOS), 10);
 
@@ -301,15 +301,37 @@ class ConvocationWordTemplateService
             }
         }
 
-        if (isset($donnees['ordre_de_mission'])) {
-            $donnees['ordre_de_mission'] = in_array(
-                Str::lower(trim($donnees['ordre_de_mission'])),
-                ['oui', '1', 'true', 'o'],
-                true
-            );
+        // Le tableau "Informations générales" indique la casse exacte
+        // attendue ("brouillon, emise, envoyee, cloturee") mais un
+        // utilisateur qui remplit le document tape naturellement "Émise" /
+        // "Envoyée" / "Clôturée" — sans normalisation, StoreConvocationRequest
+        // (règle "in:brouillon,emise,envoyee,cloturee", sensible à la casse
+        // et aux accents) rejetait toute la convocation, statut compris.
+        if (isset($donnees['statut'])) {
+            $statut = $this->normaliserStatut($donnees['statut']);
+
+            if ($statut) {
+                $donnees['statut'] = $statut;
+            } else {
+                $avertissements[] = "« statut » : valeur « {$donnees['statut']} » non reconnue (attendu : brouillon, émise, envoyée ou clôturée) — laissé au défaut « brouillon ».";
+                unset($donnees['statut']);
+            }
         }
 
         return $donnees;
+    }
+
+    private function normaliserStatut(string $valeur): ?string
+    {
+        $normalise = $this->normaliser($valeur);
+
+        return match (true) {
+            str_starts_with($normalise, 'brouillon') => 'brouillon',
+            str_starts_with($normalise, 'emise') => 'emise',
+            str_starts_with($normalise, 'envoyee') => 'envoyee',
+            str_starts_with($normalise, 'cloturee') => 'cloturee',
+            default => null,
+        };
     }
 
     /**
@@ -345,14 +367,38 @@ class ConvocationWordTemplateService
             $presidentJuryId = $enseignant?->id;
         }
 
+        $chefCentreCategorie = null;
+
+        if (! empty($ligne['chef_centre_categorie_personnel'])) {
+            $chefCentreCategorie = $this->normaliserCategoriePersonnel($ligne['chef_centre_categorie_personnel']);
+
+            if (! $chefCentreCategorie) {
+                $avertissements[] = "catégorie de personnel « {$ligne['chef_centre_categorie_personnel']} » (chef de centre « {$ligne['centre']} ») non reconnue — valeurs attendues : Fonctionnaire, Contractuelle, Vacataire.";
+            }
+        }
+
+        $presidentJuryCategorie = null;
+
+        if (! empty($ligne['president_jury_categorie_personnel'])) {
+            $presidentJuryCategorie = $this->normaliserCategoriePersonnel($ligne['president_jury_categorie_personnel']);
+
+            if (! $presidentJuryCategorie) {
+                $avertissements[] = "catégorie de personnel « {$ligne['president_jury_categorie_personnel']} » (président du jury « {$ligne['centre']} ») non reconnue — valeurs attendues : Fonctionnaire, Contractuelle, Vacataire.";
+            }
+        }
+
         return [
             'centre' => $ligne['centre'],
             'jury' => $ligne['jury'] ?: null,
             'metier' => $ligne['metier'] ?: null,
             'chef_centre_id' => $chefCentreId,
             'chef_centre_telephone' => $ligne['chef_centre_telephone'] ?: null,
+            'chef_centre_provenance' => $ligne['chef_centre_provenance'] ?: null,
+            'chef_centre_categorie_personnel' => $chefCentreCategorie,
             'president_jury_id' => $presidentJuryId,
             'president_jury_telephone' => $ligne['president_jury_telephone'] ?: null,
+            'president_jury_provenance' => $ligne['president_jury_provenance'] ?: null,
+            'president_jury_categorie_personnel' => $presidentJuryCategorie,
         ];
     }
 

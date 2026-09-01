@@ -46,6 +46,7 @@ class Enseignant extends Model
         'nationalite_id',
         'statut_enseignant_id',   // FK déjà en base (statuts_enseignant), oubliée du fillable
         'categorie_personnel',    // vacataire / contractuel / fonctionnaire — distinct de statuts_enseignant.categorie
+        'indice',                 // indice de solde (fonctionnaires) — utilisé par la fiche de déplacement
         'statut',
         'date_statut',
         'date_recrutement',
@@ -75,6 +76,7 @@ class Enseignant extends Model
         'date_prise_service' => 'date',
         'date_fin_contrat' => 'date',
         'salaire_brut' => 'decimal:2',
+        'indice' => 'decimal:2',
         'nombre_enfants' => 'integer',
         'nombre_femmes' => 'integer',
         'nombre_parts_fiscales' => 'integer',

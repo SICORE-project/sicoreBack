@@ -4,14 +4,7 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
-/**
- * Rattache une piece justificative a UN membre du jury precis (bouton
- * "Ajouter une piece" sur la fiche d'un membre, page Pieces
- * justificatives) et, en denormalisation utile pour le suivi "par centre"
- * de cette page, au centre d'examen de ce membre — jusqu'ici
- * piece_justificatives n'etait rattachee qu'a la convocation entiere, ce
- * qui ne permettait pas de savoir a QUI appartenait un document depose.
- */
+
 return new class extends Migration
 {
     public function up(): void
