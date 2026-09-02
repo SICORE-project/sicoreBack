@@ -10,6 +10,7 @@ use App\Models\User;
 use App\Services\PayrollPageService;
 use Database\Seeders\PayrollPresentationSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Routing\Middleware\ThrottleRequests;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
@@ -117,10 +118,33 @@ class PayrollPresentationSeederTest extends TestCase
             'paie-bulletins',
             'paie-sommes-percues',
         ] as $slug) {
-            $this->getJson('/api/payroll/pages/'.$slug.'?period_id='.$march->id)
+            $response = $this->getJson('/api/payroll/pages/'.$slug.'?period_id='.$march->id)
                 ->assertOk()
                 ->assertJsonCount(20, 'data.rows');
+
+            if ($slug === 'paie-etat-salaires') {
+                $response
+                    ->assertJsonPath('data.salary_statement.period_label', 'Mars 2026')
+                    ->assertJsonPath('data.salary_statement.academic_year', '2025-2026')
+                    ->assertJsonPath('data.columns.4', 'Sal. catég.')
+                    ->assertJsonPath('data.columns.21', 'Net à payer')
+                    ->assertJsonCount(20, 'data.salary_statement.rows');
+            }
         }
+
+        $this->getJson('/api/payroll/pages/paie-etat-salaires?'.http_build_query([
+            'period_id' => $march->id,
+            'corps_id' => $contractuel->getAttribute('corps_id')
+                ?? $contractuel->getAttribute('corps_enseignant_id'),
+            'ia_id' => $this->hierarchy($contractuel)['ia_id'],
+            'matricule' => 'PC-',
+            'with_signature' => 1,
+            'dage_signatory' => 1,
+        ]))
+            ->assertOk()
+            ->assertJsonPath('data.salary_statement.with_signature', true)
+            ->assertJsonPath('data.salary_statement.signatory', 'Le Directeur de l’Administration générale et de l’Équipement (DAGE)')
+            ->assertJsonFragment(['label' => 'Émargement']);
 
         $this->postAction('calculate-payroll', [
             'payroll_period_id' => $period->id,
@@ -209,6 +233,7 @@ class PayrollPresentationSeederTest extends TestCase
             'amount' => 1,
         ], 'acceptance-after-close')->assertStatus(409);
 
+        $this->withoutMiddleware(ThrottleRequests::class);
         foreach (PayrollPageService::SLUGS as $slug) {
             $this->getJson('/api/payroll/pages/'.$slug.'?period_id='.$period->id)->assertOk();
         }

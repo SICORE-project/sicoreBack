@@ -38,6 +38,11 @@ class Enseignant extends Model
         return $this->belongsTo(institution_financieres::class, 'institution_financiere_id');
     }
 
+    public function mutuelle(): BelongsTo
+    {
+        return $this->belongsTo(mutuelles::class, 'mutuelle_id');
+    }
+
     public function corps(): BelongsTo
     {
         return $this->belongsTo(corps_enseignants::class, 'corps_enseignant_id');

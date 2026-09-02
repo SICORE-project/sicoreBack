@@ -2,13 +2,13 @@
 
 namespace Tests\Feature;
 
+use App\Models\Admin\User;
 use App\Models\Enseignant;
 use App\Models\PayrollAttendance;
 use App\Models\PayrollElement;
 use App\Models\PayrollPayslip;
 use App\Models\PayrollPeriod;
 use App\Models\roles;
-use App\Models\Admin\User;
 use Carbon\CarbonImmutable;
 use Database\Seeders\GestionPaieSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -125,6 +125,56 @@ class PayrollApiTest extends TestCase
             ->assertJsonPath('data.supports_hierarchy_filter', true)
             ->assertJsonCount(0, 'data.rows')
             ->assertJsonCount(0, 'data.row_filters');
+    }
+
+    public function test_travaux_periodiques_exposent_tous_les_rapports_sans_modifier_les_autres_modules(): void
+    {
+        $period = $this->period();
+        PayrollElement::query()->create([
+            'payroll_period_id' => $period->id,
+            'enseignant_id' => $this->teacher->id,
+            'code' => 'PRIME_SCOLAIRE',
+            'label' => 'Prime scolaire de test',
+            'category' => 'earning',
+            'source' => 'manual',
+            'amount' => 25000,
+            'status' => 'draft',
+        ]);
+
+        $this->getJson('/api/payroll/pages/paie-travaux-periodiques?period_id='.$period->id)
+            ->assertOk()
+            ->assertJsonCount(22, 'data.report_catalog')
+            ->assertJsonPath('data.report_catalog.0.slug', 'paie-recap-banque');
+
+        $this->getJson('/api/payroll/pages/paie-prime-scolaire?period_id='.$period->id)
+            ->assertOk()
+            ->assertJsonPath('data.rows.0.0', 'TEST-001')
+            ->assertJsonPath('data.rows.0.2', 'PRIME_SCOLAIRE')
+            ->assertJsonPath('data.rows.0.4', '25 000 FCFA');
+
+        $this->getJson('/api/payroll/pages/paie-cumul-enseignants-ief?period_id='.$period->id)
+            ->assertOk()
+            ->assertJsonPath('data.rows.0.0', 'IA Test')
+            ->assertJsonPath('data.rows.0.1', 'IEF Test');
+
+        $this->getJson('/api/payroll/pages/paie-situation-affectations?period_id='.$period->id)
+            ->assertOk()
+            ->assertJsonPath('data.rows.0.0', 'TEST-001')
+            ->assertJsonPath('data.rows.0.2', 'IA Test');
+
+        foreach ([
+            'paie-edition-enseignants',
+            'paie-reliquats',
+            'paie-double-flux',
+            'paie-directeurs-interim',
+            'paie-recap-elements-corps',
+            'paie-edition-fonctionnaires',
+            'paie-mutuelles-sante',
+            'paie-montants-engages-banque',
+            'paie-heures-supplementaires-interim',
+        ] as $slug) {
+            $this->getJson('/api/payroll/pages/'.$slug.'?period_id='.$period->id)->assertOk();
+        }
     }
 
     public function test_cycle_complet_calcul_validation_cloture_et_verrouillage(): void

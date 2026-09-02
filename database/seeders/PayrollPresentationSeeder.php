@@ -55,6 +55,18 @@ class PayrollPresentationSeeder extends Seeder
             $timestamps,
             'nom'
         );
+        $mutuelleEnseignants = $this->reference(
+            'mutuelles',
+            ['nom' => 'Mutuelle de santé des enseignants'],
+            $timestamps,
+            'nom'
+        );
+        $mutuelleAgents = $this->reference(
+            'mutuelles',
+            ['nom' => 'Mutuelle complémentaire des agents'],
+            $timestamps,
+            'nom'
+        );
 
         $saintLouisIa = $this->reference(
             'ias',
@@ -262,6 +274,12 @@ class PayrollPresentationSeeder extends Seeder
                 $admin
             ),
         ];
+
+        foreach ($teachers as $index => $teacher) {
+            $teacher->update([
+                'mutuelle_id' => $index % 3 === 0 ? $mutuelleAgents : $mutuelleEnseignants,
+            ]);
+        }
 
         $period = PayrollPeriod::query()->firstOrNew(['code' => '2026-03']);
         $period->fill([

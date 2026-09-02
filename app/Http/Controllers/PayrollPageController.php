@@ -15,21 +15,21 @@ class PayrollPageController extends Controller
 
     public function show(Request $request, string $slug): JsonResponse
     {
-        $validated = $request->validate([
-            'period_id' => ['nullable', 'integer', 'exists:payroll_periods,id'],
-        ]);
+        $validated = $this->validatedFilters($request, $slug);
 
         return response()->json([
-            'data' => $this->pages->page($slug, $validated['period_id'] ?? null),
+            'data' => $this->pages->page(
+                $slug,
+                $validated['period_id'] ?? null,
+                $validated
+            ),
         ]);
     }
 
     public function export(Request $request, string $slug): StreamedResponse
     {
-        $validated = $request->validate([
-            'period_id' => ['nullable', 'integer', 'exists:payroll_periods,id'],
-        ]);
-        $page = $this->pages->page($slug, $validated['period_id'] ?? null);
+        $validated = $this->validatedFilters($request, $slug);
+        $page = $this->pages->page($slug, $validated['period_id'] ?? null, $validated);
         $filename = $slug.'-'.($page['period']['code'] ?? now()->format('Y-m')).'.csv';
 
         return response()->streamDownload(function () use ($page): void {
@@ -52,6 +52,37 @@ class PayrollPageController extends Controller
             'Content-Type' => 'text/csv; charset=UTF-8',
             'Cache-Control' => 'no-store, private',
         ]);
+    }
+
+    /**
+     * Valide les critères communs puis, uniquement pour l'état des salaires,
+     * les options d'édition issues du formulaire métier historique.
+     *
+     * @return array<string, mixed>
+     */
+    private function validatedFilters(Request $request, string $slug): array
+    {
+        $rules = [
+            'period_id' => ['nullable', 'integer', 'exists:payroll_periods,id'],
+        ];
+
+        if ($slug === 'paie-etat-salaires') {
+            $rules += [
+                'academic_year_id' => ['nullable', 'integer'],
+                'corps_id' => ['nullable', 'integer'],
+                'ia_id' => ['nullable', 'integer'],
+                'ief_id' => ['nullable', 'integer'],
+                'matricule' => ['nullable', 'string', 'max:50'],
+                'payment_place_id' => ['nullable', 'integer'],
+                'training_center_id' => ['nullable', 'integer'],
+                'tabaski_only' => ['nullable', 'boolean'],
+                'with_signature' => ['nullable', 'boolean'],
+                'without_service_done' => ['nullable', 'boolean'],
+                'dage_signatory' => ['nullable', 'boolean'],
+            ];
+        }
+
+        return $request->validate($rules);
     }
 
     public function payslip(PayrollPayslip $payslip): JsonResponse
