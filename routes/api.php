@@ -19,6 +19,7 @@ use App\Http\Controllers\ServiceController;
 use App\Http\Controllers\VentilationDelegationController;
 use App\Http\Controllers\EditionDelegationController;
 use App\Http\Controllers\ProjectionDelegationController;
+use App\Http\Controllers\ComparaisonEngagementPaieController;
 use Illuminate\Support\Facades\Route;
 
 
@@ -29,6 +30,12 @@ Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:lo
 //Route::middleware('auth:sanctum')->group(function () {
     Route::get('/me', [AuthController::class, 'me']);
     Route::post('/logout', [AuthController::class, 'logout']);
+
+    // Doivent preceder apiResource('delegation-credits') : sinon 'filtres' et
+    // 'iefs' seraient captures comme un identifiant de delegation.
+    Route::get('delegation-credits/filtres', [DelegationCreditController::class, 'filtres']);
+    Route::get('delegation-credits/iefs/{iaId}', [DelegationCreditController::class, 'iefsByIa']);
+
     Route::put('delegation-credits/{id}/affectation', [DelegationCreditController::class, 'affecter']
     );
     Route::put('delegation-credits/{id}/montant-disponible', [DelegationCreditController::class, 'definirMontantDisponible']);
@@ -98,7 +105,9 @@ Route::get('delegation-credits/{id}/etat', [DelegationCreditController::class, '
     // --- Édition état des engagements ---
     Route::get('edition-engagements', [EditionEngagementController::class, 'index']);
     Route::get('edition-engagements/filtres', [EditionEngagementController::class, 'filtres']);
-    Route::get('edition-engagements/details', [EditionEngagementController::class, 'details']);
     Route::get('edition-engagements/iefs/{iaId}', [EditionEngagementController::class, 'iefsByIa']);
-    Route::get('edition-engagements/etablissements/{iefId}', [EditionEngagementController::class, 'etablissementsByIef']);
+
+    // --- Comparaison engagements / paie (écran SICORE, hors FINPRONET) ---
+    Route::get('comparaison-engagements-paie', [ComparaisonEngagementPaieController::class, 'index']);
+    Route::get('comparaison-engagements-paie/filtres', [ComparaisonEngagementPaieController::class, 'filtres']);
 //});
