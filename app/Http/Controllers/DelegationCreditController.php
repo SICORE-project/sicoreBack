@@ -6,17 +6,109 @@ use App\Http\Requests\StoreDelegationCreditRequest;
 use App\Http\Requests\UpdateDelegationCreditRequest;
 use App\Http\Resources\DelegationCreditResource;
 use App\Models\bultins;
+use App\Models\corps_enseignants;
 use App\Models\DelegationCredit;
+use App\Models\ias;
+use App\Models\iefs;
 use App\Models\PaiementSalaire;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class DelegationCreditController extends Controller
 {
-    public function index()
+    /**
+     * Ecran FINPRONET frmDelegation.aspx, onglets "Liste" et "Recherche".
+     *
+     * L'axe de recherche est celui de FINPRONET : annee academique, periode de
+     * paie, puis corps d'enseignant / IA / IEF. Ces trois derniers ne sont pas
+     * portes par l'en-tete de la delegation mais par ses lignes de ventilation :
+     * le filtre passe donc par la relation (whereHas), et retient une delegation
+     * des lors qu'AU MOINS UNE de ses ventilations correspond.
+     *
+     * Structure et service restent disponibles en filtre secondaire pour ne pas
+     * casser l'affectation existante, mais ils ne sont plus l'axe principal.
+     */
+    public function index(Request $request)
     {
-        $delegations = DelegationCredit::with(['structure', 'service'])->get();
+        $v = $request->validate([
+            'annee_academique'    => 'nullable|string|max:20',
+            'periode_paie'        => 'nullable|string|max:50',
+            'corps_enseignant_id' => 'nullable|exists:corps_enseignants,id',
+            'ia_id'               => 'nullable|exists:ias,id',
+            'ief_id'              => 'nullable|exists:iefs,id',
+            'statut'              => 'nullable|string|max:20',
+            'search'              => 'nullable|string|max:100',
+            'structure_id'        => 'nullable|integer',
+            'service_id'          => 'nullable|integer',
+            'per_page'            => 'nullable|integer|min:1|max:200',
+        ]);
+
+        $axe = array_filter([
+            'corps_enseignant_id' => $v['corps_enseignant_id'] ?? null,
+            'ia_id'               => $v['ia_id'] ?? null,
+            'ief_id'              => $v['ief_id'] ?? null,
+        ]);
+
+        $delegations = DelegationCredit::query()
+            ->with(['structure', 'service'])
+            ->withCount('ventilations')
+            ->withSum('ventilations', 'montant')
+            ->withSum('ventilations', 'montant_engagement')
+            ->when($v['annee_academique'] ?? null, fn ($q, $a) => $q->where('annee_academique', $a))
+            ->when($v['periode_paie'] ?? null, fn ($q, $p) => $q->where('periode_paie', $p))
+            ->when($v['statut'] ?? null, fn ($q, $s) => $q->where('statut', $s))
+            ->when($v['structure_id'] ?? null, fn ($q, $s) => $q->where('structure_id', $s))
+            ->when($v['service_id'] ?? null, fn ($q, $s) => $q->where('service_id', $s))
+            ->when($v['search'] ?? null, fn ($q, $terme) => $q->where(function ($sub) use ($terme) {
+                $sub->where('reference', 'like', '%'.$terme.'%')
+                    ->orWhere('objet', 'like', '%'.$terme.'%');
+            }))
+            ->when($axe, fn ($q) => $q->whereHas('ventilations', function ($vent) use ($axe) {
+                foreach ($axe as $colonne => $valeur) {
+                    $vent->where($colonne, $valeur);
+                }
+            }))
+            ->orderByDesc('date_delegation')
+            ->paginate($v['per_page'] ?? 15)
+            ->withQueryString();
 
         return DelegationCreditResource::collection($delegations);
+    }
+
+    /** Alimente les listes deroulantes des onglets Liste et Recherche. */
+    public function filtres()
+    {
+        return response()->json([
+            'annees_academiques' => DelegationCredit::query()
+                ->distinct()
+                ->orderBy('annee_academique')
+                ->pluck('annee_academique'),
+
+            'periodes_paie' => DelegationCredit::query()
+                ->whereNotNull('periode_paie')
+                ->distinct()
+                ->orderBy('periode_paie')
+                ->pluck('periode_paie'),
+
+            'corps_enseignants' => corps_enseignants::orderBy('libelle')->get(['id', 'libelle']),
+
+            'ias' => ias::orderBy('code')->get(['id', 'code', 'libelle']),
+
+            'statuts' => DelegationCredit::query()
+                ->distinct()
+                ->orderBy('statut')
+                ->pluck('statut'),
+        ]);
+    }
+
+    /** Cascade IA -> IEF. */
+    public function iefsByIa($iaId)
+    {
+        return response()->json(
+            iefs::where('ia_id', $iaId)
+                ->orderBy('libelle')
+                ->get(['id', 'code', 'libelle'])
+        );
     }
 
     public function store(StoreDelegationCreditRequest $request)
@@ -67,9 +159,38 @@ class DelegationCreditController extends Controller
         ]);
     }
 
+    /**
+     * Les ventilations sont en cascadeOnDelete : supprimer une delegation
+     * effacerait sans avertissement toutes ses lignes et l'historique
+     * d'engagement qui va avec. On refuse donc la suppression des qu'il y a
+     * de la matiere derriere, et on dit pourquoi.
+     */
     public function destroy(string $id)
     {
-        $delegation = DelegationCredit::findOrFail($id);
+        $delegation = DelegationCredit::withCount('ventilations')->findOrFail($id);
+
+        $obstacles = [];
+
+        if ($delegation->ventilations_count > 0) {
+            $obstacles[] = $delegation->ventilations_count.' ventilation(s)';
+        }
+
+        if ((float) $delegation->montant_engage > 0) {
+            $obstacles[] = 'un montant engage de '.number_format((float) $delegation->montant_engage, 0, ',', ' ');
+        }
+
+        if ((float) $delegation->montant_consomme > 0) {
+            $obstacles[] = 'un montant consomme de '.number_format((float) $delegation->montant_consomme, 0, ',', ' ');
+        }
+
+        if ($obstacles !== []) {
+            return response()->json([
+                'message' => 'Suppression impossible : cette delegation porte '
+                    .implode(' et ', $obstacles)
+                    .'. Supprimez d\'abord les ventilations et annulez les engagements.',
+                'obstacles' => $obstacles,
+            ], 409);
+        }
 
         $delegation->delete();
 

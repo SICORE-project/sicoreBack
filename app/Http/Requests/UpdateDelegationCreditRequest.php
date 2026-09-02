@@ -23,8 +23,12 @@ class UpdateDelegationCreditRequest extends FormRequest
             'date_delegation' => 'sometimes|date',
             'date_fin' => 'nullable|date|after_or_equal:date_delegation',
             'statut' => 'sometimes|string|in:En attente,Validée,Rejetée',
-            'structure_id' => 'sometimes|exists:structures,id',
-            'service_id' => 'nullable|exists:services,id',
+            // structure_id et service_id sont nullable en base depuis le passage
+            // a l'axe corps / IA / IEF : une delegation au format FINPRONET n'en
+            // a pas. Sans 'nullable', 'exists' rejette la valeur null et rend
+            // ces delegations impossibles a modifier.
+            'structure_id' => 'sometimes|nullable|exists:structures,id',
+            'service_id' => 'sometimes|nullable|exists:services,id',
         ];
     }
 

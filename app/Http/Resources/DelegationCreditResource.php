@@ -40,6 +40,22 @@ class DelegationCreditResource extends JsonResource
                 'ventilations',
                 fn () => (float) $this->ventilations->sum('montant')
             ),
+
+            // Agregats calcules en SQL par withCount/withSum sur la liste :
+            // evite de charger toutes les ventilations pour afficher un total.
+            'nombre_ventilations' => $this->when(
+                $this->ventilations_count !== null,
+                fn () => (int) $this->ventilations_count
+            ),
+            'montant_ventile' => $this->when(
+                $this->ventilations_sum_montant !== null,
+                fn () => (float) $this->ventilations_sum_montant
+            ),
+            'montant_ventile_engage' => $this->when(
+                $this->ventilations_sum_montant_engagement !== null,
+                fn () => (float) $this->ventilations_sum_montant_engagement
+            ),
+
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
         ];
