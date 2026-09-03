@@ -43,8 +43,13 @@ class DatabaseSeeder extends Seeder
             IaSeeder::class,
             LieuServiceSeeder::class,
             UserSeeder::class,
-            InstitutFinancierSeeder::class,
+            //InstitutFinancierSeeder::class,
+            GestionPaieSeeder::class,
         ]);
+
+        if (app()->environment(['local', 'testing'])) {
+            $this->call(GestionPaieTestSeeder::class);
+        }
 
     }
 

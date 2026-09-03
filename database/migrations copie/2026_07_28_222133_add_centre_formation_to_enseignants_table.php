@@ -4,24 +4,21 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
-
 return new class extends Migration
 {
     public function up(): void
     {
-        if (Schema::hasColumn('enseignants', 'indice')) {
-            return;
-        }
-
         Schema::table('enseignants', function (Blueprint $table) {
-            $table->decimal('indice', 10, 2)->nullable()->after('categorie_personnel');
+            $table->foreignId('centre_formation_id')->nullable()->constrained('centres_formation')->onDelete('set null');
+            $table->index('centre_formation_id');
         });
     }
 
     public function down(): void
     {
         Schema::table('enseignants', function (Blueprint $table) {
-            $table->dropColumn('indice');
+            $table->dropForeign(['centre_formation_id']);
+            $table->dropColumn('centre_formation_id');
         });
     }
 };
