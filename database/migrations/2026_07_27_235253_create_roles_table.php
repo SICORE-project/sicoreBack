@@ -14,7 +14,7 @@ return new class extends Migration
                 $table->string('nom', 50)->unique();
                 $table->string('slug', 50)->unique();
                 $table->string('description', 255)->nullable();
-                $table->enum('niveau', ['systeme', 'admin', 'gestion', 'consultation'])->default('consultation');
+                $table->enum('niveau', ['systeme', 'admin_metier', 'gestionnaire', 'consultation', 'enseignant'])->default('consultation');
                 $table->boolean('est_actif')->default(true);
                 $table->timestamps();
             });
