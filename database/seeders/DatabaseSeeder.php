@@ -40,7 +40,12 @@ class DatabaseSeeder extends Seeder
         PermissionSeeder::class,
         RolePermissionSeeder::class,
         UserSeeder::class,
+        GestionPaieSeeder::class,
     ]);
+
+        if (app()->environment(['local', 'testing'])) {
+            $this->call(GestionPaieTestSeeder::class);
+        }
 
     }
 

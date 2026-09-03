@@ -1,0 +1,1 @@
+<?php namespace App\Models; use Illuminate\Database\Eloquent\Model; class TypeAide extends Model {protected $table='types_aides';protected $fillable=['nom','montant_defaut','periodicite','conditions','actif'];protected $casts=['actif'=>'boolean','montant_defaut'=>'decimal:2'];}

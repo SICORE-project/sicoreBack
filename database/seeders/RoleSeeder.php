@@ -7,6 +7,8 @@ use App\Models\Admin\Role;
 
 class RoleSeeder extends Seeder
 {
+
+   
     public function run(): void
     {
         $roles = [
@@ -28,7 +30,7 @@ class RoleSeeder extends Seeder
             //     'nom' => 'Paramétreur',
             //     'slug' => 'parametreur',
             //     'description' => 'Gestion des paramètres de l\'application',
-            //     'niveau' => 'admin_metier',
+            //     'niveau' => 'admin',
             //     'est_actif' => true,
             // ],
             [
@@ -77,7 +79,7 @@ class RoleSeeder extends Seeder
                 'nom' => 'Enseignant',
                 'slug' => 'enseignant',
                 'description' => 'Enseignement et gestion des cours',
-                'niveau' => 'enseignant',
+                'niveau' => 'consultation',
                 'est_actif' => true,
             ],
         ];
