@@ -22,8 +22,7 @@ class InstitutFinancierController extends Controller
         if (! empty($validated['search'])) {
             $term = $validated['search'];
             $query->where(fn ($query) => $query
-                ->where('code', 'like', "%{$term}%")
-                ->orWhere('libelle', 'like', "%{$term}%")
+                ->where('libelle', 'like', "%{$term}%")
                 ->orWhere('sigle', 'like', "%{$term}%"));
         }
 
@@ -42,7 +41,7 @@ class InstitutFinancierController extends Controller
 
         return InstitutFinancierResource::collection($institutions)->additional([
             'success' => true,
-            'message' => 'Liste des institutions financières.',
+            'message' => 'Liste des banques.',
         ]);
     }
 
@@ -53,7 +52,7 @@ class InstitutFinancierController extends Controller
         return (new InstitutFinancierResource($institution))
             ->additional([
                 'success' => true,
-                'message' => 'Institution financière créée avec succès.',
+                'message' => 'Banque créée avec succès.',
             ])
             ->response()
             ->setStatusCode(201);
@@ -66,7 +65,7 @@ class InstitutFinancierController extends Controller
         return (new InstitutFinancierResource($institution->refresh()))
             ->additional([
                 'success' => true,
-                'message' => 'Institution financière modifiée avec succès.',
+                'message' => 'Banque modifiée avec succès.',
             ]);
     }
 
@@ -77,8 +76,8 @@ class InstitutFinancierController extends Controller
         ]);
 
         $message = $institution->est_actif
-            ? 'Institution financière activée avec succès.'
-            : 'Institution financière désactivée avec succès.';
+            ? 'Banque activée avec succès.'
+            : 'Banque désactivée avec succès.';
 
         return (new InstitutFinancierResource($institution->refresh()))
             ->additional([
@@ -91,7 +90,7 @@ class InstitutFinancierController extends Controller
     {
         if ($institution->comptesBancairesEnseignants()->exists() || $institution->lieuxPaiement()->exists()) {
             return response()->json([
-                'message' => 'Cette institution financière est utilisée et ne peut pas être supprimée.',
+                'message' => 'Cette banque est utilisée et ne peut pas être supprimée.',
             ], 409);
         }
 
@@ -99,12 +98,12 @@ class InstitutFinancierController extends Controller
             $institution->delete();
         } catch (QueryException) {
             return response()->json([
-                'message' => 'Cette institution financière est utilisée et ne peut pas être supprimée.',
+                'message' => 'Cette banque est utilisée et ne peut pas être supprimée.',
             ], 409);
         }
 
         return response()->json([
-            'message' => 'Institution financière supprimée avec succès.',
+            'message' => 'Banque supprimée avec succès.',
         ]);
     }
 }

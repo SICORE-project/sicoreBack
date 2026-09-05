@@ -15,21 +15,33 @@ class DiplomeController extends Controller
     /** Liste des diplômes, avec recherche et pagination. */
     public function index(Request $request): JsonResponse
     {
+        $request->validate([
+            'salaire_min' => ['nullable', 'numeric', 'min:0'],
+            'salaire_max' => array_merge(['nullable', 'numeric', 'min:0'], $request->filled('salaire_min') ? ['gte:salaire_min'] : []),
+        ]);
         $query = Diplome::query();
+        if ($request->filled('salaire_min')) {
+            $query->where('salaire_brut', '>=', $request->input('salaire_min'));
+        }
+        if ($request->filled('salaire_max')) {
+            $query->where('salaire_brut', '<=', $request->input('salaire_max'));
+        }
 
         if ($search = $request->query('search')) {
             $query->where(function ($query) use ($search) {
-                $query->where('code', 'like', "%{$search}%")
-                    ->orWhere('libelle', 'like', "%{$search}%");
+                $query->where('libelle', 'like', "%{$search}%");
             });
         }
 
-        if ($type = $request->query('type')) {
-            $query->where('type', $type);
+        if ($request->filled('libelle')) {
+            $query->whereRaw('UPPER(TRIM(libelle)) = ?', [mb_strtoupper(trim((string) $request->query('libelle')), 'UTF-8')]);
+        }
+        if ($request->filled('categorie_id')) {
+            $query->where('categorie_id', $request->integer('categorie_id'));
         }
 
-        $perPage = (int) $request->query('per_page', 15);
-        $diplomes = $query->orderBy('libelle')->paginate($perPage);
+        $perPage = min(100, max(1, $request->integer('per_page', 10)));
+        $diplomes = $query->with('categorie')->orderBy('libelle')->paginate($perPage);
 
         return response()->json([
             'message' => 'Liste des diplômes',
@@ -49,7 +61,7 @@ class DiplomeController extends Controller
 
         return response()->json([
             'message' => 'Diplôme créé avec succès',
-            'data' => new DiplomeResource($diplome),
+            'data' => new DiplomeResource($diplome->load('categorie')),
         ], 201);
     }
 
@@ -57,7 +69,7 @@ class DiplomeController extends Controller
     {
         return response()->json([
             'message' => 'Détail du diplôme',
-            'data' => new DiplomeResource($diplome),
+            'data' => new DiplomeResource($diplome->load('categorie')),
         ]);
     }
 
@@ -67,7 +79,7 @@ class DiplomeController extends Controller
 
         return response()->json([
             'message' => 'Diplôme mis à jour avec succès',
-            'data' => new DiplomeResource($diplome),
+            'data' => new DiplomeResource($diplome->load('categorie')),
         ]);
     }
 

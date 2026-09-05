@@ -12,13 +12,17 @@ class Diplome extends Model
     protected $table = 'diplomes';
 
     protected $fillable = [
-        'code',
         'libelle',
-        'type',
-        'date_obteention',
+        'categorie_id',
+        'salaire_brut',
     ];
 
     protected $casts = [
-        'date_obteention' => 'date',
+        'salaire_brut' => 'decimal:2',
     ];
+
+    public function categorie()
+    {
+        return $this->belongsTo(Categorie::class);
+    }
 }

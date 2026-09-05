@@ -9,6 +9,7 @@ use App\Http\Controllers\Api\Parametrage\DiplomeController;
 use App\Http\Controllers\Api\Parametrage\DisciplineController;
 use App\Http\Controllers\Api\Parametrage\IaController;
 use App\Http\Controllers\Api\Parametrage\IefController;
+use App\Http\Controllers\Api\Parametrage\GradeController;
 use App\Http\Controllers\Api\Parametrage\InstitutFinancierController;
 use App\Http\Controllers\Api\Parametrage\LieuServiceController;
 use App\Http\Controllers\Api\Parametrage\PeriodePaieController;
@@ -121,18 +122,21 @@ Route::prefix('lieux-service')->group(function () {
 /**
  * Routes for the Corps resource.
  */
-Route::prefix('corps')->middleware('role:admin,super_admin')->group(function () {
+Route::prefix('corps')->group(function () {
+    Route::get('/', [CorpsController::class, 'index'])->middleware('permission:enseignants.create');
+    Route::get('/{id}', [CorpsController::class, 'show'])->whereNumber('id')->middleware('permission:enseignants.create');
+    Route::post('/', [CorpsController::class, 'store'])->middleware('role:admin,super_admin');
+    Route::put('/{id}', [CorpsController::class, 'update'])->whereNumber('id')->middleware('role:admin,super_admin');
+    Route::patch('/{id}', [CorpsController::class, 'update'])->whereNumber('id')->middleware('role:admin,super_admin');
+    Route::delete('/{id}', [CorpsController::class, 'destroy'])->whereNumber('id')->middleware('role:admin,super_admin');
+});
 
-    Route::get('/', [CorpsController::class, 'index']);
-    Route::post('/', [CorpsController::class, 'store']);
-
-    Route::get('/{id}', [CorpsController::class, 'show'])->whereNumber('id');
-
-    Route::put('/{id}', [CorpsController::class, 'update'])->whereNumber('id');
-
-    Route::patch('/{id}', [CorpsController::class, 'update'])->whereNumber('id');
-
-    Route::delete('/{id}', [CorpsController::class, 'destroy'])->whereNumber('id');
+Route::prefix('grades')->group(function () {
+    Route::get('/', [GradeController::class, 'index'])->middleware('permission:enseignants.create');
+    Route::get('/{id}', [GradeController::class, 'show'])->whereNumber('id')->middleware('permission:enseignants.create');
+    Route::post('/', [GradeController::class, 'store'])->middleware('role:admin,super_admin');
+    Route::match(['put', 'patch'], '/{id}', [GradeController::class, 'update'])->whereNumber('id')->middleware('role:admin,super_admin');
+    Route::delete('/{id}', [GradeController::class, 'destroy'])->whereNumber('id')->middleware('role:admin,super_admin');
 });
 
 Route::prefix('parametrage/disciplines')->middleware('role:admin,super_admin')->group(function () {
@@ -144,8 +148,13 @@ Route::prefix('parametrage/disciplines')->middleware('role:admin,super_admin')->
     Route::delete('/{discipline}', [DisciplineController::class, 'destroy'])->whereNumber('discipline');
 });
 
-Route::apiResource('categories', CategorieController::class)
-    ->middleware('role:admin,super_admin');
+Route::prefix('categories')->group(function () {
+    Route::get('/', [CategorieController::class, 'index'])->middleware('permission:enseignants.create');
+    Route::get('/{id}', [CategorieController::class, 'show'])->whereNumber('id')->middleware('permission:enseignants.create');
+    Route::post('/', [CategorieController::class, 'store'])->middleware('role:admin,super_admin');
+    Route::match(['put', 'patch'], '/{id}', [CategorieController::class, 'update'])->whereNumber('id')->middleware('role:admin,super_admin');
+    Route::delete('/{id}', [CategorieController::class, 'destroy'])->whereNumber('id')->middleware('role:admin,super_admin');
+});
 
 Route::prefix('annees-academiques')->middleware('role:admin,super_admin')->group(function () {
     Route::get('/', [AnneeAcademiqueController::class, 'index']);

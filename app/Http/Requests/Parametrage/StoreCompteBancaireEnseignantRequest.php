@@ -35,7 +35,7 @@ class StoreCompteBancaireEnseignantRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'institut_financier_id.exists' => 'L’institution financière sélectionnée est inexistante ou inactive.',
+            'institut_financier_id.exists' => 'La banque sélectionnée est inexistante ou inactive.',
             'numero_compte.unique' => 'Ce compte bancaire est déjà associé à cet enseignant.',
         ];
     }

@@ -28,10 +28,10 @@ class VerifyOtpRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'email.required' => 'L\'email est obligatoire pour verifier le code OTP.',
-            'email.email' => 'Le format de l\'email est invalide.',
-            'otp.required' => 'Le code OTP est obligatoire.',
-            'otp.digits' => 'Le code OTP doit contenir exactement 6 chiffres.',
+            'email.required' => 'L’adresse e-mail est obligatoire pour vérifier le code.',
+            'email.email' => 'Veuillez saisir une adresse e-mail valide.',
+            'otp.required' => 'Veuillez saisir le code de vérification reçu par e-mail.',
+            'otp.digits' => 'Le code de vérification doit contenir exactement 6 chiffres.',
         ];
     }
 }

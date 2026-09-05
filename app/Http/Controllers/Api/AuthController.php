@@ -8,6 +8,7 @@ use App\Http\Requests\Auth\ResetPasswordRequest;
 use App\Http\Requests\Auth\ResetPasswordOtpRequest;
 use App\Http\Requests\Auth\SendOtpRequest;
 use App\Http\Requests\Auth\VerifyOtpRequest;
+use App\Http\Requests\LoginRequest;
 use App\Services\Auth\AuthService;
 use App\Http\Resources\UserResource;
 use Illuminate\Http\Request;
@@ -28,18 +29,10 @@ class AuthController extends Controller
     /**
      * Connexion utilisateur
      */
-    public function login(Request $request)
+    public function login(LoginRequest $request)
     {
-
-        $request->validate([
-            'login' => 'required_without:email',
-            'email' => 'required_without:login|email',
-            'password' => 'required|string'
-        ]);
-
-
         return $this->authService->login(
-            $request->all()
+            $request->validated()
         );
 
     }

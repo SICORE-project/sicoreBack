@@ -3,9 +3,18 @@
 namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
+use App\Models\Parametrage\Diplome;
 
 class StoreDiplomeRequest extends FormRequest
 {
+    protected function prepareForValidation(): void
+    {
+        if ($this->has('libelle')) {
+            $this->merge(['libelle' => mb_strtoupper(trim((string) $this->input('libelle')), 'UTF-8')]);
+        }
+    }
+
     public function authorize(): bool
     {
         return true;
@@ -14,36 +23,23 @@ class StoreDiplomeRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'code' => [
-                'required',
-                'string',
-                'max:20',
-                'unique:diplomes,code',
-            ],
             'libelle' => [
                 'required',
                 'string',
                 'max:100',
             ],
-            'type' => [
-                'nullable',
-                'string',
-                'in:academique,professionnel',
-            ],
-            'date_obteention' => [
-                'required',
-                'date',
-            ],
+            'categorie_id' => ['required', 'integer', 'exists:categories,id', Rule::unique('diplomes', 'categorie_id')->where(fn ($query) => $query->whereRaw('UPPER(TRIM(libelle)) = ?', [$this->input('libelle')]))],
+            'salaire_brut' => ['required', 'numeric', 'min:0'],
         ];
     }
 
     public function messages(): array
     {
         return [
-            'code.unique' => 'Ce code de diplôme existe déjà.',
-            'libelle.unique' => 'Ce libellé de diplôme existe déjà.',
-            'date_obteention.required' => 'La date d\'obtention est obligatoire.',
-            'date_obteention.date' => 'La date d\'obtention doit être une date valide.',
+            'categorie_id.unique' => 'Cette catégorie est déjà utilisée pour ce diplôme.',
+            'categorie_id.required' => 'La catégorie est obligatoire.',
+            'categorie_id.exists' => 'La catégorie sélectionnée n’existe pas.',
+            'salaire_brut.required' => 'Le salaire brut est obligatoire.',
         ];
     }
 }

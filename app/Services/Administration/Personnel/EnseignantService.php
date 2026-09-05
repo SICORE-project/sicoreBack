@@ -104,7 +104,10 @@ class EnseignantService
                 'ief',
                 'corps',
                 'grade',
+                'categorie',
                 'discipline',
+                'diplome',
+                'lieuService',
                 'comptesBancaires.institutFinancier',
                 'syndicats',
                 'mutuelles',
@@ -119,11 +122,39 @@ class EnseignantService
             'ief',
             'corps',
             'grade',
+            'categorie',
             'discipline',
+            'diplome',
+            'lieuService',
             'comptesBancaires.institutFinancier',
             'syndicats',
             'mutuelles',
         ])->findOrFail($id);
+    }
+
+    public function update(Enseignant $enseignant, array $data, ?int $userId = null): Enseignant
+    {
+        $compteBancaire = $data['compte_bancaire'] ?? null;
+        $data = Arr::except($data, ['compte_bancaire', 'syndicat', 'mutuelle']);
+        if (!empty($data['date_recrutement'])) {
+            $data['annee_recrutement'] = (int) date('Y', strtotime($data['date_recrutement']));
+        }
+        $data['updated_by'] = $userId;
+        $enseignant->update($data);
+
+        if (! empty($compteBancaire) && collect($compteBancaire)->filter(fn ($value) => $value !== null && $value !== '')->isNotEmpty()) {
+            $compte = $enseignant->comptesBancaires()->where('est_principal', true)->first()
+                ?? $enseignant->comptesBancaires()->first();
+            $values = array_merge($compteBancaire, ['est_principal' => true, 'est_actif' => true]);
+            $compte ? $compte->update($values) : $enseignant->comptesBancaires()->create($values);
+        }
+
+        return $this->find($enseignant->id);
+    }
+
+    public function delete(Enseignant $enseignant): void
+    {
+        $enseignant->delete();
     }
 
     public function paginate(int $perPage = 20)
@@ -134,7 +165,10 @@ class EnseignantService
                 'ief',
                 'corps',
                 'grade',
+                'categorie',
                 'discipline',
+                'diplome',
+                'lieuService',
                 'comptesBancaires.institutFinancier',
                 'syndicats',
                 'mutuelles',

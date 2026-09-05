@@ -12,8 +12,7 @@ class CategorieService
             ->when(! empty($filters['search']), function ($query) use ($filters): void {
                 $search = trim($filters['search']);
                 $query->where(function ($query) use ($search): void {
-                    $query->where('code', 'ilike', "%{$search}%")
-                        ->orWhere('libelle', 'ilike', "%{$search}%");
+                    $query->where('libelle', 'ilike', "%{$search}%");
                 });
             })
             ->when(! empty($filters['corps_id']), fn ($query) => $query->where('corps_id', $filters['corps_id']))
