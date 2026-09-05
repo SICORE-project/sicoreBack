@@ -38,8 +38,9 @@ class EnseignantSalaryTest extends TestCase
 
         foreach ([StoreEnseignantRequest::class, UpdateEnseignantRequest::class] as $class) {
             foreach ([[1, 1, 1, 200000], [1, 2, 2, 250000], [2, 1, 1, 200000], [3, 2, 3, 300000], [1, 3, 1, null], [1, null, 1, null]] as [$diploma, $category, $expectedDiploma, $salary]) {
-                $request = $class::create('/', 'POST', ['corps_id' => 1, 'diplome_id' => $diploma, 'categorie_id' => $category, 'salaire_brut' => 999999]);
+                $request = $class::create('/', 'POST', ['nombre_femmes' => null, 'corps_id' => 1, 'diplome_id' => $diploma, 'categorie_id' => $category, 'salaire_brut' => 999999]);
                 (new \ReflectionMethod($class, 'prepareForValidation'))->invoke($request);
+                $this->assertSame(0, $request->input('nombre_femmes'));
                 $this->assertSame($expectedDiploma, $request->integer('diplome_id'));
                 $salary === null
                     ? $this->assertNull($request->input('salaire_brut'))

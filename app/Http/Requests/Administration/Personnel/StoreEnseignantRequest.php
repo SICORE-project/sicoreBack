@@ -11,6 +11,12 @@ class StoreEnseignantRequest extends FormRequest
 {
     protected function prepareForValidation(): void
     {
+        if ($this->has('nombre_femmes') && ! $this->filled('nombre_femmes')) {
+            $this->merge(['nombre_femmes' => 0]);
+        }
+        if ($this->has('compte_bancaire.type_virement') && ! $this->filled('compte_bancaire.type_virement')) {
+            $this->merge(['compte_bancaire' => array_merge($this->input('compte_bancaire', []), ['type_virement' => 'unitaire'])]);
+        }
         $enfants = max(0, $this->integer('nombre_enfants'));
         $marie = $this->boolean('est_en_couple');
         $conjointTravaille = $marie && $this->boolean('conjoint_travaille');
@@ -344,6 +350,14 @@ class StoreEnseignantRequest extends FormRequest
     public function messages(): array
     {
         return [
+            'nombre_femmes.integer' => 'Le nombre de femmes doit être un nombre entier.',
+            'nombre_femmes.min' => 'Le nombre de femmes ne peut pas être négatif.',
+            'nombre_enfants.integer' => 'Le nombre d’enfants doit être un nombre entier.',
+            'nombre_enfants.min' => 'Le nombre d’enfants ne peut pas être négatif.',
+            'date_fin_contrat.required' => 'La date de fin du contrat est obligatoire pour un enseignant contractuel.',
+            'date_fin_contrat.after_or_equal' => 'La fin du contrat doit être postérieure ou égale à la date de recrutement.',
+            'diplome_id.exists' => 'Le diplôme sélectionné n’existe plus. Veuillez le sélectionner à nouveau.',
+            'salaire_brut.min' => 'Le salaire brut ne peut pas être négatif.',
             'matricule.required' =>
                 'Le matricule est obligatoire.',
 

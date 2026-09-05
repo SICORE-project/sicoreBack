@@ -42,7 +42,7 @@ class EnseignantService
 
             $enseignant = Enseignant::create($data);
 
-            if (!empty($compteBancaire)) {
+            if (!empty($compteBancaire) && collect(Arr::except($compteBancaire, ['type_virement', 'est_principal', 'est_actif']))->filter(fn ($value) => $value !== null && $value !== '')->isNotEmpty()) {
 
                 $compteBancaire['est_principal'] =
                     $compteBancaire['est_principal'] ?? true;
@@ -142,7 +142,7 @@ class EnseignantService
         $data['updated_by'] = $userId;
         $enseignant->update($data);
 
-        if (! empty($compteBancaire) && collect($compteBancaire)->filter(fn ($value) => $value !== null && $value !== '')->isNotEmpty()) {
+        if (! empty($compteBancaire) && collect(Arr::except($compteBancaire, ['type_virement', 'est_principal', 'est_actif']))->filter(fn ($value) => $value !== null && $value !== '')->isNotEmpty()) {
             $compte = $enseignant->comptesBancaires()->where('est_principal', true)->first()
                 ?? $enseignant->comptesBancaires()->first();
             $values = array_merge($compteBancaire, ['est_principal' => true, 'est_actif' => true]);
