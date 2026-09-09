@@ -20,7 +20,7 @@ class CompteBancaireEnseignantController extends Controller
         return (new CompteBancaireEnseignantResource($compte->load('institutionFinanciere')))
             ->additional([
                 'success' => true,
-                'message' => 'Institution financière associée à l’enseignant avec succès.',
+                'message' => 'Banque associée à l’enseignant avec succès.',
             ])
             ->response()
             ->setStatusCode(201);

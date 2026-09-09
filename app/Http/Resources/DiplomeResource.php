@@ -11,10 +11,13 @@ class DiplomeResource extends JsonResource
     {
         return [
             'id'              => $this->id,
-            'code'            => $this->code,
             'libelle'         => $this->libelle,
-            'type'            => $this->type,
-            'date_obteention' => $this->date_obteention?->format('d/m/Y'),
+            'categorie_id'    => $this->categorie_id,
+            'categorie'       => $this->whenLoaded('categorie', fn () => $this->categorie ? [
+                'id' => $this->categorie->id,
+                'libelle' => $this->categorie->libelle,
+            ] : null),
+            'salaire_brut'    => (float) $this->salaire_brut,
             'created_at'      => $this->created_at?->toIso8601String(),
             'updated_at'      => $this->updated_at?->toIso8601String(),
         ];

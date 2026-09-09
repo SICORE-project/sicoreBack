@@ -379,6 +379,12 @@ Route::prefix('admin')->group(function () {
             Route::get('/{id}', [EnseignantController::class, 'show'])
                 ->whereNumber('id')
                 ->middleware('permission:enseignants.read');
+            Route::put('/{id}', [EnseignantController::class, 'update'])
+                ->whereNumber('id')
+                ->middleware('permission:enseignants.update');
+            Route::delete('/{id}', [EnseignantController::class, 'destroy'])
+                ->whereNumber('id')
+                ->middleware('permission:enseignants.delete');
         });
 
 });

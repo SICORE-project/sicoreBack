@@ -33,6 +33,7 @@ class Enseignant extends Model
         'matricule',
         'nom',
         'prenom',
+        'categorie_personnel',
         'date_naissance',
         'lieu_naissance',
         'cni',
@@ -43,6 +44,7 @@ class Enseignant extends Model
         'photo',
 
         'situation_familiale_id',
+        'est_en_couple',
         'nombre_enfants',
         'nombre_femmes',
         'nombre_parts_fiscales',
@@ -103,7 +105,8 @@ class Enseignant extends Model
 
         'nombre_enfants' => 'integer',
         'nombre_femmes' => 'integer',
-        'nombre_parts_fiscales' => 'integer',
+        'nombre_parts_fiscales' => 'decimal:1',
+        'est_en_couple' => 'boolean',
         'annee_recrutement' => 'integer',
     ];
 

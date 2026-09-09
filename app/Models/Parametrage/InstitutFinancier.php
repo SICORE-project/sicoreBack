@@ -14,7 +14,6 @@ class InstitutFinancier extends Model
     protected $table = 'instituts_financieres';
 
     protected $fillable = [
-        'code',
         'libelle',
         'sigle',
         'type_institution',

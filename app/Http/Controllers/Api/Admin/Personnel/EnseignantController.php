@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\Admin\Personnel;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Administration\Personnel\StoreEnseignantRequest;
+use App\Http\Requests\Administration\Personnel\UpdateEnseignantRequest;
 use App\Http\Resources\Personnel\EnseignantResource;
 use App\Services\Administration\Personnel\EnseignantService;
 use Illuminate\Http\Request;
@@ -62,6 +63,31 @@ class EnseignantController extends Controller
             'success' => true,
             'message' => 'Dossier enseignant récupéré avec succès.',
             'data' => new EnseignantResource($enseignant),
+        ]);
+    }
+
+    public function update(UpdateEnseignantRequest $request, int $id)
+    {
+        $enseignant = $this->enseignantService->update(
+            $this->enseignantService->find($id),
+            $request->validated(),
+            $request->user()?->id
+        );
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Enseignant modifié avec succès.',
+            'data' => new EnseignantResource($enseignant),
+        ]);
+    }
+
+    public function destroy(int $id)
+    {
+        $this->enseignantService->delete($this->enseignantService->find($id));
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Enseignant supprimé avec succès.',
         ]);
     }
 }

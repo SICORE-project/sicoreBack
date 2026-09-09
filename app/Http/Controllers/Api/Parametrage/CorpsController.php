@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Parametrage\CorpsEnseignant;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 
 class CorpsController extends Controller
 {
@@ -18,8 +19,8 @@ class CorpsController extends Controller
             ->when($request->filled('search'), function ($query) use ($request): void {
                 $search = trim((string) $request->input('search'));
                 $query->where(function ($query) use ($search): void {
-                    $query->where('code', 'ilike', "%{$search}%")
-                        ->orWhere('libelle', 'ilike', "%{$search}%");
+                    $query->where('libelle', 'ilike', "%{$search}%")
+                        ->orWhere('description', 'ilike', "%{$search}%");
                 });
             })
             ->orderByDesc('created_at')
@@ -37,19 +38,9 @@ class CorpsController extends Controller
      */
     public function store(Request $request)
     {
-        $request->merge([
-            'code' => strtoupper(trim((string) $request->input('code'))),
-            'libelle' => trim((string) $request->input('libelle')),
-        ]);
+        $request->merge(['libelle' => trim((string) $request->input('libelle'))]);
 
         $data = $request->validate([
-            'code' => [
-                'required',
-                'string',
-                'max:50',
-                'unique:corps_enseignant,code',
-            ],
-
             'libelle' => [
                 'required',
                 'string',
@@ -64,6 +55,7 @@ class CorpsController extends Controller
             ],
         ]);
 
+        $data['code'] = $this->uniqueCode($data['libelle']);
         $corps = CorpsEnseignant::create($data);
 
         return response()->json([
@@ -104,19 +96,9 @@ class CorpsController extends Controller
             ], 404);
         }
 
-        $request->merge([
-            'code' => strtoupper(trim((string) $request->input('code'))),
-            'libelle' => trim((string) $request->input('libelle')),
-        ]);
+        $request->merge(['libelle' => trim((string) $request->input('libelle'))]);
 
         $data = $request->validate([
-            'code' => [
-                'required',
-                'string',
-                'max:50',
-                'unique:corps_enseignant,code,' . $corps->id,
-            ],
-
             'libelle' => [
                 'required',
                 'string',
@@ -176,5 +158,18 @@ class CorpsController extends Controller
         return response()->json([
             'message' => 'Corps enseignant supprimé avec succès.',
         ], 200);
+    }
+
+    private function uniqueCode(string $libelle): string
+    {
+        $base = Str::limit(Str::upper(Str::slug($libelle, '-')) ?: 'CORPS', 44, '');
+        $code = $base;
+        $suffix = 2;
+
+        while (CorpsEnseignant::query()->where('code', $code)->exists()) {
+            $code = Str::limit($base, 44, '').'-'.$suffix++;
+        }
+
+        return $code;
     }
 }

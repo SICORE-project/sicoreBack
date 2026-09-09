@@ -20,6 +20,7 @@ class LoginRequest extends FormRequest {
         [
         'required'
         ,'string',
+        'min:8',
         'max:255'
         ]];
      }
@@ -27,7 +28,12 @@ class LoginRequest extends FormRequest {
      return 
      [
         'email.required'=>'L’email est obligatoire.',
-        'password.required'=>'Le mot de passe est obligatoire.'
+        'email.email'=>'Veuillez saisir une adresse e-mail valide.',
+        'email.max'=>'L’adresse e-mail ne doit pas dépasser 255 caractères.',
+        'password.required'=>'Le mot de passe est obligatoire.',
+        'password.string'=>'Le mot de passe doit être une chaîne de caractères.',
+        'password.min'=>'Le mot de passe doit contenir au moins 8 caractères.',
+        'password.max'=>'Le mot de passe ne doit pas dépasser 255 caractères.'
         ]; 
     }
 }

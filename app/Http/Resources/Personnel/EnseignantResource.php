@@ -80,6 +80,8 @@ class EnseignantResource extends JsonResource
 
             'prenom' => $this->prenom,
 
+            'categorie_personnel' => $this->categorie_personnel,
+
             'nom_complet' => $this->nom_complet,
 
             'date_naissance' =>
@@ -99,6 +101,31 @@ class EnseignantResource extends JsonResource
 
             'adresse' =>
                 $this->adresse,
+
+            'cni' => $this->cni,
+            'salaire_brut' => $this->salaire_brut,
+            'generation' => $this->generation,
+            'date_prise_service' => $this->date_prise_service?->format('Y-m-d'),
+            'date_fin_contrat' => $this->date_fin_contrat?->format('Y-m-d'),
+            'est_en_couple' => (bool) $this->est_en_couple,
+            'nombre_enfants' => (int) $this->nombre_enfants,
+            'nombre_femmes' => (int) $this->nombre_femmes,
+            'nombre_parts_fiscales' => (float) $this->nombre_parts_fiscales,
+            'conjoint_travaille' => (bool) $this->conjoint_travaille,
+            'observations' => $this->observations,
+
+            'diplome' => $this->whenLoaded('diplome', fn () => $this->diplome ? [
+                'id' => $this->diplome->id,
+                'libelle' => $this->diplome->libelle,
+                'categorie_id' => $this->diplome->categorie_id,
+                'salaire_brut' => (float) $this->diplome->salaire_brut,
+            ] : null),
+
+            'lieu_service' => $this->whenLoaded('lieuService', fn () => $this->lieuService ? [
+                'id' => $this->lieuService->id,
+                'code' => $this->lieuService->code,
+                'libelle' => $this->lieuService->libelle,
+            ] : null),
 
             // =====================================================
             // RECRUTEMENT
@@ -190,6 +217,16 @@ class EnseignantResource extends JsonResource
                     : null
             ),
 
+            'categorie' => $this->whenLoaded(
+                'categorie',
+                fn () => $this->categorie
+                    ? [
+                        'id' => $this->categorie->id,
+                        'libelle' => $this->categorie->libelle,
+                    ]
+                    : null
+            ),
+
             // =====================================================
             // DISCIPLINE
             // =====================================================
@@ -245,11 +282,6 @@ class EnseignantResource extends JsonResource
                                     $comptePrincipal
                                         ->institutFinancier
                                         ->id,
-
-                                'code' =>
-                                    $comptePrincipal
-                                        ->institutFinancier
-                                        ->code,
 
                                 'libelle' =>
                                     $comptePrincipal

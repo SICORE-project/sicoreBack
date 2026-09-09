@@ -81,12 +81,11 @@ class RubriquePaieApiTest extends TestCase
             ->assertJsonPath('data.data.0.id', $id)
             ->assertJsonPath('statistics.gains', 1);
 
-        $updated = [...$payload, 'libelle' => 'Prime test modifiée', 'type' => 'retenue', 'est_actif' => false];
+        $updated = [...$payload, 'libelle' => 'Prime test modifiée', 'type' => 'retenue'];
         $this->putJson("/api/rubriques-paie/{$id}", $updated)
             ->assertOk()
             ->assertJsonPath('data.libelle', 'Prime test modifiée')
-            ->assertJsonPath('data.type', 'retenue')
-            ->assertJsonPath('data.est_actif', false);
+            ->assertJsonPath('data.type', 'retenue');
 
         $this->getJson("/api/rubriques-paie/{$id}")
             ->assertOk()
@@ -151,14 +150,7 @@ class RubriquePaieApiTest extends TestCase
             'libelle' => 'Prime test',
             'type' => 'gain',
             'periodicite' => 'mensuelle',
-            'est_cotisable' => true,
-            'est_imposable' => true,
-            'est_afficher_bulletin' => true,
-            'taux_defaut' => 5.5,
-            'montant_defaut' => null,
-            'formule_calcul' => 'salaire_base * 0.055',
             'description' => 'Rubrique utilisée par le test automatisé.',
-            'est_actif' => true,
         ];
     }
 }

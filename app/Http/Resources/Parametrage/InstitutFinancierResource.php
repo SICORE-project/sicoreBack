@@ -11,7 +11,6 @@ class InstitutFinancierResource extends JsonResource
     {
         return [
             'id' => $this->id,
-            'code' => $this->code,
             'libelle' => $this->libelle,
             'sigle' => $this->sigle,
             'type_institution' => $this->type_institution,

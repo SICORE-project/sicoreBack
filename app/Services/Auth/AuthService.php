@@ -46,7 +46,7 @@ class AuthService
 
             throw ValidationException::withMessages([
                 'login'=>[
-                    'Identifiants incorrects'
+                    'L’adresse e-mail ou le mot de passe est incorrect.'
                 ]
             ]);
 
@@ -57,7 +57,7 @@ class AuthService
         if(!$user->role)
         {
             return response()->json([
-                'message'=>'Aucun rôle associé à cet utilisateur'
+                'message'=>'Votre compte n’est associé à aucun rôle. Contactez l’administrateur.'
             ],403);
         }
 
@@ -346,7 +346,7 @@ class AuthService
         if (!$record)
         {
             throw ValidationException::withMessages([
-                'otp' => ['Aucune demande OTP trouvee pour cet email. Lancez d\'abord send-otp.']
+                'otp' => ['Aucun code de vérification n’a été demandé pour cette adresse e-mail. Veuillez demander un nouveau code.']
             ]);
         }
 
@@ -357,14 +357,14 @@ class AuthService
                 ->delete();
 
             throw ValidationException::withMessages([
-                'otp' => ['Code OTP expire. Demandez un nouveau code via send-otp.']
+                'otp' => ['Le code de vérification a expiré. Veuillez demander un nouveau code.']
             ]);
         }
 
         if (!Hash::check($data['otp'], $record->otp))
         {
             throw ValidationException::withMessages([
-                'otp' => ['Code OTP invalide. Verifiez le code recu par email.']
+                'otp' => ['Le code de vérification saisi est incorrect. Vérifiez votre e-mail ou demandez un nouveau code.']
             ]);
         }
 

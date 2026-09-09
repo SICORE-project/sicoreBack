@@ -38,6 +38,7 @@ class ResetPasswordOtpRequest extends FormRequest
                 'required',
                 'string',
                 'min:8',
+                'regex:/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^\w\s]).+$/',
                 'confirmed'
             ],
 
@@ -47,12 +48,14 @@ class ResetPasswordOtpRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'email.required' => 'L\'email est obligatoire pour modifier le mot de passe.',
-            'email.email' => 'Le format de l\'email est invalide.',
-            'reset_token.required' => 'Le reset token est obligatoire.',
-            'reset_token.string' => 'Le reset token doit etre une chaine de caracteres valide.',
+            'email.required' => 'L’adresse e-mail est obligatoire.',
+            'email.email' => 'Veuillez saisir une adresse e-mail valide.',
+            'reset_token.required' => 'Le jeton de réinitialisation est obligatoire.',
+            'reset_token.string' => 'Le jeton de réinitialisation est invalide.',
             'password.required' => 'Le nouveau mot de passe est obligatoire.',
-            'password.min' => 'Le mot de passe doit contenir au moins 8 caracteres.',
+            'password.string' => 'Le nouveau mot de passe doit être un texte valide.',
+            'password.min' => 'Le nouveau mot de passe doit contenir au moins 8 caractères.',
+            'password.regex' => 'Le nouveau mot de passe doit contenir au moins une majuscule, une minuscule, un chiffre et un caractère spécial.',
             'password.confirmed' => 'La confirmation du mot de passe ne correspond pas.',
         ];
     }
