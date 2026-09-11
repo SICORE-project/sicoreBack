@@ -14,7 +14,7 @@ class LieuServiceResource extends JsonResource
             'code' => $this->code,
             'libelle' => $this->libelle,
             'type' => $this->type,
-            'adresse' => $this->adresse,
+            'telephone' => $this->telephone,
             'est_actif' => $this->est_actif,
             'ia_id' => $this->ia_id,
             'ief_id' => $this->ief_id,

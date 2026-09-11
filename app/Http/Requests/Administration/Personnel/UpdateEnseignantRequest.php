@@ -2,23 +2,47 @@
 
 namespace App\Http\Requests\Administration\Personnel;
 
+use App\Http\Requests\Administration\Personnel\Concerns\ValidatesTeacherHierarchy;
 use App\Models\Parametrage\CorpsEnseignant;
 use App\Models\Parametrage\Diplome;
+use App\Models\Personnel\Enseignant;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
 class UpdateEnseignantRequest extends FormRequest
 {
+    use ValidatesTeacherHierarchy;
+
     protected function prepareForValidation(): void
     {
+        $hierarchyFields = ['ia_id', 'ief_id', 'lieu_service_id'];
+        if ($this->route('id') && $this->hasAny($hierarchyFields)) {
+            $enseignant = Enseignant::query()->find($this->route('id'), $hierarchyFields);
+            if ($enseignant) {
+                $this->mergeIfMissing($enseignant->getAttributes());
+            }
+        }
+
+        $contractFields = ['corps_id', 'diplome_id', 'categorie_id', 'date_recrutement', 'date_fin_contrat'];
+        if ($this->route('id') && ! $this->has($contractFields)) {
+            $enseignant = Enseignant::query()->find($this->route('id'), $contractFields);
+            if ($enseignant) {
+                $defaults = $enseignant->getAttributes();
+                if ($this->has('corps_id') && $this->integer('corps_id') !== (int) $enseignant->corps_id) {
+                    $defaults['categorie_id'] = null;
+                }
+                $this->mergeIfMissing($defaults);
+            }
+        }
+
         if ($this->has('nombre_femmes') && ! $this->filled('nombre_femmes')) {
             $this->merge(['nombre_femmes' => 0]);
         }
         if ($this->has('compte_bancaire.type_virement') && ! $this->filled('compte_bancaire.type_virement')) {
             $this->merge(['compte_bancaire' => array_merge($this->input('compte_bancaire', []), ['type_virement' => 'unitaire'])]);
         }
-        $enfants = max(0, $this->integer('nombre_enfants'));
         $marie = $this->boolean('est_en_couple');
+        $enfants = $marie ? max(0, $this->integer('nombre_enfants')) : 0;
         $conjointTravaille = $marie && $this->boolean('conjoint_travaille');
         $diplome = $this->filled('diplome_id') ? Diplome::find($this->integer('diplome_id')) : null;
         $categorieId = $this->filled('categorie_id') ? $this->integer('categorie_id') : null;
@@ -35,8 +59,11 @@ class UpdateEnseignantRequest extends FormRequest
         }
         $this->merge([
             'nombre_enfants' => $enfants,
+            'nombre_femmes' => $marie ? ($this->input('nombre_femmes') ?? 0) : 0,
             'conjoint_travaille' => $conjointTravaille,
-            'nombre_parts_fiscales' => min(5, max(1, 1 + ($marie ? 1 : 0) + ($enfants * .5) - ($conjointTravaille ? .5 : 0))),
+            'nombre_parts_fiscales' => $marie
+                ? min(5, max(1, 2 + ($enfants * .5) - ($conjointTravaille ? .5 : 0)))
+                : 1,
             'salaire_brut' => $this->corpsEstVacataire() ? 150000 : ($diplome && (($categorieId && (int) $diplome->categorie_id === $categorieId) || (!$categorieId && !$this->corpsEstContractuel())) ? $diplome->salaire_brut : null),
         ]);
     }
@@ -51,23 +78,23 @@ class UpdateEnseignantRequest extends FormRequest
         $enseignantId = $this->route('id');
 
         return [
-            'matricule' => ['sometimes', 'required', 'string', 'max:30', Rule::unique('enseignants', 'matricule')->ignore($enseignantId)],
+            'matricule' => ['sometimes', 'required', 'string', 'max:9', 'regex:/\A[A-Za-z0-9]+\z/', Rule::unique('enseignants', 'matricule')->ignore($enseignantId)],
             'nom' => ['sometimes', 'required', 'string', 'max:50'],
             'prenom' => ['sometimes', 'required', 'string', 'max:50'],
-            'date_naissance' => ['nullable', 'date', 'before:today'],
+            'date_naissance' => ['required', 'date', 'before_or_equal:'.now()->subYears(18)->format('Y-m-d')],
             'lieu_naissance' => ['nullable', 'string', 'max:100'],
             'genre' => ['nullable', Rule::in(['M', 'F', 'masculin', 'feminin'])],
             'telephone' => ['nullable', 'string', 'max:20'],
             'email' => ['nullable', 'email', 'max:100'],
             'adresse' => ['nullable', 'string', 'max:255'],
-            'cni' => ['nullable', 'string', 'max:50'],
+            'cni' => ['nullable', 'string', 'regex:/\A[0-9]{13,15}\z/'],
             'diplome_id' => ['nullable', 'integer', 'exists:diplomes,id', function ($attribute, $value, $fail): void {
                 $diplome = Diplome::find($value);
                 if ($this->filled('categorie_id') && $diplome && (int) $diplome->categorie_id !== $this->integer('categorie_id')) {
                     $fail('Aucun salaire brut paramétré pour ce diplôme et cette catégorie.');
                 }
             }],
-            'lieu_service_id' => ['nullable', 'integer', 'exists:lieu_de_services,id'],
+            'lieu_service_id' => ['nullable', 'integer', Rule::exists('lieu_de_services', 'id')->whereNull('deleted_at')],
             'salaire_brut' => ['nullable', 'numeric', 'min:0'],
             'generation' => ['nullable', 'string', 'max:20'],
             'date_fin_contrat' => [Rule::requiredIf(fn (): bool => $this->corpsEstContractuel()), 'nullable', 'date', 'after_or_equal:date_recrutement'],
@@ -75,7 +102,7 @@ class UpdateEnseignantRequest extends FormRequest
             'nombre_enfants' => ['nullable', 'integer', 'min:0'],
             'nombre_femmes' => ['nullable', 'integer', 'min:0'],
             'nombre_parts_fiscales' => ['required', 'numeric', 'min:1', 'max:5'],
-            'conjoint_travaille' => ['required', 'boolean'],
+            'conjoint_travaille' => ['nullable', 'boolean'],
             'observations' => ['nullable', 'string'],
             'compte_bancaire' => ['nullable', 'array'],
             'compte_bancaire.institut_financier_id' => ['nullable', 'integer', 'exists:instituts_financieres,id'],
@@ -89,8 +116,8 @@ class UpdateEnseignantRequest extends FormRequest
             'compte_bancaire.type_virement' => ['nullable', Rule::in(['unitaire', 'masse'])],
             'date_recrutement' => ['nullable', 'date'],
             'date_prise_service' => ['nullable', 'date'],
-            'ia_id' => ['sometimes', 'required', 'integer', 'exists:ias,id'],
-            'ief_id' => ['sometimes', 'required', 'integer', 'exists:iefs,id'],
+            'ia_id' => ['sometimes', 'required', 'integer', Rule::exists('ias', 'id')->whereNull('deleted_at')],
+            'ief_id' => ['sometimes', 'required', 'integer', Rule::exists('iefs', 'id')->whereNull('deleted_at')],
             'corps_id' => ['sometimes', 'required', 'integer', 'exists:corps_enseignant,id'],
             'categorie_id' => [Rule::requiredIf(fn (): bool => $this->corpsEstContractuel()), 'nullable', 'integer', Rule::exists('categories', 'id')->where(fn ($query) => $query->where('corps_id', $this->integer('corps_id')))],
             'discipline_id' => ['nullable', 'integer', 'exists:disciplines,id'],
@@ -111,19 +138,22 @@ class UpdateEnseignantRequest extends FormRequest
             'date_fin_contrat.after_or_equal' => 'La fin du contrat doit être postérieure ou égale à la date de recrutement.',
             'diplome_id.exists' => 'Le diplôme sélectionné n’existe plus. Veuillez le sélectionner à nouveau.',
             'salaire_brut.min' => 'Le salaire brut ne peut pas être négatif.',
+            'matricule.max' => 'Le matricule ne doit pas dépasser 9 caractères.',
+            'matricule.regex' => 'Le matricule doit contenir uniquement des lettres et des chiffres.',
+            'cni.regex' => 'Le numéro de carte d’identité doit contenir entre 13 et 15 chiffres.',
             'matricule.required' => 'Le matricule est obligatoire.',
             'matricule.unique' => 'Ce matricule existe déjà.',
             'nom.required' => 'Le nom est obligatoire.',
             'prenom.required' => 'Le prénom est obligatoire.',
             'corps_id.required' => 'Le corps est obligatoire.',
-            'date_naissance.before' => 'La date de naissance doit être antérieure à aujourd’hui.',
+            'date_naissance.before_or_equal' => 'L’enseignant doit avoir au moins 18 ans.',
             'email.email' => 'Veuillez saisir une adresse e-mail valide.',
             'ia_id.exists' => 'L’IA sélectionnée n’existe pas.',
             'ief_id.exists' => 'L’IEF sélectionnée n’existe pas.',
             'corps_id.exists' => 'Le corps sélectionné n’existe pas.',
             'categorie_id.exists' => 'La catégorie sélectionnée n’appartient pas au corps choisi.',
             'categorie_id.required' => 'La catégorie est obligatoire pour le corps Contractuel.',
-            'discipline_id.exists' => 'La discipline sélectionnée n’existe pas.',
+            'discipline_id.exists' => 'La spécialité sélectionnée n’existe pas.',
             'statut.in' => 'Le statut sélectionné est invalide.',
         ];
     }

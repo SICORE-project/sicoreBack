@@ -21,7 +21,6 @@ class UserSeeder extends Seeder
         $paieRole = Role::where('slug', 'gestionnaire_paie')->first();
         $budgetRole = Role::where('slug', 'gestionnaire_budget')->first();
         $consultantRole = Role::where('slug', 'consultant')->first();
-        $enseignantRole = Role::where('slug', 'enseignant')->first();
 
         $services = LieuService::query()
             ->actif()
@@ -77,19 +76,6 @@ class UserSeeder extends Seeder
                 'must_change_password' => false,
                 'tentatives_connexion' => 0,
             ],
-            // === Paramétreur ===
-            // [
-            //     'nom' => 'Sow',
-            //     'prenom' => 'Ibrahima',
-            //     'email' => 'ibrahima.sow@sicore.sn',
-            //     'password' => Hash::make('password'),
-            //     'role_id' => $parametreurRole ? $parametreurRole->id : null,
-            //     'statut' => 'actif',
-            //     'fonction' => 'Paramétreur',
-            //     'genre' => 'masculin',
-            //     'must_change_password' => false,
-            //     'tentatives_connexion' => 0,
-            // ],
             // === Gestionnaire IA ===
             [
                 'nom' => 'Fall',
@@ -174,26 +160,12 @@ class UserSeeder extends Seeder
                 'must_change_password' => false,
                 'tentatives_connexion' => 0,
             ],
-            // === Enseignant ===
-            [
-                'nom' => 'Diouf',
-                'prenom' => 'Aissatou',
-                'email' => 'aissatou.diouf@sicore.sn',
-                'password' => Hash::make('password'),
-                'role_id' => $enseignantRole ? $enseignantRole->id : null,
-                'lieu_service_id' => $ief?->id,
-                'statut' => 'actif',
-                'fonction' => 'Enseignant',
-                'genre' => 'feminin',
-                'must_change_password' => false,
-                'tentatives_connexion' => 0,
-            ],
         ];
 
         if ($gestionnaireIaRole && ! $ia) {
             $this->command?->warn('Aucun lieu de service de type IA : Fatou Fall reste sans rattachement.');
         }
-        if (($gestionnaireIefRole || $enseignantRole) && ! $ief) {
+        if ($gestionnaireIefRole && ! $ief) {
             $this->command?->warn('Aucun lieu de service de type IEF : les comptes IEF restent sans rattachement.');
         }
 

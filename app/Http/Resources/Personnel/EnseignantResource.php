@@ -80,8 +80,6 @@ class EnseignantResource extends JsonResource
 
             'prenom' => $this->prenom,
 
-            'categorie_personnel' => $this->categorie_personnel,
-
             'nom_complet' => $this->nom_complet,
 
             'date_naissance' =>
@@ -193,26 +191,6 @@ class EnseignantResource extends JsonResource
 
                         'libelle' =>
                             $this->corps->libelle,
-                    ]
-                    : null
-            ),
-
-            // =====================================================
-            // GRADE
-            // =====================================================
-
-            'grade' => $this->whenLoaded(
-                'grade',
-                fn () => $this->grade
-                    ? [
-                        'id' =>
-                            $this->grade->id,
-
-                        'code' =>
-                            $this->grade->code,
-
-                        'libelle' =>
-                            $this->grade->libelle,
                     ]
                     : null
             ),

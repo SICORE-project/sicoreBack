@@ -20,7 +20,7 @@ class UpdateInstitutFinancierRequest extends FormRequest
             'adresse' => ['nullable', 'string', 'max:255'],
             'telephone' => ['nullable', 'string', 'max:20'],
             'email' => ['nullable', 'email:rfc', 'max:100'],
-            'est_actif' => ['required', 'boolean'],
+            'est_actif' => ['sometimes', 'boolean'],
         ];
     }
 

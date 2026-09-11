@@ -41,7 +41,6 @@ class GestionPaieSeeder extends Seeder
                     DB::table('corps_enseignant')->insert([
                         'code' => $code,
                         'libelle' => $label,
-                        'categorie_id' => $category->id,
                         'description' => 'Corps disponible pour les traitements de paie Tabaski.',
                         'created_at' => now(),
                         'updated_at' => now(),
@@ -55,7 +54,7 @@ class GestionPaieSeeder extends Seeder
                     'libelle' => '2025-2026',
                     'date_debut' => '2025-10-01',
                     'date_fin' => '2026-09-30',
-                    'en cours' => true,
+                    'est_active' => true,
                     'est_cloturee' => false,
                     'created_at' => now(),
                     'updated_at' => now(),

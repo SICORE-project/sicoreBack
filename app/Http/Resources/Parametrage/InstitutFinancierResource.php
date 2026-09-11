@@ -17,6 +17,9 @@ class InstitutFinancierResource extends JsonResource
             'telephone' => $this->telephone,
             'email' => $this->email,
             'adresse' => $this->adresse,
+            'code_banque' => $this->code_banque,
+            'code_guichet' => $this->code_guichet,
+            'iban_exemple' => $this->iban_exemple,
             'est_actif' => $this->est_actif,
         ];
     }

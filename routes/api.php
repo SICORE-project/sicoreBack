@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\DiplomeController;
 
 use App\Http\Controllers\ConvocationsController;
 use App\Http\Controllers\EtatPaieIndemnitesController;

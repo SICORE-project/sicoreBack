@@ -111,6 +111,37 @@ class LieuServiceApiTest extends TestCase
             ->assertJsonPath('data.0.hierarchie_coherente', true);
     }
 
+    public function test_attached_teachers_prevent_reparenting_but_allow_name_and_phone_changes(): void
+    {
+        DB::table('enseignants')->where('id', 1)->update(['lieu_service_id' => 1, 'ia_id' => 1, 'ief_id' => 1]);
+        DB::table('iefs')->insert(['id' => 2, 'code' => 'IEF-TH', 'libelle' => 'IEF Thiès', 'ia_id' => 2]);
+        $this->putJson('/api/parametrage/lieux-service/1', ['libelle' => 'École', 'ia_id' => 2, 'ief_id' => 2])
+            ->assertUnprocessable()->assertJsonValidationErrors('ief_id');
+        $this->assertDatabaseHas('lieu_de_services', ['id' => 1, 'ia_id' => 1, 'ief_id' => 1]);
+        $this->putJson('/api/parametrage/lieux-service/1', ['libelle' => 'École renommée', 'ia_id' => 1, 'ief_id' => 1, 'telephone' => '771234567'])
+            ->assertOk()->assertJsonPath('data.libelle', 'École renommée');
+    }
+
+    public function test_establishment_with_a_teacher_cannot_be_deleted_even_when_teacher_is_archived(): void
+    {
+        DB::table('enseignants')->where('id', 1)->update(['lieu_service_id' => 1, 'ia_id' => 1, 'ief_id' => 1]);
+        foreach ([null, now()] as $deletedAt) {
+            DB::table('enseignants')->where('id', 1)->update(['deleted_at' => $deletedAt]);
+            $this->deleteJson('/api/parametrage/lieux-service/1')->assertStatus(409);
+            $this->assertDatabaseHas('lieu_de_services', ['id' => 1, 'deleted_at' => null]);
+        }
+    }
+
+    public function test_unused_establishment_is_soft_deleted(): void
+    {
+        $this->deleteJson('/api/parametrage/lieux-service/2')
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('message', 'Établissement supprimé avec succès.');
+
+        $this->assertSoftDeleted('lieu_de_services', ['id' => 2]);
+    }
+
     public function test_filtre_par_ia_type_et_statut_et_signale_une_incoherence(): void
     {
         $this->getJson('/api/parametrage/lieux-service?ia_id=2&type=centre&est_actif=0')
@@ -154,13 +185,13 @@ class LieuServiceApiTest extends TestCase
     public function test_cree_un_lieu_actif_et_normalise_ses_champs(): void
     {
         $this->postJson('/api/parametrage/lieux-service', [
-            'code' => ' ls03 ',
+            'telephone' => '771234567',
             'libelle' => ' Nouveau lieu ',
             'ia_id' => 1,
             'ief_id' => 1,
         ])->assertCreated()
             ->assertJsonPath('success', true)
-            ->assertJsonPath('data.code', 'LS03')
+            ->assertJsonPath('data.telephone', '771234567')
             ->assertJsonPath('data.libelle', 'Nouveau lieu')
             ->assertJsonPath('data.est_actif', true)
             ->assertJsonPath('data.ia.code', 'IA-DK')
@@ -168,7 +199,7 @@ class LieuServiceApiTest extends TestCase
             ->assertJsonPath('data.hierarchie_coherente', true);
 
         $this->assertDatabaseHas('lieu_de_services', [
-            'code' => 'LS03',
+            'telephone' => '771234567',
             'libelle' => 'Nouveau lieu',
             'ia_id' => 1,
             'ief_id' => 1,
@@ -176,15 +207,14 @@ class LieuServiceApiTest extends TestCase
         ]);
     }
 
-    public function test_refuse_la_creation_avec_un_code_existant_ou_une_ief_incoherente(): void
+    public function test_ignore_les_anciens_champs_et_refuse_une_ief_incoherente(): void
     {
         $this->postJson('/api/parametrage/lieux-service', [
-            'code' => 'ls01',
-            'libelle' => 'Doublon',
+            'code' => 'ls01', 'type' => 'DRH', 'perimetre' => 'national', 'est_actif' => false,
+            'libelle' => 'Établissement sans téléphone',
             'ia_id' => 1,
             'ief_id' => 1,
-        ])->assertUnprocessable()
-            ->assertJsonValidationErrors('code');
+        ])->assertCreated()->assertJsonPath('data.est_actif', true)->assertJsonPath('data.telephone', null);
 
         $this->postJson('/api/parametrage/lieux-service', [
             'code' => 'LS03',
@@ -205,13 +235,14 @@ class LieuServiceApiTest extends TestCase
         ]);
 
         $this->putJson('/api/parametrage/lieux-service/1', [
-            'code' => ' ls-01-bis ',
+            'telephone' => '781234567',
             'libelle' => ' École Plateau rénovée ',
             'ia_id' => 2,
             'ief_id' => 2,
         ])->assertOk()
             ->assertJsonPath('success', true)
-            ->assertJsonPath('data.code', 'LS-01-BIS')
+            ->assertJsonPath('data.code', 'LS01')
+            ->assertJsonPath('data.telephone', '781234567')
             ->assertJsonPath('data.libelle', 'École Plateau rénovée')
             ->assertJsonPath('data.ia_id', 2)
             ->assertJsonPath('data.ief_id', 2)
@@ -219,14 +250,15 @@ class LieuServiceApiTest extends TestCase
 
         $this->assertDatabaseHas('lieu_de_services', [
             'id' => 1,
-            'code' => 'LS-01-BIS',
+            'code' => 'LS01',
+            'telephone' => '781234567',
             'libelle' => 'École Plateau rénovée',
             'ia_id' => 2,
             'ief_id' => 2,
         ]);
     }
 
-    public function test_conserve_le_code_actuel_mais_refuse_le_code_d_un_autre_lieu(): void
+    public function test_le_code_interne_ne_peut_pas_etre_modifie_par_le_formulaire(): void
     {
         $this->putJson('/api/parametrage/lieux-service/1', [
             'code' => 'LS01',
@@ -240,8 +272,7 @@ class LieuServiceApiTest extends TestCase
             'libelle' => 'École Plateau',
             'ia_id' => 1,
             'ief_id' => 1,
-        ])->assertUnprocessable()
-            ->assertJsonValidationErrors('code');
+        ])->assertOk()->assertJsonPath('data.code', 'LS01');
     }
 
     public function test_refuse_une_ief_qui_n_appartient_pas_a_l_ia(): void
@@ -421,6 +452,21 @@ class LieuServiceApiTest extends TestCase
         $payload['lieu_service_id'] = 1;
         $this->postJson('/api/parametrage/enseignants/999/affectations', $payload)
             ->assertNotFound();
+    }
+
+    public function test_etablissement_requires_name_ia_and_ief_but_phone_is_optional(): void
+    {
+        foreach (['postJson' => '/api/parametrage/lieux-service', 'putJson' => '/api/parametrage/lieux-service/1'] as $method => $url) {
+            $this->$method($url, [])->assertUnprocessable()->assertJsonValidationErrors(['libelle', 'ia_id', 'ief_id']);
+            $this->$method($url, ['libelle' => 'École', 'ia_id' => 1, 'ief_id' => 1, 'telephone' => str_repeat('1', 21)])
+                ->assertUnprocessable()->assertJsonValidationErrors('telephone');
+        }
+        $this->putJson('/api/parametrage/lieux-service/1', ['libelle' => 'École', 'ia_id' => 1, 'ief_id' => 1, 'telephone' => null])
+            ->assertOk()->assertJsonPath('data.telephone', null);
+        $first = $this->postJson('/api/parametrage/lieux-service', ['libelle' => 'École A', 'ia_id' => 1, 'ief_id' => 1])->assertCreated()->json('data.code');
+        $second = $this->postJson('/api/parametrage/lieux-service', ['libelle' => 'École B', 'ia_id' => 1, 'ief_id' => 1])->assertCreated()->json('data.code');
+        $this->assertMatchesRegularExpression('/^ETAB[A-F0-9]{16}$/', $first);
+        $this->assertNotSame($first, $second);
     }
 
     private function connecteGestionnaire(int $id): void

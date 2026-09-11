@@ -134,7 +134,7 @@ class UserController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'Utilisateur rattaché au lieu de service avec succès.',
+            'message' => 'Utilisateur rattaché à l’établissement avec succès.',
             'data' => new UserResource($user),
         ], 200);
     }

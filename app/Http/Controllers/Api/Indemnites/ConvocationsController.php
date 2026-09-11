@@ -20,7 +20,7 @@ class ConvocationsController extends Controller
     {
         // Eager loading nécessaire à la liste DAGE (point 3 du cahier des
         // charges "Transmission des convocations") : Agent / Type / Session /
-        // Centre / Rôle / Lieu de service proviennent tous des relations,
+        // Centre / Rôle / Établissement proviennent tous des relations,
         // pas seulement des colonnes de `convocations`. "centres.presidentJury"
         // et "centres.chefCentre" chargent aussi les centres eux-mêmes (pas
         // besoin de lister "centres" à part) — nécessaire à la page Pièces

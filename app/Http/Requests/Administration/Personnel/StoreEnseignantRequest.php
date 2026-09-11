@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Administration\Personnel;
 
+use App\Http\Requests\Administration\Personnel\Concerns\ValidatesTeacherHierarchy;
 use App\Models\Parametrage\CorpsEnseignant;
 use App\Models\Parametrage\Diplome;
 use Illuminate\Foundation\Http\FormRequest;
@@ -9,6 +10,8 @@ use Illuminate\Validation\Rule;
 
 class StoreEnseignantRequest extends FormRequest
 {
+    use ValidatesTeacherHierarchy;
+
     protected function prepareForValidation(): void
     {
         if ($this->has('nombre_femmes') && ! $this->filled('nombre_femmes')) {
@@ -17,8 +20,8 @@ class StoreEnseignantRequest extends FormRequest
         if ($this->has('compte_bancaire.type_virement') && ! $this->filled('compte_bancaire.type_virement')) {
             $this->merge(['compte_bancaire' => array_merge($this->input('compte_bancaire', []), ['type_virement' => 'unitaire'])]);
         }
-        $enfants = max(0, $this->integer('nombre_enfants'));
         $marie = $this->boolean('est_en_couple');
+        $enfants = $marie ? max(0, $this->integer('nombre_enfants')) : 0;
         $conjointTravaille = $marie && $this->boolean('conjoint_travaille');
         $diplome = $this->filled('diplome_id') ? Diplome::find($this->integer('diplome_id')) : null;
         $categorieId = $this->filled('categorie_id') ? $this->integer('categorie_id') : null;
@@ -35,8 +38,11 @@ class StoreEnseignantRequest extends FormRequest
         }
         $this->merge([
             'nombre_enfants' => $enfants,
+            'nombre_femmes' => $marie ? ($this->input('nombre_femmes') ?? 0) : 0,
             'conjoint_travaille' => $conjointTravaille,
-            'nombre_parts_fiscales' => min(5, max(1, 1 + ($marie ? 1 : 0) + ($enfants * .5) - ($conjointTravaille ? .5 : 0))),
+            'nombre_parts_fiscales' => $marie
+                ? min(5, max(1, 2 + ($enfants * .5) - ($conjointTravaille ? .5 : 0)))
+                : 1,
             'salaire_brut' => $this->corpsEstVacataire() ? 150000 : ($diplome && (($categorieId && (int) $diplome->categorie_id === $categorieId) || (!$categorieId && !$this->corpsEstContractuel())) ? $diplome->salaire_brut : null),
         ]);
     }
@@ -57,7 +63,7 @@ class StoreEnseignantRequest extends FormRequest
             'matricule' => [
                 'required',
                 'string',
-                'max:30',
+                'max:9', 'regex:/\A[A-Za-z0-9]+\z/',
                 'unique:enseignants,matricule',
             ],
 
@@ -75,9 +81,9 @@ class StoreEnseignantRequest extends FormRequest
 
 
             'date_naissance' => [
-                'nullable',
+                'required',
                 'date',
-                'before:today',
+                'before_or_equal:'.now()->subYears(18)->format('Y-m-d'),
             ],
 
             'lieu_naissance' => [
@@ -114,14 +120,14 @@ class StoreEnseignantRequest extends FormRequest
                 'max:255',
             ],
 
-            'cni' => ['nullable', 'string', 'max:50'],
+            'cni' => ['nullable', 'string', 'regex:/\A[0-9]{13,15}\z/'],
             'diplome_id' => ['nullable', 'integer', 'exists:diplomes,id', function ($attribute, $value, $fail): void {
                 $diplome = Diplome::find($value);
                 if ($this->filled('categorie_id') && $diplome && (int) $diplome->categorie_id !== $this->integer('categorie_id')) {
                     $fail('Aucun salaire brut paramétré pour ce diplôme et cette catégorie.');
                 }
             }],
-            'lieu_service_id' => ['nullable', 'integer', 'exists:lieu_de_services,id'],
+            'lieu_service_id' => ['nullable', 'integer', Rule::exists('lieu_de_services', 'id')->whereNull('deleted_at')],
             'lieu_paiement_id' => ['nullable', 'integer'],
             'salaire_brut' => ['nullable', 'numeric', 'min:0'],
             'generation' => ['nullable', 'string', 'max:20'],
@@ -130,7 +136,7 @@ class StoreEnseignantRequest extends FormRequest
             'nombre_enfants' => ['nullable', 'integer', 'min:0'],
             'nombre_femmes' => ['nullable', 'integer', 'min:0'],
             'nombre_parts_fiscales' => ['required', 'numeric', 'min:1', 'max:5'],
-            'conjoint_travaille' => ['required', 'boolean'],
+            'conjoint_travaille' => ['nullable', 'boolean'],
             'observations' => ['nullable', 'string'],
 
             // =========================
@@ -150,13 +156,13 @@ class StoreEnseignantRequest extends FormRequest
             'ia_id' => [
                 'required',
                 'integer',
-                'exists:ias,id',
+                Rule::exists('ias', 'id')->whereNull('deleted_at'),
             ],
 
             'ief_id' => [
                 'required',
                 'integer',
-                'exists:iefs,id',
+                Rule::exists('iefs', 'id')->whereNull('deleted_at'),
             ],
 
             'corps_id' => [
@@ -358,6 +364,9 @@ class StoreEnseignantRequest extends FormRequest
             'date_fin_contrat.after_or_equal' => 'La fin du contrat doit être postérieure ou égale à la date de recrutement.',
             'diplome_id.exists' => 'Le diplôme sélectionné n’existe plus. Veuillez le sélectionner à nouveau.',
             'salaire_brut.min' => 'Le salaire brut ne peut pas être négatif.',
+            'matricule.max' => 'Le matricule ne doit pas dépasser 9 caractères.',
+            'matricule.regex' => 'Le matricule doit contenir uniquement des lettres et des chiffres.',
+            'cni.regex' => 'Le numéro de carte d’identité doit contenir entre 13 et 15 chiffres.',
             'matricule.required' =>
                 'Le matricule est obligatoire.',
 
@@ -379,8 +388,8 @@ class StoreEnseignantRequest extends FormRequest
             'ief_id.required' =>
                 'L’Inspection de l’Éducation et de la Formation est obligatoire.',
 
-            'date_naissance.before' =>
-                'La date de naissance doit être antérieure à aujourd’hui.',
+            'date_naissance.before_or_equal' =>
+                'L’enseignant doit avoir au moins 18 ans.',
 
             'genre.in' =>
                 'Le genre doit être M, F, masculin ou feminin.',
@@ -401,7 +410,7 @@ class StoreEnseignantRequest extends FormRequest
                 'La catégorie est obligatoire pour le corps Contractuel.',
 
             'discipline_id.exists' =>
-                'La discipline sélectionnée n’existe pas.',
+                'La spécialité sélectionnée n’existe pas.',
 
             'statut_enseignant_id.exists' =>
                 'Le statut enseignant sélectionné n’existe pas.',

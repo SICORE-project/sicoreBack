@@ -151,12 +151,12 @@ public function update(int $id, array $data): Ief
     if ($changementIa) {
 
         /*
-        | Vérifier les lieux de service / établissements rattachés
+        | Vérifier les établissements rattachés
         */
 
         if ($ief->lieuxServices()->exists()) {
             throw new \DomainException(
-                'Impossible de changer l’IA de cette IEF car des lieux de service y sont rattachés.'
+                'Impossible de changer l’IA de cette IEF car des établissements y sont rattachés.'
             );
         }
 

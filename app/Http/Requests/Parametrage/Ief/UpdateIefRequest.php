@@ -3,10 +3,30 @@
 namespace App\Http\Requests\Parametrage\Ief;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Validator;
 
 class UpdateIefRequest extends FormRequest
 {
+    public function after(): array
+    {
+        return [function (Validator $validator): void {
+            if ($validator->errors()->isNotEmpty()) {
+                return;
+            }
+            $iefId = $this->route('id');
+            $currentIa = DB::table('iefs')->where('id', $iefId)->value('ia_id');
+            if ((int) $currentIa === $this->integer('ia_id')) {
+                return;
+            }
+            if (DB::table('lieu_de_services')->where('ief_id', $iefId)->exists()
+                || DB::table('enseignants')->where('ief_id', $iefId)->exists()) {
+                $validator->errors()->add('ia_id', 'Impossible de changer l’IA d’une IEF liée à des établissements ou à des enseignants.');
+            }
+        }];
+    }
+
     public function authorize(): bool
     {
         return true;

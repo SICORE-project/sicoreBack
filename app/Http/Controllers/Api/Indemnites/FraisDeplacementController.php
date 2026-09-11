@@ -828,7 +828,7 @@ class FraisDeplacementController extends Controller
      * dédiée du centre pour un chef de centre/président de jury (voir
      * migration add_provenance_to_convocation_centres_table) > "provenance"
      * saisie pour cette convocation (pivot convocation_enseignant, pour un
-     * membre du jury ordinaire) > lieu de service permanent de
+    * membre du jury ordinaire) > établissement permanent de
      * l'enseignant (souvent vide en pratique — voir beneficiairesEligibles(),
      * qui applique la même priorité côté aperçu).
      */

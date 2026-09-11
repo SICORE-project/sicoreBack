@@ -3,8 +3,6 @@
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
-use Illuminate\Support\Facades\DB;
-
 
 return new class extends Migration
 {
@@ -21,23 +19,15 @@ return new class extends Migration
             });
         }
 
-        // beneficiaire_id pointe-t-il encore vers `users` ? On l'inspecte
-        // via information_schema plutot que de tenter dropForeign() a
-        // l'aveugle (le nom de la contrainte peut differer selon comment la
-        // table a ete creee).
-        $contrainte = DB::selectOne(
-            "SELECT CONSTRAINT_NAME, REFERENCED_TABLE_NAME
-             FROM information_schema.KEY_COLUMN_USAGE
-             WHERE TABLE_SCHEMA = DATABASE()
-               AND TABLE_NAME = 'missions_deplacement'
-               AND COLUMN_NAME = 'beneficiaire_id'
-               AND REFERENCED_TABLE_NAME IS NOT NULL
-             LIMIT 1"
-        );
+        // Laravel adapte l'inspection au moteur de base de donnees utilise.
+        // On conserve le nom reel de la contrainte, qui peut etre personnalise.
+        $contrainte = collect(Schema::getForeignKeys('missions_deplacement'))
+            ->first(fn (array $foreignKey) => $foreignKey['columns'] === ['beneficiaire_id']
+                && $foreignKey['foreign_table'] === 'users');
 
-        if ($contrainte && $contrainte->REFERENCED_TABLE_NAME === 'users') {
+        if ($contrainte) {
             Schema::table('missions_deplacement', function (Blueprint $table) use ($contrainte) {
-                $table->dropForeign($contrainte->CONSTRAINT_NAME);
+                $table->dropForeign($contrainte['name'] ?? ['beneficiaire_id']);
             });
 
             Schema::table('missions_deplacement', function (Blueprint $table) {
