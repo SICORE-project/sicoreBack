@@ -7,8 +7,7 @@ use App\Models\Parametrage\Categorie;
 use App\Models\Parametrage\CentreFormation;
 use App\Models\Parametrage\CorpsEnseignant;
 use App\Models\Parametrage\Diplome;
-use App\Models\Parametrage\Discipline;
-use App\Models\Parametrage\Grade;
+use App\Models\Parametrage\SpecialiteEnseignant;
 use App\Models\Parametrage\Ia;
 use App\Models\Parametrage\Ief;
 use App\Models\Parametrage\InstitutFinancier;
@@ -33,7 +32,6 @@ class Enseignant extends Model
         'matricule',
         'nom',
         'prenom',
-        'categorie_personnel',
         'date_naissance',
         'lieu_naissance',
         'cni',
@@ -53,7 +51,6 @@ class Enseignant extends Model
         'salaire_brut',
 
         'corps_id',
-        'grade_id',
         'echelon_id',
         'diplome_id',
         'discipline_id',
@@ -155,14 +152,6 @@ class Enseignant extends Model
         );
     }
 
-    public function grade()
-    {
-        return $this->belongsTo(
-            Grade::class,
-            'grade_id'
-        );
-    }
-
     public function diplome()
     {
         return $this->belongsTo(
@@ -174,7 +163,7 @@ class Enseignant extends Model
     public function discipline()
     {
         return $this->belongsTo(
-            Discipline::class,
+            SpecialiteEnseignant::class,
             'discipline_id'
         );
     }

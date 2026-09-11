@@ -119,12 +119,12 @@ class Enseignant extends Model
 
     public function discipline()
     {
-        return $this->belongsTo(Discipline::class);
+        return $this->belongsTo(SpecialiteEnseignant::class);
     }
 
     public function specialite()
     {
-        return $this->belongsTo(Specialite::class);
+        return $this->belongsTo(SpecialiteEnseignant::class);
     }
 
     public function categorie()

@@ -34,6 +34,7 @@ class UpdateCorpsEnseignantRequest extends FormRequest
                 'required',
                 'string',
                 'max:255',
+                Rule::unique('corps_enseignant', 'libelle')->ignore($id),
             ],
 
             
@@ -50,6 +51,7 @@ class UpdateCorpsEnseignantRequest extends FormRequest
         return [
             'code.required' => 'Le code est obligatoire.',
             'code.unique' => 'Ce code existe déjà.',
+            'libelle.unique' => 'Un corps enseignant avec ce libellé existe déjà.',
             'libelle.required' => 'Le libellé est obligatoire.',
             
             'categorie_id.exists' => 'La catégorie sélectionnée est invalide.',

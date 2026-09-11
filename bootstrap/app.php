@@ -49,7 +49,15 @@ return Application::configure(basePath: dirname(__DIR__))
             $message = match (true) { $isForeignKeyDelete => 'Suppression impossible : cet élément est associé à d’autres données. Supprimez ou dissociez d’abord les éléments liés.',
                 $status === 401 => 'Non authentifié.', $status === 403 => 'Accès interdit.', $status === 404 => 'Ressource introuvable.',
                 $status === 429 => 'Trop de tentatives. Réessayez plus tard.', $status === 500 => 'Une erreur interne est survenue.', default => $e->getMessage() ?: 'Requête invalide.' };
-            return response()->json(array_filter(['message' => $message,
-                'errors' => $e instanceof ValidationException ? $e->errors() : null]), $status);
+            $payload = [
+                'message' => $message,
+                'errors' => $e instanceof ValidationException ? $e->errors() : null,
+            ];
+
+            if ($status === 500 && config('app.debug')) {
+                $payload['detail'] = $e->getMessage();
+            }
+
+            return response()->json(array_filter($payload), $status);
         });
     })->create();

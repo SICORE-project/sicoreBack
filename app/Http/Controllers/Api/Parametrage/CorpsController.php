@@ -7,6 +7,7 @@ use App\Models\Parametrage\CorpsEnseignant;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 
 class CorpsController extends Controller
 {
@@ -45,6 +46,7 @@ class CorpsController extends Controller
                 'required',
                 'string',
                 'max:255',
+                Rule::unique('corps_enseignant', 'libelle'),
             ],
 
             
@@ -53,7 +55,7 @@ class CorpsController extends Controller
                 'nullable',
                 'string',
             ],
-        ]);
+        ], ['libelle.unique' => 'Un corps enseignant avec ce libellé existe déjà.']);
 
         $data['code'] = $this->uniqueCode($data['libelle']);
         $corps = CorpsEnseignant::create($data);
@@ -103,6 +105,7 @@ class CorpsController extends Controller
                 'required',
                 'string',
                 'max:255',
+                Rule::unique('corps_enseignant', 'libelle')->ignore($corps->id),
             ],
 
            
@@ -111,7 +114,7 @@ class CorpsController extends Controller
                 'nullable',
                 'string',
             ],
-        ]);
+        ], ['libelle.unique' => 'Un corps enseignant avec ce libellé existe déjà.']);
 
         $corps->update($data);
 

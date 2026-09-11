@@ -15,7 +15,7 @@ class StoreLieuServiceRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'code' => ['required', 'string', 'max:20', Rule::unique('lieu_de_services', 'code')],
+            'telephone' => ['nullable', 'string', 'max:20'],
             'libelle' => ['required', 'string', 'max:100'],
             'ia_id' => [
                 'required',
@@ -36,7 +36,9 @@ class StoreLieuServiceRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'code.unique' => 'Ce code est déjà utilisé par un lieu de service.',
+            'libelle.required' => 'Le nom de l’établissement est obligatoire.',
+            'ia_id.required' => 'L’IA est obligatoire.',
+            'ief_id.required' => 'L’IEF est obligatoire.',
             'ia_id.exists' => 'L’inspection d’académie sélectionnée est introuvable.',
             'ief_id.exists' => 'L’IEF sélectionnée est introuvable ou n’appartient pas à cette inspection d’académie.',
         ];
@@ -44,10 +46,6 @@ class StoreLieuServiceRequest extends FormRequest
 
     protected function prepareForValidation(): void
     {
-        if ($this->has('code')) {
-            $this->merge(['code' => strtoupper(trim((string) $this->input('code')))]);
-        }
-
         if ($this->has('libelle')) {
             $this->merge(['libelle' => trim((string) $this->input('libelle'))]);
         }

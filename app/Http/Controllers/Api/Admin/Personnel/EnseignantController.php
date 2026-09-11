@@ -21,12 +21,21 @@ class EnseignantController extends Controller
      */
     public function index(Request $request)
     {
+        $filters = $request->validate([
+            'search' => ['nullable', 'string', 'max:100'],
+            'prenom' => ['nullable', 'string', 'max:50'],
+            'nom' => ['nullable', 'string', 'max:50'],
+            'corps_id' => ['nullable', 'integer', 'min:1'],
+            'diplome_id' => ['nullable', 'integer', 'min:1'],
+            'ia_id' => ['nullable', 'integer', 'min:1'],
+            'ief_id' => ['nullable', 'integer', 'min:1'],
+        ]);
         $perPage = (int) $request->input('per_page', 20);
 
         $perPage = min(max($perPage, 1), 100);
 
         $enseignants = $this->enseignantService
-            ->paginate($perPage);
+            ->paginate($perPage, $filters);
 
         return EnseignantResource::collection($enseignants)
             ->additional([

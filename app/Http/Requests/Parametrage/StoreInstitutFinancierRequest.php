@@ -20,7 +20,10 @@ class StoreInstitutFinancierRequest extends FormRequest
             'adresse' => ['nullable', 'string', 'max:255'],
             'telephone' => ['nullable', 'string', 'max:20'],
             'email' => ['nullable', 'email:rfc', 'max:100'],
-            'est_actif' => ['required', 'boolean'],
+            'code_banque' => ['nullable', 'string', 'max:5'],
+            'code_guichet' => ['nullable', 'string', 'max:5'],
+            'iban_exemple' => ['nullable', 'string', 'max:34'],
+            'est_actif' => ['sometimes', 'boolean'],
         ];
     }
 

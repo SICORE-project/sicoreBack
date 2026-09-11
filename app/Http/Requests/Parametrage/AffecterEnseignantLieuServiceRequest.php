@@ -33,7 +33,7 @@ class AffecterEnseignantLieuServiceRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'lieu_service_id.exists' => 'Le lieu de service sélectionné est introuvable ou inactif.',
+            'lieu_service_id.exists' => 'L’établissement sélectionné est introuvable ou inactif.',
             'date_fin.after_or_equal' => 'La date de fin doit être postérieure ou égale à la date de début.',
         ];
     }

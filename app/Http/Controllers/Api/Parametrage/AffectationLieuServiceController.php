@@ -33,7 +33,7 @@ class AffectationLieuServiceController extends Controller
 
             if ($ancienne?->lieu_service_id === $lieuService->getKey()) {
                 throw ValidationException::withMessages([
-                    'lieu_service_id' => 'L’enseignant est déjà affecté à ce lieu de service.',
+                    'lieu_service_id' => 'L’enseignant est déjà affecté à cet établissement.',
                 ]);
             }
 
@@ -75,7 +75,7 @@ class AffectationLieuServiceController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'Enseignant affecté au lieu de service avec succès.',
+            'message' => 'Enseignant affecté à l’établissement avec succès.',
             'data' => $affectation->load(['enseignant', 'lieuService', 'ia', 'ief']),
         ], 201);
     }

@@ -6,7 +6,7 @@ use App\Http\Controllers\Api\Parametrage\AnneeAcademiqueController;
 use App\Http\Controllers\Api\Parametrage\CompteBancaireEnseignantController;
 use App\Http\Controllers\Api\Parametrage\CorpsController;
 use App\Http\Controllers\Api\Parametrage\DiplomeController;
-use App\Http\Controllers\Api\Parametrage\DisciplineController;
+use App\Http\Controllers\Api\Parametrage\SpecialiteEnseignantController;
 use App\Http\Controllers\Api\Parametrage\IaController;
 use App\Http\Controllers\Api\Parametrage\IefController;
 use App\Http\Controllers\Api\Parametrage\GradeController;
@@ -25,6 +25,10 @@ Route::post('parametrage/lieux-service', [LieuServiceController::class, 'store']
     ->middleware('permission:parametrage.lieux_service.manage');
 
 Route::put('parametrage/lieux-service/{lieuService}', [LieuServiceController::class, 'update'])
+    ->whereNumber('lieuService')
+    ->middleware('permission:parametrage.lieux_service.manage');
+
+Route::delete('parametrage/lieux-service/{lieuService}', [LieuServiceController::class, 'destroy'])
     ->whereNumber('lieuService')
     ->middleware('permission:parametrage.lieux_service.manage');
 
@@ -83,9 +87,9 @@ Route::prefix('parametrage/ief')->group(function () {
 
 /*
 |--------------------------------------------------------------------------
-| LIEUX DE SERVICE
+| ÉTABLISSEMENTS
 |--------------------------------------------------------------------------
-| Consultation, gestion et organisation territoriale des lieux de service.
+| Consultation, gestion et organisation territoriale des établissements.
 */
 Route::prefix('lieux-service')->group(function () {
     // Consultation
@@ -140,12 +144,12 @@ Route::prefix('grades')->group(function () {
 });
 
 Route::prefix('parametrage/disciplines')->middleware('role:admin,super_admin')->group(function () {
-    Route::get('/', [DisciplineController::class, 'index']);
-    Route::post('/', [DisciplineController::class, 'store']);
-    Route::get('/{discipline}', [DisciplineController::class, 'show'])->whereNumber('discipline');
-    Route::put('/{discipline}', [DisciplineController::class, 'update'])->whereNumber('discipline');
-    Route::patch('/{discipline}/statut', [DisciplineController::class, 'updateStatus'])->whereNumber('discipline');
-    Route::delete('/{discipline}', [DisciplineController::class, 'destroy'])->whereNumber('discipline');
+    Route::get('/', [SpecialiteEnseignantController::class, 'index']);
+    Route::post('/', [SpecialiteEnseignantController::class, 'store']);
+    Route::get('/{discipline}', [SpecialiteEnseignantController::class, 'show'])->whereNumber('discipline');
+    Route::put('/{discipline}', [SpecialiteEnseignantController::class, 'update'])->whereNumber('discipline');
+    Route::patch('/{discipline}/statut', [SpecialiteEnseignantController::class, 'updateStatus'])->whereNumber('discipline');
+    Route::delete('/{discipline}', [SpecialiteEnseignantController::class, 'destroy'])->whereNumber('discipline');
 });
 
 Route::prefix('categories')->group(function () {

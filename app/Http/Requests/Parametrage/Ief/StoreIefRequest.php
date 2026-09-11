@@ -14,6 +14,7 @@ class StoreIefRequest extends FormRequest
     public function rules(): array
     {
         return [
+            'est_actif' => ['sometimes', 'boolean'],
             'code' => [
                 'required',
                 'string',

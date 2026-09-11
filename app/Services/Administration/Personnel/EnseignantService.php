@@ -103,7 +103,6 @@ class EnseignantService
                 'ia',
                 'ief',
                 'corps',
-                'grade',
                 'categorie',
                 'discipline',
                 'diplome',
@@ -121,7 +120,6 @@ class EnseignantService
             'ia',
             'ief',
             'corps',
-            'grade',
             'categorie',
             'discipline',
             'diplome',
@@ -157,14 +155,27 @@ class EnseignantService
         $enseignant->delete();
     }
 
-    public function paginate(int $perPage = 20)
+    public function paginate(int $perPage = 20, array $filters = [])
     {
-        return Enseignant::query()
-            ->with([
+        $query = Enseignant::query();
+        foreach (preg_split('/\s+/u', trim($filters['search'] ?? ''), -1, PREG_SPLIT_NO_EMPTY) as $term) {
+            $query->where(function ($names) use ($term) {
+                $value = '%'.mb_strtolower($term).'%';
+                $names->whereRaw('LOWER(prenom) LIKE ?', [$value])->orWhereRaw('LOWER(nom) LIKE ?', [$value]);
+            });
+        }
+        foreach (['prenom', 'nom'] as $field) {
+            if (isset($filters[$field]) && trim($filters[$field]) !== '') {
+                $query->whereRaw('LOWER('.$field.') LIKE ?', ['%'.mb_strtolower(trim($filters[$field])).'%']);
+            }
+        }
+        foreach (['corps_id', 'diplome_id', 'ia_id', 'ief_id'] as $field) {
+            if (!empty($filters[$field])) { $query->where($field, $filters[$field]); }
+        }
+        return $query->with([
                 'ia',
                 'ief',
                 'corps',
-                'grade',
                 'categorie',
                 'discipline',
                 'diplome',

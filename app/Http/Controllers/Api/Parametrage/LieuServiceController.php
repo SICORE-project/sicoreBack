@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\Parametrage;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Parametrage\ChangeStatutLieuServiceRequest;
 use App\Http\Requests\Parametrage\UpdateLieuServiceRequest;
+use App\Http\Requests\Parametrage\StoreLieuServiceRequest;
 use App\Models\Parametrage\LieuService;
 use App\Models\Parametrage\Ia;
 use App\Models\Parametrage\Region;
@@ -101,16 +102,14 @@ class LieuServiceController extends Controller
                 ->map(fn (LieuService $lieu) => $this->formatLieu($lieu))->values(),
         ]);
     }
-    public function store(Request $request)
+    public function store(StoreLieuServiceRequest $request)
     {
-        $request->merge([
-            'code' => strtoupper(trim((string) $request->input('code'))),
-            'libelle' => trim((string) $request->input('libelle')),
-            'type' => $request->input('type', 'IEF'),
-            'perimetre' => $request->input('perimetre', 'regional'),
-            'est_actif' => $request->input('est_actif', true),
-        ]);
-        $data = $this->validated($request);
+        $data = $request->validated() + [
+            'code' => 'ETAB'.strtoupper(bin2hex(random_bytes(8))),
+            'type' => 'IEF',
+            'perimetre' => 'regional',
+            'est_actif' => true,
+        ];
         if (! Schema::hasColumn((new LieuService)->getTable(), 'perimetre')) {
             unset($data['perimetre']);
         }
@@ -119,7 +118,7 @@ class LieuServiceController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'Lieu de service créé avec succès.',
+            'message' => 'Établissement créé avec succès.',
             'data' => [
                 ...$this->formatLieu($lieu),
                 'ia' => $lieu->ia?->only(['id', 'code', 'libelle']),
@@ -141,7 +140,7 @@ class LieuServiceController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'Lieu de service mis à jour avec succès.',
+            'message' => 'Établissement mis à jour avec succès.',
             'data' => [
                 ...$this->formatLieu($lieuService),
                 'hierarchie_coherente' => $lieuService->hierarchie_coherente,
@@ -151,13 +150,16 @@ class LieuServiceController extends Controller
 
     public function destroy(LieuService $lieuService)
     {
-        if ($lieuService->users()->exists()) {
-            return response()->json(['success' => false, 'message' => 'Ce lieu de service est lié à des utilisateurs et ne peut pas être supprimé.'], 409);
+        if ($lieuService->enseignants()->withTrashed()->exists()) {
+            return response()->json(['success' => false, 'message' => 'Cet établissement est lié à des enseignants et ne peut pas être supprimé.'], 409);
+        }
+        if (Schema::hasTable('users') && $lieuService->users()->withTrashed()->exists()) {
+            return response()->json(['success' => false, 'message' => 'Cet établissement est lié à des utilisateurs et ne peut pas être supprimé.'], 409);
         }
 
         $lieuService->delete();
 
-        return response()->json(['success' => true, 'message' => 'Lieu de service supprimé avec succès.']);
+        return response()->json(['success' => true, 'message' => 'Établissement supprimé avec succès.']);
     }
 
     public function updateStatut(ChangeStatutLieuServiceRequest $request, LieuService $lieuService)
@@ -169,8 +171,8 @@ class LieuServiceController extends Controller
         return response()->json([
             'success' => true,
             'message' => $lieuService->est_actif
-                ? 'Lieu de service activé avec succès.'
-                : 'Lieu de service désactivé avec succès.',
+                ? 'Établissement activé avec succès.'
+                : 'Établissement désactivé avec succès.',
             'data' => $this->formatLieu($lieuService->refresh()),
         ]);
     }
@@ -289,6 +291,9 @@ class LieuServiceController extends Controller
             'id' => $lieu->id,
             'code' => $lieu->code,
             'libelle' => $lieu->libelle,
+            'telephone' => $lieu->telephone,
+            'ia' => $lieu->ia?->only(['id', 'code', 'libelle']),
+            'ief' => $lieu->ief?->only(['id', 'ia_id', 'code', 'libelle']),
             'type' => $lieu->type,
             'perimetre' => $lieu->perimetre ?? $this->inferPerimetreFromType($lieu->type),
             'ia_id' => $lieu->ia_id,
@@ -311,25 +316,4 @@ class LieuServiceController extends Controller
         return $lieu->perimetre ?? $this->inferPerimetreFromType($lieu->type);
     }
 
-    private function validated(Request $request, ?LieuService $lieuService = null): array
-    {
-        $data = $request->validate([
-            'code' => ['required', 'string', 'max:20', Rule::unique('lieu_de_services', 'code')->ignore($lieuService)],
-            'libelle' => ['required', 'string', 'max:100'],
-            'type' => ['required', Rule::in(['DRH', 'DAGE', 'DECPC', 'IA', 'IEF'])],
-            'perimetre' => ['required', Rule::in(['national', 'regional'])],
-            'ia_id' => ['nullable', 'integer', Rule::requiredIf(fn () => in_array($request->input('type'), ['IA', 'IEF'], true)), Rule::exists('ias', 'id')],
-            'ief_id' => ['nullable', 'integer', Rule::requiredIf(fn () => $request->input('type') === 'IEF'), Rule::exists('iefs', 'id')->where(fn ($query) => $query->where('ia_id', $request->input('ia_id')))],
-            'est_actif' => ['required', 'boolean'],
-        ]);
-
-        $data['perimetre'] = in_array($data['type'], ['DRH', 'DAGE', 'DECPC'], true) ? 'national' : 'regional';
-
-        if ($data['perimetre'] === 'national') {
-            $data['ia_id'] = null;
-            $data['ief_id'] = null;
-        }
-
-        return $data;
-    }
 }

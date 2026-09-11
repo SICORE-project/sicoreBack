@@ -28,8 +28,8 @@ class ChangeStatutLieuServiceRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'est_actif.required' => 'Le statut du lieu de service est obligatoire.',
-            'est_actif.boolean' => 'Le statut du lieu de service doit être un booléen.',
+            'est_actif.required' => 'Le statut de l’établissement est obligatoire.',
+            'est_actif.boolean' => 'Le statut de l’établissement doit être un booléen.',
         ];
     }
 }
