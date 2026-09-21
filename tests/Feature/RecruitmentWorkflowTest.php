@@ -161,6 +161,45 @@ class RecruitmentWorkflowTest extends TestCase
         $this->assertDatabaseHas('enseignants',['matricule'=>'A001','type_engagement'=>'vacataire','est_actif'=>false]);
     }
 
+    public function test_search_finds_existing_teachers_and_respects_scope(): void
+    {
+        (require database_path('migrations/2026_09_21_000001_create_personnel_audit_logs_table.php'))->up();
+        $permission = \App\Models\Admin\Permission::create(['slug'=>'enseignants.read','nom'=>'Consulter enseignants','groupe'=>'personnel','module'=>'enseignants','action'=>'read']);
+        $this->drh->role->permissions()->attach($permission->id);
+        $this->batch();
+        DB::table('enseignants')->insert(['matricule'=>'OLD001','prenom'=>'Awa','nom'=>'Diop','ia_id'=>2]);
+        $this->getJson('/api/recruitment/search?search=Diop%20Awa')->assertOk()->assertJsonPath('total',2);
+        $this->getJson('/api/recruitment/search?search=OLD001')->assertOk()->assertJsonPath('data.0.batch_id',null);
+        DB::table('enseignants')->where('matricule', 'A001')->update(['date_prise_service'=>'2020-02-01']);
+        DB::table('enseignants')->where('matricule', 'OLD001')->update(['statut'=>'abandon', 'date_prise_service'=>'2020-02-01']);
+        $this->getJson('/api/recruitment/search?situation=total_agents')->assertOk()->assertJsonPath('total',2);
+        $this->getJson('/api/recruitment/search?situation=prise_service_enregistree')->assertOk()->assertJsonPath('total',1)->assertJsonPath('data.0.matricule','A001');
+        $this->getJson('/api/recruitment/search?situation=enseignants_abandon')->assertOk()->assertJsonPath('total',1)->assertJsonPath('data.0.matricule','OLD001');
+        $this->getJson('/api/recruitment/search?situation=incorrect')->assertUnprocessable();
+        $this->drh->ia_id = 1;
+        $this->getJson('/api/recruitment/search?situation=enseignants_abandon')->assertOk()->assertJsonPath('total',0);
+        $this->getJson('/api/recruitment/search?search=Awa')->assertOk()->assertJsonPath('total',1)->assertJsonPath('data.0.batch_id',1);
+        $this->getJson('/api/recruitment/search?search=OLD001')->assertOk()->assertJsonPath('total',0);
+        $this->getJson('/api/recruitment/search?search=Absent')->assertOk()->assertJsonPath('total',0);
+        $this->getJson('/api/recruitment/search?search=Awa&page=0')->assertUnprocessable();
+    }
+
+    public function test_batches_can_be_filtered_by_recruitment_year_and_reference_within_scope(): void
+    {
+        $this->batch();
+        $this->postJson('/api/recruitment/batches', [
+            'reference' => 'RECRUT-2025', 'recruited_at' => '2025-09-01',
+            'file' => $this->csv("A002;Moussa;Fall;1990-01-01;vacataire;1;1;4\n"),
+        ])->assertCreated();
+        $this->getJson('/api/recruitment/batches?year=2025')->assertOk()
+            ->assertJsonCount(1, 'data')->assertJsonPath('data.0.reference', 'RECRUT-2025');
+        $this->getJson('/api/recruitment/batches?year=2025&reference=LOT')->assertOk()->assertJsonCount(0, 'data');
+        $this->getJson('/api/recruitment/batches?reference=RECRUT')->assertOk()->assertJsonCount(1, 'data');
+        $this->getJson('/api/recruitment/batches?year=incorrect')->assertUnprocessable();
+        $this->drh->ia_id = 999;
+        $this->getJson('/api/recruitment/batches?year=2025')->assertOk()->assertJsonCount(0, 'data');
+    }
+
     public function test_existing_csv_can_use_french_headers_in_any_order(): void
     {
         $file = UploadedFile::fake()->createWithContent('liste.csv', "Nom;Date de naissance;Prénoms\nDiop;1990-01-01;Awa\n");

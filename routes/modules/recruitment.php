@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\RecruitmentController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('recruitment')->group(function () {
+    Route::get('search',[RecruitmentController::class,'search'])->middleware(['role:drh,agent_drh','permission:enseignants.read']);
     Route::get('establishments', [RecruitmentController::class, 'establishments'])->middleware('permission:recruitment.service');
     Route::get('template', [RecruitmentController::class, 'template'])->middleware('permission:recruitment.import');
     Route::get('batches', [RecruitmentController::class, 'index'])->middleware('permission:recruitment.read');
@@ -17,5 +18,4 @@ Route::prefix('recruitment')->group(function () {
     Route::get('notices', [RecruitmentController::class, 'notices'])->middleware('permission:recruitment.read');
     Route::post('notices/{id}/read', [RecruitmentController::class, 'readNotice'])->whereNumber('id')->middleware('permission:recruitment.read');
 });
-
 

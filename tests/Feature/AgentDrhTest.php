@@ -82,6 +82,7 @@ class AgentDrhTest extends TestCase
                 $t->integer($column)->nullable();
             }
             $t->date('date_naissance')->nullable();
+            $t->date('date_prise_service')->nullable();
             $t->boolean('est_actif')->default(true);
             $t->timestamps();
             $t->softDeletes();
@@ -136,6 +137,23 @@ class AgentDrhTest extends TestCase
             ->assertJsonCount(1, 'data.modules')
             ->assertJsonPath('data.modules.0.key', 'personnel');
         $this->assertDatabaseHas('personnel_audit_logs', ['user_id' => $this->agent->id, 'route' => 'api/drh/dashboard']);
+    }
+
+    public function test_dashboard_distinguishes_service_waiting_and_declared_abandon(): void
+    {
+        DB::table('enseignants')->where('id',1)->update(['date_prise_service'=>'2020-02-01']);
+        DB::table('enseignants')->where('id',3)->update(['statut'=>'en_activite','est_actif'=>false]);
+        DB::table('enseignants')->where('id',2)->update(['statut'=>'abandon']);
+        $this->getJson('/api/drh/dashboard')->assertOk()
+            ->assertJsonPath('data.indicateurs.prise_service_enregistree',1)
+            ->assertJsonPath('data.indicateurs.attente_prise_service',1)
+            ->assertJsonPath('data.indicateurs.enseignants_abandon',0);
+        DB::table('enseignants')->where('id',1)->update(['statut'=>'abandon']);
+        $this->getJson('/api/drh/dashboard')->assertOk()
+            ->assertJsonPath('data.indicateurs.prise_service_enregistree',0)
+            ->assertJsonPath('data.indicateurs.enseignants_abandon',1);
+        DB::table('enseignants')->where('id',3)->update(['est_actif'=>true]);
+        $this->getJson('/api/drh/dashboard')->assertOk()->assertJsonPath('data.indicateurs.attente_prise_service',0);
     }
 
     public function test_list_search_and_direct_access_cannot_escape_scope(): void

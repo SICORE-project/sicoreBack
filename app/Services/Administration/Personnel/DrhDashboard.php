@@ -47,6 +47,9 @@ class DrhDashboard
             'agent' => ['id' => $user->id, 'nom' => $user->nom_complet, 'profil' => $user->role->nom],
             'indicateurs' => [
                 'total_agents' => (clone $query)->count(),
+                'prise_service_enregistree' => (clone $query)->whereNotNull('date_prise_service')->where('statut', '!=', 'abandon')->count(),
+                'attente_prise_service' => (clone $query)->whereNull('date_prise_service')->where('est_actif', false)->where('statut', 'en_activite')->count(),
+                'enseignants_abandon' => (clone $query)->where('statut', 'abandon')->count(),
                 'enseignants_fonctionnaires' => $classify(clone $query, config('personnel.corps_fonctionnaires'))->count(),
                 'enseignants_non_fonctionnaires' => $classify(clone $query, config('personnel.corps_non_fonctionnaires'))->count(),
                 'dossiers_actifs' => (clone $query)->where('est_actif', true)->where('statut', 'en_activite')->count(),

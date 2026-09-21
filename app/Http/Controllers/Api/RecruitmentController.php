@@ -26,10 +26,38 @@ class RecruitmentController extends Controller
 
     public function index(Request $request)
     {
+        $filters = $request->validate(['year'=>['nullable','integer','between:1900,2100'], 'reference'=>['nullable','string','max:100']]);
         $ids = $this->access->members($request->user())->select('m.batch_id');
+        $query = DB::table('recruitment_batches')->whereIn('id',$ids);
+        if (! empty($filters['year'])) $query->whereYear('recruited_at',$filters['year']);
+        if (! empty(trim($filters['reference'] ?? ''))) $query->where('reference','like','%'.trim($filters['reference']).'%');
 
-        return response()->json(['data' => DB::table('recruitment_batches')->whereIn('id', $ids)->orderByDesc('id')
+        return response()->json(['data' => $query->orderByDesc('id')
             ->get(['id', 'reference', 'recruited_at', 'transmitted_at', 'created_at'])]);
+    }
+
+    public function search(Request $request)
+    {
+        $data = $request->validate(['search'=>['nullable','string','max:100'],'situation'=>['nullable','in:total_agents,prise_service_enregistree,enseignants_abandon'],'page'=>['nullable','integer','min:1']]);
+        $query = app(\App\Services\Administration\Personnel\DrhScope::class)->apply(\App\Models\Personnel\Enseignant::query(),$request->user());
+        if (($data['situation'] ?? null) === 'prise_service_enregistree') {
+            $query->whereNotNull('date_prise_service')->where('statut', '!=', 'abandon');
+        } elseif (($data['situation'] ?? null) === 'enseignants_abandon') {
+            $query->where('statut', 'abandon');
+        }
+        foreach (preg_split('/\s+/u',trim($data['search'] ?? ''),-1,PREG_SPLIT_NO_EMPTY) as $term) {
+            $query->where(function ($q) use ($term) {
+                $value = '%'.mb_strtolower($term).'%';
+                $q->whereRaw('LOWER(nom) LIKE ?',[$value])->orWhereRaw('LOWER(prenom) LIKE ?',[$value])->orWhereRaw('LOWER(matricule) LIKE ?',[$value]);
+            });
+        }
+        $result = $query->select(['id','matricule','nom','prenom','date_prise_service','est_actif','statut','type_engagement'])
+            ->selectSub(\Illuminate\Support\Facades\DB::table('recruitment_members')->select('batch_id')->whereColumn('enseignant_id','enseignants.id')->limit(1),'batch_id')
+            ->orderBy('nom')->orderBy('prenom')->orderBy('id')->paginate(20);
+        \Illuminate\Support\Facades\DB::table('personnel_audit_logs')->insert([
+            'user_id'=>$request->user()->id,'action'=>'GET','route'=>'api/recruitment/search','created_at'=>now(),
+        ]);
+        return response()->json($result);
     }
 
     public function show(Request $request, int $id)
