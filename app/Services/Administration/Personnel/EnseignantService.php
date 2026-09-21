@@ -158,6 +158,9 @@ class EnseignantService
     public function paginate(int $perPage = 20, array $filters = [], ?\App\Models\Admin\User $user = null)
     {
         $query = Enseignant::query();
+        if ($user?->hasRole('agent_decpc')) {
+            app(\App\Services\Administration\DecpcScope::class)->apply($query, $user);
+        }
         if ($user?->isDrh()) {
             app(DrhScope::class)->apply($query, $user);
         }

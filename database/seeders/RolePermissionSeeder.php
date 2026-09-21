@@ -23,6 +23,7 @@ class RolePermissionSeeder extends Seeder
         $gestionnaireIa = Role::where('slug', 'gestionnaire_ia')->first();
         $gestionnaireIef = Role::where('slug', 'gestionnaire_ief')->first();
         $drh = Role::where('slug', 'drh')->first();
+        $decpc = Role::where('slug', 'decpc')->first();
         $gestionnairePaie = Role::where('slug', 'gestionnaire_paie')->first();
         $gestionnaireBudget = Role::where('slug', 'gestionnaire_budget')->first();
         $consultant = Role::where('slug', 'consultant')->first();
@@ -93,6 +94,16 @@ class RolePermissionSeeder extends Seeder
             $drh->permissions()->sync($drhPermissions);
         }
 
+        // === DECPC ===
+        if ($decpc) {
+            $decpcPermissions = Permission::whereIn('slug', [
+                'indemnites.read',
+                'indemnites.manage',
+                'indemnites.validate',
+            ])->pluck('id')->toArray();
+            $decpc->permissions()->syncWithoutDetaching($decpcPermissions);
+        }
+
         // === GESTIONNAIRE PAIE ===
         if ($gestionnairePaie) {
             $paiePermissions = Permission::where('groupe', 'paie')->pluck('id')->toArray();
@@ -121,5 +132,6 @@ class RolePermissionSeeder extends Seeder
             $enseignant->permissions()->sync($enseignantPermissions);
         }
         $this->call(RecruitmentPermissionSeeder::class);
+        $this->call(AgentDecpcSeeder::class);
     }
 }

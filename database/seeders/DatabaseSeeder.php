@@ -14,6 +14,8 @@ class DatabaseSeeder extends Seeder
             RoleSeeder::class,
             PermissionSeeder::class,
             RolePermissionSeeder::class,
+            AgentDecpcSeeder::class,
+            DecpcStructureSeeder::class,
             //IaSeeder::class,
             //IefSeeder::class,
             UserSeeder::class,

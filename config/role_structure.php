@@ -3,6 +3,7 @@
 return [
     // Les règles par rôle sont prioritaires sur celles du type de rôle.
     'role_slugs' => [
+        'agent_decpc' => ['DECPC'],
         'agent_drh' => ['DRH', 'IA', 'IEF', 'ETABLISSEMENT'],
         'gestionnaire_ia' => ['IA'],
         'super_admin' => ['DRH', 'DAGE', 'DECPC'],

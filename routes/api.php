@@ -38,9 +38,13 @@ Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:lo
 Route::middleware(['auth:sanctum', 'role:admin,super_admin'])
     ->apiResource('diplomes', DiplomeController::class);
 
-Route::middleware(['auth:sanctum', \App\Http\Middleware\IaAccess::class])->group(function () {
+Route::middleware(['auth:sanctum', \App\Http\Middleware\IaAccess::class, \App\Http\Middleware\DecpcAccess::class])->group(function () {
 
     Route::get('/me', [AuthController::class, 'me']);
+
+    Route::get('/decpc/dashboard', function (\Illuminate\Http\Request $request) {
+        return response()->json(['data' => app(\App\Services\Administration\DecpcDashboard::class)->data($request->user())]);
+    })->middleware('role:agent_decpc');
 
     Route::post('/logout', [AuthController::class, 'logout']);
 

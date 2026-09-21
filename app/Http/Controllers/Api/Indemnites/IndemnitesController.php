@@ -20,12 +20,21 @@ class IndemnitesController extends Controller
 {
     use ApiResponseTrait;
 
+    private function query(): \Illuminate\Database\Eloquent\Builder
+    {
+        $user = request()->user();
+
+        return $user?->hasRole('agent_decpc')
+            ? app(\App\Services\Administration\DecpcScope::class)->indemnites($user)
+            : indemnites::query();
+    }
+
     /**
      * Liste paginée des indemnités, avec filtres optionnels.
      */
     public function index(Request $request)
     {
-        $query = indemnites::query();
+        $query = $this->query();
 
         if ($request->filled('statut')) {
             $query->where('statut', $request->query('statut'));
@@ -48,6 +57,10 @@ class IndemnitesController extends Controller
     {
         $data = $request->validated();
         $data['statut'] = $data['statut'] ?? 'brouillon';
+        if ($request->user()?->hasRole('agent_decpc') && in_array($data['statut'], ['valide', 'rejete'], true)) {
+            $data['valide_par'] = $request->user()->id;
+            $data['valide_at'] = now();
+        }
 
         $indemnite = indemnites::create($data);
 
@@ -56,7 +69,7 @@ class IndemnitesController extends Controller
 
     public function show(string $id)
     {
-        $indemnite = indemnites::find($id);
+        $indemnite = $this->query()->find($id);
 
         if (! $indemnite) {
             return $this->error('Indemnité introuvable.', 404);
@@ -67,7 +80,7 @@ class IndemnitesController extends Controller
 
     public function update(UpdateIndemniteRequest $request, string $id)
     {
-        $indemnite = indemnites::find($id);
+        $indemnite = $this->query()->find($id);
 
         if (! $indemnite) {
             return $this->error('Indemnité introuvable.', 404);
@@ -77,14 +90,19 @@ class IndemnitesController extends Controller
             return $this->error('Impossible de modifier une indemnité déjà validée.', 422);
         }
 
-        $indemnite->update($request->validated());
+        $data = $request->validated();
+        if ($request->user()?->hasRole('agent_decpc') && in_array($data['statut'] ?? null, ['valide', 'rejete'], true)) {
+            $data['valide_par'] = $request->user()->id;
+            $data['valide_at'] = now();
+        }
+        $indemnite->update($data);
 
         return $this->success('Indemnité mise à jour avec succès.', $indemnite);
     }
 
     public function destroy(string $id)
     {
-        $indemnite = indemnites::find($id);
+        $indemnite = $this->query()->find($id);
 
         if (! $indemnite) {
             return $this->error('Indemnité introuvable.', 404);
@@ -116,8 +134,6 @@ class IndemnitesController extends Controller
             return indemnites::create([
                 'utilisateur_id' => $data['utilisateur_id'],
                 'type_indemnite_id' => $type->id,
-                'convocation_id' => $data['convocation_id'] ?? null,
-                'enseignant_id' => $data['enseignant_id'] ?? null,
                 'montant_base' => $detail['montant_base'],
                 'frais_deplacement' => $detail['frais_deplacement'],
                 'montant_total' => $detail['montant_total'],
@@ -158,7 +174,7 @@ class IndemnitesController extends Controller
      */
     public function validerCalcul(ValiderCalculIndemniteRequest $request)
     {
-        $indemnite = indemnites::find($request->validated('id'));
+        $indemnite = $this->query()->find($request->validated('id'));
 
         if (! $indemnite) {
             return $this->error('Indemnité introuvable.', 404);
@@ -177,7 +193,7 @@ class IndemnitesController extends Controller
    
     public function ajouterFrais(AjouterFraisIndemniteRequest $request, string $id)
     {
-        $indemnite = indemnites::find($id);
+        $indemnite = $this->query()->find($id);
 
         if (! $indemnite) {
             return $this->error('Indemnité introuvable.', 404);
@@ -198,7 +214,7 @@ class IndemnitesController extends Controller
      */
     public function listeFrais(string $id)
     {
-        $indemnite = indemnites::find($id);
+        $indemnite = $this->query()->find($id);
 
         if (! $indemnite) {
             return $this->error('Indemnité introuvable.', 404);

@@ -89,6 +89,11 @@ class AuthService
 
             'token_type'=>'Bearer',
 
+            ...($user->hasRole('agent_decpc') ? [
+                'redirect_to' => '/decpc/dashboard',
+                'decpc' => app(\App\Services\Administration\DecpcDashboard::class)->context($user),
+            ] : []),
+
             ...($user->isDrh() ? [
                 'redirect_to' => '/drh/dashboard',
                 'drh' => app(\App\Services\Administration\Personnel\DrhDashboard::class)->context($user),

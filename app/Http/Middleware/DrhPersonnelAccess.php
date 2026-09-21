@@ -23,11 +23,12 @@ class DrhPersonnelAccess
             && DB::table('recruitment_members')->where('enseignant_id',$teacherId)->exists()) {
             abort_if($request->hasAny(['est_actif','date_prise_service','type_engagement']),403,'Utilisez la prise de service ou la décision de changement de statut.');
         }
-        if (! $user?->isDrh()) {
+        if (! $user?->isDrh() && ! $user?->hasRole('agent_decpc')) {
             return $next($request);
         }
 
-        $scope = app(DrhScope::class);
+        $scope = $user->hasRole('agent_decpc')
+            ? app(\App\Services\Administration\DecpcScope::class) : app(DrhScope::class);
         $id = $request->route('id') ?? $request->route('enseignant');
         $id = $id instanceof Enseignant ? $id->id : $id;
         $teacher = $id ? $scope->apply(Enseignant::query(), $user)->findOrFail($id) : null;

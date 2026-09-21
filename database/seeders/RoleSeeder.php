@@ -14,6 +14,13 @@ class RoleSeeder extends Seeder
     {
         $roles = [
             [
+                'nom' => 'Agent DECPC',
+                'slug' => 'agent_decpc',
+                'description' => 'Personnel et indemnités dans le périmètre DECPC attribué',
+                'type_role_code' => 'gestion',
+                'est_actif' => true,
+            ],
+            [
                 'nom' => 'Agent DRH',
                 'slug' => 'agent_drh',
                 'description' => 'Consultation du personnel dans le périmètre attribué',
@@ -59,6 +66,13 @@ class RoleSeeder extends Seeder
                 'nom' => 'Directeur des ressources humaines',
                 'slug' => 'drh',
                 'description' => 'Gestion des ressources humaines',
+                'type_role_code' => 'gestion',
+                'est_actif' => true,
+            ],
+            [
+                'nom' => 'DECPC',
+                'slug' => 'decpc',
+                'description' => 'Planification, organisation et supervision des examens, concours professionnels et certifications (CAP, BEP, BT, BTS et CPS), ainsi que délivrance des diplômes et attestations correspondants',
                 'type_role_code' => 'gestion',
                 'est_actif' => true,
             ],
