@@ -22,6 +22,9 @@ class RecruitmentAccess
         if (in_array(strtoupper($structure->type), ['DAGE', 'IA', 'IEF'], true)) {
             $query->whereNotNull('b.transmitted_at');
         }
+        if ($user->hasRole('gestionnaire_ia')) {
+            return $query->where('e.ia_id', app(\App\Services\Administration\IaScope::class)->id($user));
+        }
         $scope = app(DrhScope::class)->describe($user);
 
         return match ($scope['type']) {

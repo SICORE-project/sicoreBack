@@ -50,6 +50,7 @@ class UpdateUserRequest extends FormRequest
             ],
 
             'statut'=>'sometimes|in:actif,inactif',
+            'ia_id' => ['sometimes', 'nullable', 'integer', Rule::exists('ias', 'id')->whereNull('deleted_at')],
 
             'password' => ['sometimes', 'nullable', 'string', 'min:8', 'confirmed'],
 

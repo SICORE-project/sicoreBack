@@ -11,6 +11,58 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class PayrollPageController extends Controller
 {
+    private const IA_PERMISSIONS = [
+        'paie-montants-engages-banque' => 'paie.bulletins.read',
+        'paie-edition-salaires-banque' => 'paie.bulletins.read',
+        'paie-elements-saisie-dashboard' => 'paie.bulletins.read',
+        'paie-recap-elements-corps' => 'paie.bulletins.read',
+        'paie-cumul-enseignants-ief' => 'paie.bulletins.read',
+        'paie-effectifs-corps' => 'paie.bulletins.read',
+        'paie-non-generee' => 'paie.bulletins.read',
+        'paie-edition-enseignants' => 'paie.bulletins.read',
+        'paie-edition-fonctionnaires' => 'paie.bulletins.read',
+        'paie-mutuelles-sante' => 'paie.bulletins.read',
+        'paie-situation-affectations' => 'paie.bulletins.read',
+        'paie-prime-scolaire' => 'paie.bulletins.read',
+        'paie-reliquats' => 'paie.bulletins.read',
+        'paie-double-flux' => 'paie.bulletins.read',
+        'paie-directeurs-interim' => 'paie.bulletins.read',
+        'paie-heures-supplementaires-interim' => 'paie.bulletins.read',
+        'paie-bulletins' => 'paie.bulletins.read',
+        'paie-travaux-periodiques' => 'paie.bulletins.read',
+        'paie-etat-salaires' => 'paie.etat_salaires.read',
+        'paie-cotisations-sociales' => 'paie.cotisations.read',
+        'paie-recap-banque' => 'paie.recap_banque.read',
+        'paie-generee-ief' => 'paie.effectifs_ief.read',
+        'paie-sommes-percues' => 'paie.sommes_percues.read',
+    ];
+
+    private function page(Request $request, string $slug, array $filters): array
+    {
+        $user = $request->user();
+        if (! $user?->hasRole('gestionnaire_ia')) {
+            return $this->pages->page($slug, $filters['period_id'] ?? null, $filters);
+        }
+        abort_unless(isset(self::IA_PERMISSIONS[$slug]) && $user->hasPermission(self::IA_PERMISSIONS[$slug]), 403);
+        $iaId = app(\App\Services\Administration\IaScope::class)->id($user);
+        $page = $this->pages->forIa($iaId)->page($slug, $filters['period_id'] ?? null, array_merge($filters, ['ia_id' => $iaId]));
+        $page['scope_ia_id'] = $iaId;
+        $page['scope_label'] = \Illuminate\Support\Facades\DB::table('ias')->where('id', $iaId)->value('libelle');
+        $page['notice'] = 'Périmètre : '.$page['scope_label'].'. '.$page['notice'];
+        $page['actions'] = collect($page['actions'])->filter(fn ($action) => ($action['code'] ?? '') === 'export' && $user->hasPermission('paie.bulletins.export'))->values()->all();
+        $page['report_catalog'] = collect($page['report_catalog'])->filter(fn ($report) => isset(self::IA_PERMISSIONS[$report['slug']]) && $user->hasPermission(self::IA_PERMISSIONS[$report['slug']]))->values()->all();
+        if ($slug === 'paie-travaux-periodiques') {
+            $page['stats'][0]['value'] = count($page['report_catalog']);
+        }
+        $page['rows'] = collect($page['rows'])->map(fn ($row) => collect($row)->map(function ($cell) {
+            if (is_array($cell) && isset($cell['actions'])) {
+                $cell['actions'] = array_values(array_filter($cell['actions'], fn ($action) => $action['code'] === 'view-payslip'));
+            }
+            return $cell;
+        })->all())->all();
+        return $page;
+    }
+
     public function __construct(private readonly PayrollPageService $pages) {}
 
     public function show(Request $request, string $slug): JsonResponse
@@ -18,33 +70,31 @@ class PayrollPageController extends Controller
         $validated = $this->validatedFilters($request, $slug);
 
         return response()->json([
-            'data' => $this->pages->page(
-                $slug,
-                $validated['period_id'] ?? null,
-                $validated
-            ),
+            'data' => $this->page($request, $slug, $validated),
         ]);
     }
 
     public function export(Request $request, string $slug): StreamedResponse
     {
         $validated = $this->validatedFilters($request, $slug);
-        $page = $this->pages->page($slug, $validated['period_id'] ?? null, $validated);
+        abort_if($request->user()?->hasRole('gestionnaire_ia') && ! $request->user()->hasPermission('paie.bulletins.export'), 403);
+        $page = $this->page($request, $slug, $validated);
         $filename = $slug.'-'.($page['period']['code'] ?? now()->format('Y-m')).'.csv';
 
         return response()->streamDownload(function () use ($page): void {
             $stream = fopen('php://output', 'wb');
             fwrite($stream, "\xEF\xBB\xBF");
-            fputcsv($stream, $page['columns'], ';');
+            fputcsv($stream, $page['columns'], ';', '"', '');
 
             foreach ($page['rows'] as $row) {
                 fputcsv($stream, array_map(function (mixed $cell): string {
                     if (! is_array($cell)) {
-                        return (string) $cell;
+                        $value = (string) $cell;
+                        return preg_match('/^[=+@\-\t\r]/', $value) ? "'".$value : $value;
                     }
 
                     return (string) ($cell['value'] ?? '');
-                }, $row), ';');
+                }, $row), ';', '"', '');
             }
 
             fclose($stream);
@@ -87,6 +137,9 @@ class PayrollPageController extends Controller
 
     public function payslip(PayrollPayslip $payslip): JsonResponse
     {
+        if (request()->user()?->hasRole('gestionnaire_ia')) {
+            abort_unless(app(\App\Services\Administration\IaScope::class)->payslips(request()->user())->where('p.id', $payslip->id)->exists(), 403);
+        }
         $payslip->load([
             'period',
             'lines',

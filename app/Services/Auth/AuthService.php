@@ -30,7 +30,7 @@ class AuthService
 
 
         // ⚠️ Changement : on charge aussi les permissions du rôle
-        $user = User::with(['role.permissions', 'lieuService'])
+        $user = User::with(['role.permissions', 'lieuService', 'ia'])
             ->where('email',$identifier)
             ->first();
 
@@ -63,6 +63,10 @@ class AuthService
 
 
 
+        if ($user->hasRole('gestionnaire_ia')) {
+            app(\App\Services\Administration\IaScope::class)->id($user);
+        }
+
         // Nettoyage ancien token
         $user->tokens()
             ->where('name','sicore-ui')
@@ -90,7 +94,12 @@ class AuthService
                 'drh' => app(\App\Services\Administration\Personnel\DrhDashboard::class)->context($user),
             ] : []),
 
+            ...($user->hasRole('gestionnaire_ia') ? [
+                'redirect_to' => '/dashboard',
+            ] : []),
+
             'user'=>[
+                'ia_id' => $user->ia_id,
                 'id'=>$user->id,
                 'nom'=>$user->nom,
                 'prenom'=>$user->prenom,
@@ -102,7 +111,11 @@ class AuthService
                     'id'=>$user->lieuService->id,
                     'type'=>$user->lieuService->type,
                     'libelle'=>$user->lieuService->libelle,
-                ] : null
+                ] : null,
+                'ia'=>$user->ia ? [
+                    'id'=>$user->ia->id,
+                    'libelle'=>$user->ia->libelle,
+                ] : null,
             ]
 
         ]);

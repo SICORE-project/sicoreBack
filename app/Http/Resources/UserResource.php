@@ -18,6 +18,7 @@ class UserResource extends JsonResource
             ]),
 
             'id' => $this->id,
+            'ia_id' => $this->ia_id,
 
             'nom' => $this->nom,
 
@@ -52,6 +53,11 @@ class UserResource extends JsonResource
                 'code' => $this->lieuService->code,
                 'type' => $this->lieuService->type,
                 'libelle' => $this->lieuService->libelle,
+            ] : null,
+
+            'ia' => $this->ia ? [
+                'id' => $this->ia->id,
+                'libelle' => $this->ia->libelle,
             ] : null,
 
             'created_at' => $this->created_at?->format('d/m/Y H:i'),

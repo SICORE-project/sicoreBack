@@ -50,15 +50,18 @@ class RolePermissionSeeder extends Seeder
         // === GESTIONNAIRE IA ===
         if ($gestionnaireIa) {
             $iaPermissions = Permission::whereIn('slug', [
-                'parametrage.ia.read',
-                'parametrage.ia.manage',
-                'parametrage.ief.read',
-                'parametrage.ief.manage',
                 'enseignants.read',
                 'enseignants.create',
                 'enseignants.update',
                 'enseignants.validate',
                 'enseignants.comptes_bancaires.manage',
+                'paie.bulletins.read',
+                'paie.bulletins.export',
+                'paie.sommes_percues.read',
+                'paie.etat_salaires.read',
+                'paie.cotisations.read',
+                'paie.effectifs_ief.read',
+                'paie.recap_banque.read',
             ])->pluck('id')->toArray();
             $gestionnaireIa->permissions()->sync($iaPermissions);
         }

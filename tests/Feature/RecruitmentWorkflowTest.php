@@ -73,6 +73,7 @@ class RecruitmentWorkflowTest extends TestCase
         (require database_path('migrations/2026_07_07_120005_create_enseignants_table.php'))->up();
         (require database_path('migrations/2026_08_23_130000_add_payroll_engagement_type_to_enseignants.php'))->up();
         (require database_path('migrations/2026_09_22_000001_create_recruitment_workflow.php'))->up();
+        (require database_path('migrations/2026_09_21_000001_create_personnel_audit_logs_table.php'))->up();
         DB::table('ias')->insert(['id' => 1]);
         DB::table('iefs')->insert(['id' => 1, 'ia_id' => 1]);
         DB::table('lieu_de_services')->insert([
@@ -84,6 +85,7 @@ class RecruitmentWorkflowTest extends TestCase
         $this->drh = $this->user('drh', 1);
         $this->dage = $this->user('dage', 2);
         $this->ia = $this->user('gestionnaire_ia', 3);
+        $this->ia->update(['ia_id' => 1]);
         $this->seed(RecruitmentPermissionSeeder::class);
         Sanctum::actingAs($this->drh, ['*']);
     }
@@ -163,7 +165,6 @@ class RecruitmentWorkflowTest extends TestCase
 
     public function test_search_finds_existing_teachers_and_respects_scope(): void
     {
-        (require database_path('migrations/2026_09_21_000001_create_personnel_audit_logs_table.php'))->up();
         $permission = \App\Models\Admin\Permission::create(['slug'=>'enseignants.read','nom'=>'Consulter enseignants','groupe'=>'personnel','module'=>'enseignants','action'=>'read']);
         $this->drh->role->permissions()->attach($permission->id);
         $this->batch();
@@ -224,6 +225,7 @@ class RecruitmentWorkflowTest extends TestCase
         $this->postJson('/api/recruitment/members/1/service', ['service_date' => '2020-02-01', 'lieu_service_id' => 4, 'document' => $this->pdf()])->assertForbidden();
         Sanctum::actingAs($this->ia, ['*']);
         $this->postJson('/api/recruitment/members/1/service', ['service_date' => '2020-02-01', 'lieu_service_id' => 4, 'document' => $this->pdf()])->assertOk();
+        $this->assertDatabaseHas('personnel_audit_logs', ['user_id' => $this->ia->id, 'action' => 'POST', 'route' => 'api/recruitment/members/1/service']);
         $this->postJson('/api/recruitment/members/1/service', ['service_date' => '2020-02-01', 'lieu_service_id' => 4, 'document' => $this->pdf()])->assertConflict();
         $this->assertDatabaseHas('enseignants', ['id' => 1, 'est_actif' => true, 'date_prise_service' => '2020-02-01']);
         $this->artisan('recruitment:alerts')->assertSuccessful();
@@ -245,9 +247,25 @@ class RecruitmentWorkflowTest extends TestCase
         $this->getJson('/api/recruitment/documents/'.$event)->assertOk();
         $this->ia->ia_id = 999;
         Sanctum::actingAs($this->ia, ['*']);
-        $this->getJson("/api/recruitment/batches/$id")->assertNotFound();
-        $this->getJson('/api/recruitment/documents/'.$event)->assertNotFound();
+        $this->getJson("/api/recruitment/batches/$id")->assertForbidden();
+        $this->getJson('/api/recruitment/documents/'.$event)->assertForbidden();
         $this->postJson('/api/recruitment/batches', ['reference' => 'bad', 'recruited_at' => '2020-01-01', 'file' => $this->csv()])->assertForbidden();
+    }
+
+    public function test_ia_cannot_download_shared_document_containing_other_ia_agents(): void
+    {
+        $id = $this->batch();
+        $this->postJson("/api/recruitment/batches/$id/os", ['document' => $this->pdf()])->assertOk();
+        $this->postJson("/api/recruitment/batches/$id/transmit")->assertOk();
+        $event = DB::table('recruitment_events')->where('action', 'ordre_service')->value('id');
+        $foreign = DB::table('enseignants')->insertGetId(['matricule' => 'FOREIGN', 'prenom' => 'Hors', 'nom' => 'Perimetre', 'ia_id' => 2]);
+        $member = (array) DB::table('recruitment_members')->first();
+        unset($member['id']);
+        $member['enseignant_id'] = $foreign;
+        DB::table('recruitment_members')->insert($member);
+        Sanctum::actingAs($this->ia, ['*']);
+        $this->getJson("/api/recruitment/batches/$id")->assertOk()->assertJsonCount(1, 'data.members')->assertDontSee('FOREIGN');
+        $this->getJson('/api/recruitment/documents/'.$event)->assertForbidden();
     }
 
     public function test_missing_recipient_does_not_transmit_and_audit_failure_rolls_back_import(): void
@@ -273,7 +291,7 @@ class RecruitmentWorkflowTest extends TestCase
         Sanctum::actingAs($this->ia, ['*']);
         $this->getJson('/api/recruitment/establishments')->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.id', 4);
         $this->postJson('/api/recruitment/notices/1/read')->assertNotFound();
-        $this->postJson('/api/recruitment/members/1/service', ['service_date' => '2020-02-01', 'lieu_service_id' => 2, 'document' => $this->pdf()])->assertNotFound();
+        $this->postJson('/api/recruitment/members/1/service', ['service_date' => '2020-02-01', 'lieu_service_id' => 2, 'document' => $this->pdf()])->assertForbidden();
         $this->assertDatabaseHas('enseignants', ['id' => 1, 'est_actif' => false]);
         Sanctum::actingAs($this->dage,['*']);
         $this->postJson('/api/recruitment/notices/1/read')->assertOk();
