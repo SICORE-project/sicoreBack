@@ -371,7 +371,7 @@ Route::prefix('admin')->group(function () {
             ->whereNumber('iefId')
             ->middleware('permission:administration.users.read');
 
-        Route::prefix('personnel/enseignants')->group(function () {
+        Route::prefix('personnel/enseignants')->middleware(\App\Http\Middleware\DrhPersonnelAccess::class)->group(function () {
             Route::get('/', [EnseignantController::class, 'index'])
                 ->middleware('permission:enseignants.read');
             Route::post('/', [EnseignantController::class, 'store'])

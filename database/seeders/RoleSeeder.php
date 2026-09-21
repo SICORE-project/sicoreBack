@@ -14,6 +14,13 @@ class RoleSeeder extends Seeder
     {
         $roles = [
             [
+                'nom' => 'Agent DRH',
+                'slug' => 'agent_drh',
+                'description' => 'Consultation du personnel dans le périmètre attribué',
+                'type_role_code' => 'gestion',
+                'est_actif' => true,
+            ],
+            [
                 'nom' => 'Super Administrateur',
                 'slug' => 'super_admin',
                 'description' => 'Accès complet à toutes les fonctionnalités',
@@ -49,7 +56,7 @@ class RoleSeeder extends Seeder
                 'est_actif' => true,
             ],
             [
-                'nom' => 'DRH',
+                'nom' => 'Directeur des ressources humaines',
                 'slug' => 'drh',
                 'description' => 'Gestion des ressources humaines',
                 'type_role_code' => 'gestion',
@@ -91,7 +98,7 @@ class RoleSeeder extends Seeder
             unset($role['type_role_code']);
 
             // Chercher par nom, si existe on met à jour
-            $existing = Role::where('nom', $role['nom'])->first();
+            $existing = Role::where('slug', $role['slug'])->first();
             if ($existing) {
                 $existing->update($role);
             } else {

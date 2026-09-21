@@ -10,6 +10,12 @@ class RolePermissionSeeder extends Seeder
 {
     public function run(): void
     {
+        $agentDrh = Role::where('slug', 'agent_drh')->first();
+        if ($agentDrh) {
+            $agentDrh->permissions()->syncWithoutDetaching(
+                Permission::where('slug', 'enseignants.read')->pluck('id')->all()
+            );
+        }
         // Récupérer les rôles
         $superAdmin = Role::where('slug', 'super_admin')->first();
         $admin = Role::where('slug', 'admin')->first();
@@ -111,5 +117,6 @@ class RolePermissionSeeder extends Seeder
             ])->pluck('id')->toArray();
             $enseignant->permissions()->sync($enseignantPermissions);
         }
+        $this->call(RecruitmentPermissionSeeder::class);
     }
 }

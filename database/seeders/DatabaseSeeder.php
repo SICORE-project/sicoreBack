@@ -9,15 +9,15 @@ class DatabaseSeeder extends Seeder
     public function run(): void
     {
         $this->call([
-            RegionSeeder::class,
+            //RegionSeeder::class,
             TypeRoleSeeder::class,
             RoleSeeder::class,
             PermissionSeeder::class,
             RolePermissionSeeder::class,
-            IaSeeder::class,
-            IefSeeder::class,
+            //IaSeeder::class,
+            //IefSeeder::class,
             UserSeeder::class,
-            GestionPaieSeeder::class,
+            //GestionPaieSeeder::class,
         ]);
     }
 }

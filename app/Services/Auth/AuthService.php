@@ -85,6 +85,11 @@ class AuthService
 
             'token_type'=>'Bearer',
 
+            ...($user->isDrh() ? [
+                'redirect_to' => '/drh/dashboard',
+                'drh' => app(\App\Services\Administration\Personnel\DrhDashboard::class)->context($user),
+            ] : []),
+
             'user'=>[
                 'id'=>$user->id,
                 'nom'=>$user->nom,

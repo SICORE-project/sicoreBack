@@ -52,9 +52,15 @@ Route::middleware(['auth:sanctum'])->group(function () {
     */
 
     require __DIR__.'/modules/administration.php';
+    require __DIR__.'/modules/recruitment.php';
     require __DIR__.'/modules/parametrage.php';
-    require __DIR__.'/modules/indemnites.php';
+    Route::middleware(\App\Http\Middleware\DrhIndemnitesAccess::class)->group(function () {
+        require __DIR__.'/modules/indemnites.php';
+    });
     require __DIR__.'/modules/paie.php';
+
+    Route::get('/drh/dashboard', \App\Http\Controllers\Api\DrhDashboardController::class)
+        ->middleware(['role:agent_drh,drh', 'permission:enseignants.read', \App\Http\Middleware\DrhPersonnelAccess::class]);
     
 
 });
