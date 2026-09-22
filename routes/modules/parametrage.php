@@ -17,6 +17,7 @@ use App\Http\Controllers\Api\Parametrage\RubriquePaieController;
 use App\Http\Controllers\Api\Parametrage\SpecialiteController;
 use App\Http\Controllers\Api\Parametrage\SyndicatController;
 use App\Http\Controllers\Api\Parametrage\RegionController;
+use App\Http\Controllers\Api\Parametrage\DepartementController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('parametrage/lieux-service', [LieuServiceController::class, 'catalogue'])
@@ -262,4 +263,12 @@ Route::prefix('regions')->group(function () {
     Route::patch('/{id}/statut', [RegionController::class, 'changeStatut'])->whereNumber('id')->middleware('permission:parametrage.regions.manage');
     Route::delete('/{id}', [RegionController::class, 'destroy'])->whereNumber('id')->middleware('role:admin,super_admin');
 
+});
+Route::prefix('departements')->group(function () {
+    Route::get('/',[DepartementController::class, 'index'])->middleware('permission:parametrage.departements.read');
+    Route::post('/',[DepartementController::class, 'store'])->middleware('permission:parametrage.departements.manage');
+    Route::get('/{id}',[DepartementController::class, 'show'])->whereNumber('id')->middleware('permission:parametrage.departements.read');
+    Route::put('/{id}',[DepartementController::class, 'update'])->whereNumber('id')->middleware('permission:parametrage.departements.manage');
+    Route::patch('/{id}/statut',[DepartementController::class, 'changeStatut'])->whereNumber('id')->middleware('permission:parametrage.departements.manage');
+    Route::delete('/{id}',[DepartementController::class, 'destroy'])->whereNumber('id')->middleware('role:admin,super_admin');
 });
