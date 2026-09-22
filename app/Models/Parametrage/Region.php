@@ -11,10 +11,7 @@ class Region extends Model
 
     protected $fillable = [
         'code',
-        'nom',
-        'chef_lieu',
-        'superficie',
-        'population',
+        'libelle',
         'est_actif',
     ];
 

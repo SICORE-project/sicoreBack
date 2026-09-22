@@ -50,12 +50,19 @@ class IaController extends Controller
     }
 
     public function regionOptions()
-    {
-        return response()->json([
-            'success' => true,
-            'data' => Region::query()->actif()->orderBy('nom')->get(['id', 'code', 'nom']),
-        ]);
-    }
+{
+    return response()->json([
+        'success' => true,
+        'data' => Region::query()
+            ->actif()
+            ->orderBy('libelle')
+            ->get([
+                'id',
+                'code',
+                'libelle',
+            ]),
+    ]);
+}
 
     /**
      * Création d'une IA.
@@ -162,5 +169,7 @@ class IaController extends Controller
             'message' => 'IA supprimée avec succès.',
         ]);
     }
+
+
 
 }
