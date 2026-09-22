@@ -3,7 +3,9 @@
 namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Rules\Exists;
 
 class PayrollActionRequest extends FormRequest
 {
@@ -27,7 +29,7 @@ class PayrollActionRequest extends FormRequest
                 'enseignant_id' => [
                     'required',
                     'integer',
-                    Rule::exists('enseignants', 'id')->where('actif', true),
+                    $this->activeTeacherRule(),
                 ],
                 'type_engagement' => ['required', Rule::in(['contractuel', 'vacataire'])],
                 'payroll_diploma_level' => [
@@ -64,7 +66,7 @@ class PayrollActionRequest extends FormRequest
                 'enseignant_id' => [
                     'required',
                     'integer',
-                    Rule::exists('enseignants', 'id')->where('actif', true),
+                    $this->activeTeacherRule(),
                 ],
                 'absence_days' => ['required', 'numeric', 'min:0', 'max:31'],
                 'delay_minutes' => ['required', 'integer', 'min:0', 'max:44640'],
@@ -84,7 +86,7 @@ class PayrollActionRequest extends FormRequest
                 'enseignant_id' => [
                     'required',
                     'integer',
-                    Rule::exists('enseignants', 'id')->where('actif', true),
+                    $this->activeTeacherRule(),
                 ],
                 'code' => ['required', 'string', 'max:50', 'regex:/^[A-Z0-9_]+$/'],
                 'label' => ['required', 'string', 'max:150'],
@@ -153,9 +155,7 @@ class PayrollActionRequest extends FormRequest
             'corps_id' => [
                 'required',
                 'integer',
-                Rule::exists('corps_enseignant', 'id')->where(
-                    fn ($query) => $query->whereIn('code', ['VAC', 'PC'])
-                ),
+                Rule::exists('corps_enseignant', 'id'),
             ],
             'ia_ids' => ['required', 'array', 'min:1'],
             'ia_ids.*' => ['required', 'integer', 'distinct', 'exists:ias,id'],
@@ -171,5 +171,15 @@ class PayrollActionRequest extends FormRequest
         }
 
         return $rules;
+    }
+
+    private function activeTeacherRule(): Exists
+    {
+        $column = Schema::hasColumn('enseignants', 'est_actif') ? 'est_actif' : 'actif';
+        $rule = Rule::exists('enseignants', 'id')->where($column, true);
+
+        return Schema::hasColumn('enseignants', 'deleted_at')
+            ? $rule->whereNull('deleted_at')
+            : $rule;
     }
 }

@@ -78,6 +78,21 @@ class PayrollTabaskiValidationTest extends TestCase
         $this->assertTrue(collect($duplicate->errors()->keys())->contains(fn (string $key): bool => str_starts_with($key, 'months.')));
     }
 
+    public function test_un_corps_cree_par_le_crud_parametrage_est_accepte(): void
+    {
+        $corpsId = DB::table('corps_enseignant')->insertGetId([
+            'code' => 'PROFESSEURS-CONTRACTUELS',
+        ]);
+
+        $validation = $this->validator('apply-tabaski-advance', [
+            ...$this->basePayload(),
+            'corps_id' => $corpsId,
+            'month' => 7,
+        ]);
+
+        $this->assertTrue($validation->passes());
+    }
+
     /** @return array<string, mixed> */
     private function basePayload(): array
     {

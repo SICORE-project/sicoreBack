@@ -78,6 +78,9 @@ class PayrollPageService
         }
 
         $teacherRelations = ['user'];
+        if (Schema::hasTable('iefs')) {
+            $teacherRelations[] = 'ief';
+        }
         if (Schema::hasTable('etablissements')) {
             $teacherRelations[] = 'etablissement.ief.ia';
         }
@@ -90,27 +93,57 @@ class PayrollPageService
         if (Schema::hasTable('mutuelles') && Schema::hasColumn('enseignants', 'mutuelle_id')) {
             $teacherRelations[] = 'mutuelle';
         }
-        $activeColumn = Schema::hasColumn('enseignants', 'actif') ? 'actif' : 'est_actif';
-        $teachers = Enseignant::query()
+        // L'Administration pilote est_actif et la suppression logique ; la
+        // colonne historique actif ne doit pas réactiver un dossier supprimé.
+        $activeColumn = Schema::hasColumn('enseignants', 'est_actif') ? 'est_actif' : 'actif';
+        $teachersQuery = Enseignant::query()
             ->with($teacherRelations)
-            ->where($activeColumn, true)
-            ->orderBy('matricule')
-            ->get();
-        $academicInspections = ias::query()
-            ->orderBy('libelle')
-            ->get();
-        $educationInspections = iefs::query()
-            ->orderBy('libelle')
-            ->get();
+            ->where($activeColumn, true);
+        if (Schema::hasColumn('enseignants', 'deleted_at')) {
+            $teachersQuery->whereNull('deleted_at');
+        }
+        $teachers = $teachersQuery->orderBy('matricule')->get();
+        $iaQuery = ias::query()->orderBy('libelle');
+        if (Schema::hasColumn('ias', 'deleted_at')) {
+            $iaQuery->whereNull('deleted_at');
+        }
+        if (Schema::hasColumn('ias', 'est_actif')) {
+            $iaQuery->where('est_actif', true);
+        }
+        $academicInspections = $iaQuery->get();
+        $iefQuery = iefs::query()->orderBy('libelle');
+        if (Schema::hasColumn('iefs', 'deleted_at')) {
+            $iefQuery->whereNull('deleted_at');
+        }
+        if (Schema::hasColumn('iefs', 'est_actif')) {
+            $iefQuery->where('est_actif', true);
+        }
+        $educationInspections = $iefQuery->get()
+            ->whereIn('ia_id', $academicInspections->pluck('id'));
         $teachingCorps = DB::table('corps_enseignant')
-            ->whereIn('code', ['VAC', 'PC'])
-            ->orderByRaw("CASE code WHEN 'VAC' THEN 1 WHEN 'PC' THEN 2 ELSE 3 END")
+            ->orderBy('libelle')
             ->get();
+        $activeYearColumn = Schema::hasColumn('annee_academiques', 'est_active')
+            ? 'est_active'
+            : 'en cours';
         $academicYears = DB::table('annee_academiques')
+            ->where('est_cloturee', false)
+            ->orderByDesc($activeYearColumn)
             ->orderByDesc('date_debut')
             ->get();
 
         $report = $this->report($slug, $period, $teachers, $criteria);
+        if (in_array($slug, ['paie-avance-tabaski', 'paie-retenue-tabaski'], true)) {
+            $missingReferences = collect([
+                $academicYears->isEmpty() ? 'une année académique' : null,
+                $teachingCorps->isEmpty() ? 'un corps enseignant' : null,
+                $academicInspections->isEmpty() ? 'une IA' : null,
+            ])->filter()->values();
+            if ($missingReferences->isNotEmpty()) {
+                $report['actions'] = [$this->exportAction()];
+                $report['notice'] = 'Renseignez dans Paramétrage : '.$missingReferences->implode(', ').'. Les formateurs enregistrés restent visibles ci-dessous.';
+            }
+        }
         $rowFilters = $this->rowFilters($report['rows'], $teachers);
 
         return [
@@ -143,6 +176,7 @@ class PayrollPageService
                 'label' => $year->libelle,
                 'start_date' => $year->date_debut,
                 'end_date' => $year->date_fin,
+                'is_active' => (bool) $year->{$activeYearColumn},
             ])->values(),
             'payroll_months' => $this->payrollMonths(),
             'teachers' => $teachers->map(fn (Enseignant $teacher): array => [
@@ -191,9 +225,9 @@ class PayrollPageService
     {
         return match ($slug) {
             'paie-etats-presence' => $this->attendanceReport($period),
-            'paie-avance-tabaski' => $this->elementReport($period, 'TABASKI_AVANCE', 'Avance Tabaski', 'earning'),
-            'paie-retenue-tabaski' => $this->elementReport($period, 'TABASKI_RETENUE', 'Retenue Tabaski', 'deduction'),
-            'paie-retenues-rappel' => $this->elementReport($period, 'RAPPEL_RETENUE', 'Retenue sur rappel', 'deduction'),
+            'paie-avance-tabaski' => $this->elementReport($period, 'TABASKI_AVANCE', 'Avance Tabaski', 'earning', $teachers),
+            'paie-retenue-tabaski' => $this->elementReport($period, 'TABASKI_RETENUE', 'Retenue Tabaski', 'deduction', $teachers),
+            'paie-retenues-rappel' => $this->elementReport($period, 'RAPPEL_RETENUE', 'Retenue sur rappel', 'deduction', $teachers),
             'paie-exemptions' => $this->exemptionReport($period),
             'paie-travaux-periodiques' => $this->periodReport($period),
             'paie-recap-banque' => $this->bankSummaryReport($period),
@@ -295,20 +329,69 @@ class PayrollPageService
         ?PayrollPeriod $period,
         string $code,
         string $label,
-        string $category
+        string $category,
+        Collection $teachers
     ): array {
-        $items = $period
-            ? $this->elementsForPeriod($period)->where('code', $code)->get()
-            : collect();
         $isTabaski = in_array($code, ['TABASKI_AVANCE', 'TABASKI_RETENUE'], true);
 
         if ($isTabaski) {
+            // Les formateurs proviennent de l'Administration. Les lignes Tabaski
+            // peuvent concerner plusieurs mois : aucun filtre de période caché.
+            $items = PayrollElement::query()
+                ->with('period')
+                ->where('code', $code)
+                ->whereIn('enseignant_id', $teachers->pluck('id'))
+                ->latest('updated_at')
+                ->get();
+            $itemsByTeacher = $items->groupBy('enseignant_id');
+            $corps = DB::table('corps_enseignant')->get(['id', 'code', 'libelle'])->keyBy('id');
+            $ias = ias::query()->pluck('libelle', 'id');
+            $iefs = iefs::query()->pluck('libelle', 'id');
+            $rows = $teachers->flatMap(function (Enseignant $teacher) use ($itemsByTeacher, $corps, $ias, $iefs): Collection {
+                $teacherItems = $itemsByTeacher->get($teacher->id, collect());
+                $baseCorpsId = $teacher->getAttribute('corps_id') ?? $teacher->getAttribute('corps_enseignant_id');
+                $baseIaId = $this->teacherIaId($teacher);
+                $baseIefId = $this->teacherIefId($teacher);
+
+                $rowFor = function (?PayrollElement $item) use ($teacher, $corps, $ias, $iefs, $baseCorpsId, $baseIaId, $baseIefId): array {
+                    $corpsId = $item?->application_corps_id ?? $baseCorpsId;
+                    $corpsData = $corps->get((int) $corpsId);
+                    $corpsLabel = $corpsData
+                        ? $corpsData->code.' — '.$corpsData->libelle
+                        : 'Non renseigné';
+                    $iaId = $item?->application_ia_id ?? $baseIaId;
+                    $iefId = $item?->application_ief_id ?? $baseIefId;
+                    $hierarchy = ($ias->get((int) $iaId) ?: 'IA non renseignée')
+                        .' / '.($iefs->get((int) $iefId) ?: 'IEF non renseignée');
+
+                    return [
+                        $this->teacherName($teacher),
+                        $teacher->matricule ?: '—',
+                        $corpsLabel,
+                        $hierarchy,
+                        $item?->academic_year ?: '—',
+                        $item?->period?->label ?: '—',
+                        $item ? $this->money($item->amount) : '—',
+                        $item ? ($item->application_scope === 'collective' ? 'Collective' : 'Individuelle') : '—',
+                        $this->statusCell($item ? ($item->is_exempt ? 'exempt' : $item->status) : 'not_applied'),
+                        $item && ! $item->is_exempt && $item->period?->isMutable()
+                            ? $this->actionCell('Exempter', 'exempt-element', [
+                                'payroll_element_id' => $item->id,
+                                'expected_version' => $item->version,
+                            ])
+                            : '—',
+                    ];
+                };
+
+                return $teacherItems->isEmpty()
+                    ? collect([$rowFor(null)])
+                    : $teacherItems->map($rowFor);
+            })->values();
             $actionCode = $code === 'TABASKI_AVANCE'
                 ? 'apply-tabaski-advance'
                 : 'apply-tabaski-deduction';
-            $actions = [];
+            $actions = [$this->action('Appliquer collectivement', $actionCode, 'primary')];
             if ($period?->isMutable()) {
-                $actions[] = $this->action('Appliquer collectivement', $actionCode, 'primary');
                 $actions[] = $this->action('Valider les éléments', 'validate-elements');
             }
             $actions[] = $this->exportAction();
@@ -326,32 +409,21 @@ class PayrollPageService
                     'Statut',
                     'Actions',
                 ],
-                'rows' => $items->map(fn (PayrollElement $item): array => [
-                    $this->teacherName($item->enseignant),
-                    $item->enseignant->matricule ?: '—',
-                    $this->tabaskiCorpsLabel($item),
-                    $this->tabaskiHierarchyLabel($item),
-                    $item->academic_year ?: 'Non renseignée',
-                    $period?->label ?? '—',
-                    $this->money($item->amount),
-                    $item->application_scope === 'collective' ? 'Collective' : 'Individuelle',
-                    $this->statusCell($item->status),
-                    $item->is_exempt
-                        ? '—'
-                        : $this->actionCell('Exempter', 'exempt-element', [
-                            'payroll_element_id' => $item->id,
-                            'expected_version' => $item->version,
-                        ]),
-                ])->values(),
+                'rows' => $rows,
                 'actions' => $actions,
                 'stats' => [
-                    $this->stat('Dossiers', $items->count(), $label, 'EN', 'green'),
-                    $this->stat('Montant total', $this->money($items->sum('amount')), 'Groupe sélectionné', 'FC', 'blue'),
+                    $this->stat('Formateurs actifs', $teachers->count(), $label, 'EN', 'green'),
+                    $this->stat('Montant total', $this->money($items->sum('amount')), 'Toutes les périodes', 'FC', 'blue'),
                     $this->stat('Applications collectives', $items->where('application_scope', 'collective')->count(), 'Lignes tracées', 'EX', 'yellow'),
                     $this->stat('À valider', $items->where('status', 'draft')->count(), 'Contrôle requis', 'CT', 'red'),
                 ],
+                'notice' => 'Formateurs actifs issus d’Administration ; données IA, IEF et corps issues de Paramétrage. Historique Tabaski de toutes les périodes.',
             ];
         }
+
+        $items = $period
+            ? $this->elementsForPeriod($period)->where('code', $code)->get()
+            : collect();
 
         return [
             'columns' => ['Enseignant', 'Matricule', 'Libellé', 'Montant', 'Catégorie', 'Exemption', 'Statut', 'Actions'],
@@ -966,14 +1038,19 @@ class PayrollPageService
     /** @return array<string, mixed> */
     private function notGeneratedReport(?PayrollPeriod $period): array
     {
-        $items = $period
-            ? Enseignant::query()
+        $items = collect();
+        if ($period) {
+            $activeColumn = Schema::hasColumn('enseignants', 'est_actif') ? 'est_actif' : 'actif';
+            $query = Enseignant::query()
                 ->with(['user', 'corps', 'institutionFinanciere'])
-                ->where('actif', true)
+                ->where($activeColumn, true)
                 ->whereDoesntHave('payslips', fn (Builder $query) => $query->where('payroll_period_id', $period->id))
-                ->limit(200)
-                ->get()
-            : collect();
+                ->limit(200);
+            if (Schema::hasColumn('enseignants', 'deleted_at')) {
+                $query->whereNull('deleted_at');
+            }
+            $items = $query->get();
+        }
 
         return [
             'columns' => ['Matricule', 'Enseignant', 'État du profil', 'Engagement', 'Corps', 'Salaire de base', 'Banque', 'Situation du bulletin', 'Actions'],
@@ -1299,7 +1376,7 @@ class PayrollPageService
 
         $relations = ['lines', 'enseignant.user'];
         if (Schema::hasTable('corps_enseignant')
-            && Schema::hasColumn('enseignants', 'corps_enseignant_id')) {
+            && Schema::hasColumn('enseignants', 'corps_id')) {
             $relations[] = 'enseignant.corps';
         }
         if (Schema::hasTable('institution_financieres')
@@ -1534,6 +1611,10 @@ class PayrollPageService
     /** @return array<int, array<string, mixed>> */
     private function filters(Collection $periods, ?PayrollPeriod $selected, string $slug): array
     {
+        if (in_array($slug, ['paie-avance-tabaski', 'paie-retenue-tabaski'], true)) {
+            return [];
+        }
+
         $isPayslipPage = $slug === 'paie-bulletins';
 
         return [[
@@ -1724,14 +1805,14 @@ class PayrollPageService
 
     private function teacherName(Enseignant $teacher): string
     {
-        $user = $teacher->user;
-        if (! $user) {
-            $directName = trim((string) $teacher->prenom.' '.(string) $teacher->nom);
-
-            return $directName !== '' ? $directName : 'Enseignant #'.$teacher->id;
+        $directName = trim((string) $teacher->prenom.' '.(string) $teacher->nom);
+        if ($directName !== '') {
+            return $directName;
         }
 
-        return trim($user->prenom.' '.$user->nom);
+        $user = $teacher->user;
+
+        return $user ? trim($user->prenom.' '.$user->nom) : 'Enseignant #'.$teacher->id;
     }
 
     private function engagementLabel(?string $engagement): string
@@ -1785,6 +1866,12 @@ class PayrollPageService
         if ($id === null && $teacher->relationLoaded('etablissement')) {
             $id = $teacher->etablissement?->ief?->ia_id;
         }
+        if ($id === null && $teacher->relationLoaded('ief')) {
+            $id = $teacher->ief?->ia_id;
+        }
+        if ($id === null && ! $teacher->relationLoaded('ief') && $this->teacherIefId($teacher) !== null) {
+            $id = DB::table('iefs')->where('id', $this->teacherIefId($teacher))->value('ia_id');
+        }
 
         return $id === null ? null : (int) $id;
     }
@@ -1797,26 +1884,6 @@ class PayrollPageService
     private function teacherIaLabel(Enseignant $teacher, Collection $inspections): ?string
     {
         return $inspections->firstWhere('id', $this->teacherIaId($teacher))?->libelle;
-    }
-
-    private function tabaskiCorpsLabel(PayrollElement $element): string
-    {
-        $corpsId = $element->application_corps_id ?? $element->enseignant->getAttribute('corps_id');
-        $corps = $corpsId
-            ? DB::table('corps_enseignant')->where('id', (int) $corpsId)->first(['code', 'libelle'])
-            : null;
-
-        return $corps ? $corps->code.' — '.$corps->libelle : 'Non renseigné';
-    }
-
-    private function tabaskiHierarchyLabel(PayrollElement $element): string
-    {
-        $iaId = $element->application_ia_id ?? $this->teacherIaId($element->enseignant);
-        $iefId = $element->application_ief_id ?? $this->teacherIefId($element->enseignant);
-        $ia = $iaId ? DB::table('ias')->where('id', (int) $iaId)->value('libelle') : null;
-        $ief = $iefId ? DB::table('iefs')->where('id', (int) $iefId)->value('libelle') : null;
-
-        return ($ia ?: 'IA non renseignée').' / '.($ief ?: 'IEF non renseignée');
     }
 
     private function categoryLabel(string $category): string
@@ -1841,6 +1908,7 @@ class PayrollPageService
             'paid' => 'Payé',
             'rejected' => 'Rejeté',
             'exempt' => 'Exempté',
+            'not_applied' => 'Non appliquée',
             default => 'Non initialisée',
         };
     }

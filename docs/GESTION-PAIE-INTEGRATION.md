@@ -28,9 +28,24 @@ php artisan key:generate
 php artisan optimize:clear
 php artisan migrate:status
 php artisan migrate --force
-php artisan db:seed --class=GestionPaieSeeder
 php artisan serve --host=127.0.0.1 --port=8000
 ```
+
+`DatabaseSeeder` ne lance que les seeders d'authentification (rôles,
+permissions et utilisateurs). Il ne crée aucun enseignant ni référentiel de
+paie. Lancez `php artisan db:seed` uniquement si les données
+d'authentification doivent être initialisées. Ne lancez pas
+`GestionPaieSeeder` pour préparer les données métier :
+créez d'abord les IA, IEF, corps et autres référentiels nécessaires dans
+Paramétrage, puis enregistrez les enseignants depuis
+`http://127.0.0.1:8001/parametrage/enseignants` avec **Ajouter un enseignant**.
+Le formulaire utilise l'API d'Administration et la même table `enseignants`
+que la gestion de la paie. Un enseignant actif enregistré par ce parcours est
+donc disponible dans les écrans de paie sans seeder supplémentaire.
+
+Arrêter d'exécuter les seeders de démonstration ne supprime pas les enseignants
+déjà présents dans MySQL. Vérifiez leurs dossiers et leurs éventuels liens de
+paie avant toute suppression de données de test.
 
 Ne jamais utiliser `migrate:fresh` sur une base partagée. Sauvegarder la base
 avant d'appliquer des migrations sur un environnement d'intégration.

@@ -45,12 +45,17 @@ class Enseignant extends Model
 
     public function corps(): BelongsTo
     {
-        return $this->belongsTo(corps_enseignants::class, 'corps_enseignant_id');
+        return $this->belongsTo(corps_enseignants::class, 'corps_id');
     }
 
     public function etablissement(): BelongsTo
     {
         return $this->belongsTo(etablissements::class, 'etablissement_id');
+    }
+
+    public function ief(): BelongsTo
+    {
+        return $this->belongsTo(iefs::class, 'ief_id');
     }
 
     public function attendances(): HasMany
