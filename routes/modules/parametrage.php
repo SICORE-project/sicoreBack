@@ -18,6 +18,7 @@ use App\Http\Controllers\Api\Parametrage\SpecialiteController;
 use App\Http\Controllers\Api\Parametrage\SyndicatController;
 use App\Http\Controllers\Api\Parametrage\RegionController;
 use App\Http\Controllers\Api\Parametrage\DepartementController;
+use App\Http\Controllers\Api\Parametrage\CommuneController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('parametrage/lieux-service', [LieuServiceController::class, 'catalogue'])
@@ -271,4 +272,14 @@ Route::prefix('departements')->group(function () {
     Route::put('/{id}',[DepartementController::class, 'update'])->whereNumber('id')->middleware('permission:parametrage.departements.manage');
     Route::patch('/{id}/statut',[DepartementController::class, 'changeStatut'])->whereNumber('id')->middleware('permission:parametrage.departements.manage');
     Route::delete('/{id}',[DepartementController::class, 'destroy'])->whereNumber('id')->middleware('role:admin,super_admin');
+});
+
+Route::prefix('communes')->group(function () {
+
+    Route::get('/', [CommuneController::class,'index',])->middleware('permission:parametrage.communes.read');
+    Route::post('/', [CommuneController::class,'store',])->middleware('permission:parametrage.communes.manage');
+    Route::get('/{id}', [CommuneController::class,'show',])->whereNumber('id')->middleware('permission:parametrage.communes.read' );
+    Route::put('/{id}', [ CommuneController::class,'update',])->whereNumber('id')->middleware('permission:parametrage.communes.manage' );
+    Route::patch('/{id}/statut', [CommuneController::class,'changeStatut',])->whereNumber('id')->middleware('permission:parametrage.communes.manage' );
+    Route::delete('/{id}', [CommuneController::class,'destroy',])->whereNumber('id')->middleware('role:admin,super_admin');
 });

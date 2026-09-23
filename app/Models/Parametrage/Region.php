@@ -31,6 +31,10 @@ class Region extends Model
     {
         return $this->hasMany(Departement::class);
     }
+    public function communes()
+    {
+        return $this->hasMany(Commune::class);
+    }
 
     public function centresFormation()
     {
