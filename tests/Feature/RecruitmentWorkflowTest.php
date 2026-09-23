@@ -228,6 +228,12 @@ class RecruitmentWorkflowTest extends TestCase
         $this->assertDatabaseHas('personnel_audit_logs', ['user_id' => $this->ia->id, 'action' => 'POST', 'route' => 'api/recruitment/members/1/service']);
         $this->postJson('/api/recruitment/members/1/service', ['service_date' => '2020-02-01', 'lieu_service_id' => 4, 'document' => $this->pdf()])->assertConflict();
         $this->assertDatabaseHas('enseignants', ['id' => 1, 'est_actif' => true, 'date_prise_service' => '2020-02-01']);
+        foreach ([$this->drh, $this->dage] as $observer) {
+            Sanctum::actingAs($observer, ['*']);
+            $this->getJson("/api/recruitment/batches/$id")->assertOk()
+                ->assertJsonPath('data.members.0.est_actif', 1)
+                ->assertJsonPath('data.members.0.service_date', '2020-02-01');
+        }
         $this->artisan('recruitment:alerts')->assertSuccessful();
         $this->artisan('recruitment:alerts')->assertSuccessful();
         $this->assertDatabaseCount('recruitment_notices', 2);

@@ -22,6 +22,7 @@ class UserResource extends JsonResource
 
             'id' => $this->id,
             'ia_id' => $this->ia_id,
+            'ief_id' => $this->ief_id,
 
             'nom' => $this->nom,
 
@@ -34,6 +35,7 @@ class UserResource extends JsonResource
             'genre' => $this->genre,
 
             'date_naiss' => $this->date_naiss?->format('d/m/Y'),
+            'date_naiss_iso' => $this->date_naiss?->format('Y-m-d'),
 
             'lieu_naissance' => $this->lieu_naissance,
 

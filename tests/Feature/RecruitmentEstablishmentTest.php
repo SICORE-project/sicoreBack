@@ -17,7 +17,8 @@ class RecruitmentEstablishmentTest extends RecruitmentWorkflowTest
             ['id' => 51, 'libelle' => 'Fermé', 'ia_id' => 1, 'ief_id' => 1, 'est_actif' => false],
         ]);
         Sanctum::actingAs($ia, ['*']);
-        $response = $this->getJson('/api/recruitment/establishments?ia_id=99')->assertOk();
+        $this->getJson('/api/recruitment/establishments?ia_id=99')->assertForbidden();
+        $response = $this->getJson('/api/recruitment/establishments')->assertOk();
         $this->assertNotEmpty($response->json('data'));
         foreach ($response->json('data') as $lieu) {
             $this->assertSame(1, $lieu['ia_id']);

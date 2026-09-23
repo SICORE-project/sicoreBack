@@ -13,6 +13,24 @@ class UserService
     private function withIaScope(array $data, ?User $user = null): array
     {
         $roleId = $data['role_id'] ?? $user?->role_id;
+        if (\App\Models\Admin\Role::whereKey($roleId)->where('slug', 'enseignant')->exists()) {
+            $structure = \App\Models\Parametrage\LieuService::find(array_key_exists('lieu_service_id', $data) ? $data['lieu_service_id'] : $user?->lieu_service_id);
+            $ief = $structure?->ief_id ? Ief::find($structure->ief_id) : null;
+            if (! $structure || ! $structure->est_actif || strtoupper($structure->type) !== 'IEF'
+                || ! $ief || ! Ia::whereKey($ief->ia_id)->exists()
+                || ($structure->ia_id && (string) $structure->ia_id !== (string) $ief->ia_id)) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'lieu_service_id' => 'L’enseignant doit être rattaché à une IEF de son IA, via une structure IEF active.',
+                ]);
+            }
+            if (array_key_exists('ia_id', $data) && (string) $data['ia_id'] !== (string) $ief->ia_id) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'ia_id' => 'L’IEF de rattachement doit appartenir à l’IA sélectionnée.',
+                ]);
+            }
+
+            return array_merge($data, ['ia_id' => $ief->ia_id, 'ief_id' => $ief->id]);
+        }
         if (! \App\Models\Admin\Role::whereKey($roleId)->where('slug', 'gestionnaire_ia')->exists()) {
             return $data;
         }

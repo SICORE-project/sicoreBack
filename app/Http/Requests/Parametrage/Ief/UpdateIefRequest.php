@@ -20,7 +20,7 @@ class UpdateIefRequest extends FormRequest
             if ((int) $currentIa === $this->integer('ia_id')) {
                 return;
             }
-            if (DB::table('lieu_de_services')->where('ief_id', $iefId)->exists()
+            if (DB::table('lieu_de_services')->where('ief_id', $iefId)->where('code', '!=', 'ORG-IEF-'.$iefId)->exists()
                 || DB::table('enseignants')->where('ief_id', $iefId)->exists()) {
                 $validator->errors()->add('ia_id', 'Impossible de changer l’IA d’une IEF liée à des établissements ou à des enseignants.');
             }

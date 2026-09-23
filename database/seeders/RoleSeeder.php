@@ -9,7 +9,7 @@ use App\Models\Admin\TypeRole;
 class RoleSeeder extends Seeder
 {
 
-   
+
     public function run(): void
     {
         $roles = [
@@ -55,20 +55,7 @@ class RoleSeeder extends Seeder
                 'type_role_code' => 'gestion',
                 'est_actif' => true,
             ],
-            [
-                'nom' => 'Gestionnaire IEF',
-                'slug' => 'gestionnaire_ief',
-                'description' => 'Gestion des enseignants de l\'IEF',
-                'type_role_code' => 'gestion',
-                'est_actif' => true,
-            ],
-            [
-                'nom' => 'Directeur des ressources humaines',
-                'slug' => 'drh',
-                'description' => 'Gestion des ressources humaines',
-                'type_role_code' => 'gestion',
-                'est_actif' => true,
-            ],
+
             [
                 'nom' => 'DECPC',
                 'slug' => 'decpc',
@@ -76,27 +63,7 @@ class RoleSeeder extends Seeder
                 'type_role_code' => 'gestion',
                 'est_actif' => true,
             ],
-            [
-                'nom' => 'Gestionnaire Paie',
-                'slug' => 'gestionnaire_paie',
-                'description' => 'Gestion de la paie des enseignants',
-                'type_role_code' => 'gestion',
-                'est_actif' => true,
-            ],
-            [
-                'nom' => 'Gestionnaire Budget',
-                'slug' => 'gestionnaire_budget',
-                'description' => 'Gestion du budget et des engagements',
-                'type_role_code' => 'gestion',
-                'est_actif' => true,
-            ],
-            [
-                'nom' => 'Consultant',
-                'slug' => 'consultant',
-                'description' => 'Consultation des données uniquement',
-                'type_role_code' => 'consultation',
-                'est_actif' => true,
-            ],
+
             [
                 'nom' => 'Enseignant',
                 'slug' => 'enseignant',
@@ -104,7 +71,7 @@ class RoleSeeder extends Seeder
                 'type_role_code' => 'consultation',
                 'est_actif' => true,
             ],
-            
+
         ];
 
         foreach ($roles as $role) {

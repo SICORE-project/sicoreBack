@@ -15,6 +15,43 @@ class IaAccessTest extends TestCase
 {
     private User $manager;
 
+    public function test_teacher_scope_follows_the_selected_ief_on_create_and_update(): void
+    {
+        $role = DB::table('roles')->insertGetId(['nom' => 'Enseignant', 'slug' => 'enseignant']);
+        $structures = [];
+        foreach ([1, 2] as $ia) {
+            $ief = DB::table('iefs')->insertGetId(['libelle' => 'IEF test '.$ia, 'ia_id' => $ia]);
+            $structures[] = DB::table('lieu_de_services')->insertGetId([
+                'libelle' => 'Structure IEF '.$ia, 'type' => 'IEF', 'ia_id' => $ia, 'ief_id' => $ief,
+            ]);
+        }
+        $service = app(UserService::class);
+        $user = $service->create([
+            'nom' => 'Test', 'prenom' => 'Enseignant', 'email' => 'teacher@example.test',
+            'password' => 'password123', 'role_id' => $role, 'lieu_service_id' => $structures[0],
+        ]);
+        $this->assertEquals(1, $user->ia_id);
+        $this->assertNotNull($user->ief_id);
+        $previousIef = $user->ief_id;
+        $service->update($user, ['lieu_service_id' => $structures[1]]);
+        $this->assertEquals(2, $user->fresh()->ia_id);
+        $this->assertNotEquals($previousIef, $user->fresh()->ief_id);
+        $this->expectException(ValidationException::class);
+        $service->update($user, ['lieu_service_id' => null]);
+    }
+
+    public function test_teacher_cannot_be_attached_to_a_central_structure(): void
+    {
+        $role = DB::table('roles')->insertGetId(['nom' => 'Enseignant', 'slug' => 'enseignant']);
+        $structure = DB::table('lieu_de_services')->insertGetId([
+            'libelle' => 'DRH', 'type' => 'DRH', 'ia_id' => 1,
+        ]);
+        $this->expectException(ValidationException::class);
+        app(UserService::class)->create([
+            'role_id' => $role, 'lieu_service_id' => $structure, 'password' => 'password123',
+        ]);
+    }
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -127,6 +164,28 @@ class IaAccessTest extends TestCase
             ->assertJsonPath('data.indicateurs.non_fonctionnaires', 1)->assertJsonPath('data.indicateurs.bulletins_generes', 1)
             ->assertJsonPath('data.indicateurs.bulletins_restants', 1)->assertJsonPath('data.indicateurs.masse_salariale', 100)
             ->assertJsonCount(1, 'data.iefs')->assertJsonCount(1, 'data.dernieres_operations')->assertDontSee('HorsPerimetre');
+    }
+
+    public function test_user_personal_fields_are_validated_saved_and_editable(): void
+    {
+        Schema::table('users', function (Blueprint $table) {
+            $table->string('telephone', 20)->nullable();
+            $table->date('date_naiss')->nullable();
+            $table->string('lieu_naissance', 100)->nullable();
+            $table->string('adresse', 255)->nullable();
+            $table->string('genre')->default('non_precise');
+        });
+        $data = ['telephone' => '771234567', 'date_naiss' => '1990-04-23', 'lieu_naissance' => 'Dakar', 'adresse' => 'Grand Yoff', 'genre' => 'feminin'];
+        $rules = (new \App\Http\Requests\Administration\StoreUserRequest)->rules();
+        $rules = array_intersect_key($rules, $data);
+        $this->assertCount(5, $rules);
+        $validated = \Illuminate\Support\Facades\Validator::make($data, $rules)->validate();
+        app(UserService::class)->update($this->manager, $validated);
+        $this->assertDatabaseHas('users', ['id' => $this->manager->id] + array_diff_key($data, ['date_naiss' => true]));
+        $this->assertSame('1990-04-23', $this->manager->fresh()->date_naiss->format('Y-m-d'));
+        app(UserService::class)->update($this->manager, ['telephone' => null, 'adresse' => 'Medina']);
+        $this->assertDatabaseHas('users', ['id' => $this->manager->id, 'telephone' => null, 'adresse' => 'Medina', 'lieu_naissance' => 'Dakar']);
+        $this->assertTrue(\Illuminate\Support\Facades\Validator::make(['date_naiss' => now()->addDay()->format('Y-m-d'), 'genre' => 'incorrect'], $rules)->fails());
     }
 
     public function test_shared_payroll_reports_keep_full_salary_statement_and_scope_all_data(): void

@@ -31,6 +31,11 @@ class UpdateUserRequest extends FormRequest
         $roleId = $this->input('role_id', $user?->role_id);
 
         return [
+            'telephone' => ['sometimes', 'required', 'string', 'max:20'],
+            'date_naiss' => ['sometimes', 'required', 'date_format:Y-m-d', 'before_or_equal:today'],
+            'lieu_naissance' => ['sometimes', 'nullable', 'string', 'max:100'],
+            'adresse' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'genre' => ['sometimes', 'required', 'in:masculin,feminin'],
             'nom'=>'sometimes|string|max:100',
 
             'prenom'=>'sometimes|string|max:100',

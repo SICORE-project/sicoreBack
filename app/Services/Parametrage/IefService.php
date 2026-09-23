@@ -78,9 +78,12 @@ class IefService
     {
         $ia = Ia::findOrFail($data['ia_id']);
 
-        $ief = Ief::create($data);
+        return DB::transaction(function () use ($data) {
+            $ief = Ief::create($data)->refresh();
+            app(RegionalStructureService::class)->sync($ief);
 
-        return $ief->fresh(['ia']);
+            return $ief->load('ia');
+        });
     }
 
 
@@ -154,7 +157,7 @@ public function update(int $id, array $data): Ief
         | Vérifier les établissements rattachés
         */
 
-        if ($ief->lieuxServices()->exists()) {
+        if ($ief->lieuxServices()->where('code', '!=', 'ORG-IEF-'.$ief->id)->exists()) {
             throw new \DomainException(
                 'Impossible de changer l’IA de cette IEF car des établissements y sont rattachés.'
             );
@@ -187,6 +190,7 @@ public function update(int $id, array $data): Ief
     */
 
     $ief->update($data);
+    app(RegionalStructureService::class)->sync($ief);
 
     /*
     | Retourner l'IEF avec son IA
@@ -197,7 +201,9 @@ public function update(int $id, array $data): Ief
 
 public function delete(int $id): void
 {
-    $this->findById($id)->delete();
+    $ief = $this->findById($id);
+    $ief->delete();
+    app(RegionalStructureService::class)->sync($ief);
 }
 
 public function changeStatus(int $id, bool $newStatus): Ief
@@ -233,6 +239,7 @@ public function changeStatus(int $id, bool $newStatus): Ief
 
     $ief->est_actif = $newStatus;
     $ief->save();
+    app(RegionalStructureService::class)->sync($ief);
 
     return $ief->fresh(['ia']);
 }
@@ -276,6 +283,7 @@ public function rattacherIa(int $iefId, int $nouvelleIaId): array
 
         $ief->ia_id = $nouvelleIaId;
         $ief->save();
+        app(RegionalStructureService::class)->sync($ief);
 
         return [
             'ief' => $ief->fresh(['ia']),
