@@ -55,6 +55,7 @@ class StoreEnseignantRequest extends FormRequest
     public function rules(): array
     {
         return [
+            'indice' => ['nullable', 'integer', 'min:0', 'max:100000'],
 
             // =========================
             // IDENTITÉ

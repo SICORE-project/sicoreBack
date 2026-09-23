@@ -13,6 +13,14 @@ class UserService
     private function withIaScope(array $data, ?User $user = null): array
     {
         $roleId = $data['role_id'] ?? $user?->role_id;
+        if (! empty($data['matricule_enseignant'])) {
+            $teacher = \App\Models\Personnel\Enseignant::where('matricule', $data['matricule_enseignant'])->firstOrFail();
+            if (User::where('enseignant_id', $teacher->id)->when($user, fn ($q) => $q->where('id', '!=', $user->id))->exists()) {
+                throw \Illuminate\Validation\ValidationException::withMessages(['matricule_enseignant' => 'Ce dossier enseignant est déjà associé à un compte.']);
+            }
+            $data['enseignant_id'] = $teacher->id;
+        }
+        unset($data['matricule_enseignant']);
         if (\App\Models\Admin\Role::whereKey($roleId)->where('slug', 'enseignant')->exists()) {
             $structure = \App\Models\Parametrage\LieuService::find(array_key_exists('lieu_service_id', $data) ? $data['lieu_service_id'] : $user?->lieu_service_id);
             $ief = $structure?->ief_id ? Ief::find($structure->ief_id) : null;

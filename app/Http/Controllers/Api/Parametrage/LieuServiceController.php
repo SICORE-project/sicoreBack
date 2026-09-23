@@ -31,6 +31,8 @@ class LieuServiceController extends Controller
         ]);
 
         $lieux = LieuService::query()
+            ->where(fn ($query) => $query->whereNull('type')->orWhereNotIn('type', ['DRH', 'DECPC', 'DAGE', 'CI']))
+            ->whereNotIn('code', ['DRH', 'DECPC', 'DAGE', 'CI'])
             ->with(['ia:id,code,libelle', 'ief:id,ia_id,code,libelle'])
             ->when($validated['search'] ?? null, function ($query, string $search) {
                 $query->where(function ($query) use ($search) {

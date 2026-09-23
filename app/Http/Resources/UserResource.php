@@ -21,6 +21,7 @@ class UserResource extends JsonResource
             ]),
 
             'id' => $this->id,
+            'matricule_enseignant' => $this->enseignant?->matricule,
             'ia_id' => $this->ia_id,
             'ief_id' => $this->ief_id,
 
