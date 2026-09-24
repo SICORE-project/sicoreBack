@@ -24,6 +24,8 @@ class PermissionSeeder extends Seeder
 
 
             // === PARAMÉTRAGE ===
+            ['nom' => 'Consulter les régions', 'slug' => 'parametrage.regions.read', 'groupe' => 'parametrage', 'module' => 'regions', 'action' => 'read'],
+            ['nom' => 'Gérer les régions', 'slug' => 'parametrage.regions.manage', 'groupe' => 'parametrage', 'module' => 'regions', 'action' => 'manage'],
             ['nom' => 'Consulter les IA', 'slug' => 'parametrage.ia.read', 'groupe' => 'parametrage', 'module' => 'ia', 'action' => 'read'],
             ['nom' => 'Gérer les IA', 'slug' => 'parametrage.ia.manage', 'groupe' => 'parametrage', 'module' => 'ia', 'action' => 'manage'],
             ['nom' => 'Consulter les IEF', 'slug' => 'parametrage.ief.read', 'groupe' => 'parametrage', 'module' => 'ief', 'action' => 'read'],

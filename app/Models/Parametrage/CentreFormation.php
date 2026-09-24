@@ -11,6 +11,7 @@ use App\Models\Personnel\Enseignant;
 class CentreFormation extends Model
 {
     use HasFactory, SoftDeletes;
+    protected $table = 'centres_formation';
 
     protected $fillable = [
         'code',
