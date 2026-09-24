@@ -118,6 +118,7 @@ class IefSeeder extends Seeder
                 if ($ief->trashed()) {
                     $ief->restore();
                 }
+                app(\App\Services\Parametrage\RegionalStructureService::class)->sync($ief->refresh());
             }
         }
     }

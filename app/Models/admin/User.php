@@ -120,6 +120,11 @@ class User extends Authenticatable
         return $this->role && $this->role->slug === $roleName;
     }
 
+    public function isDrh(): bool
+    {
+        return in_array($this->role?->slug, ['drh', 'agent_drh'], true);
+    }
+
     public function hasPermission($permissionSlug)
     {
         if (!$this->role) return false;

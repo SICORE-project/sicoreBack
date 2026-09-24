@@ -38,9 +38,13 @@ Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:lo
 Route::middleware(['auth:sanctum', 'role:admin,super_admin'])
     ->apiResource('diplomes', DiplomeController::class);
 
-Route::middleware(['auth:sanctum'])->group(function () {
+Route::middleware(['auth:sanctum', \App\Http\Middleware\IaAccess::class, \App\Http\Middleware\DecpcAccess::class])->group(function () {
 
     Route::get('/me', [AuthController::class, 'me']);
+
+    Route::get('/decpc/dashboard', function (\Illuminate\Http\Request $request) {
+        return response()->json(['data' => app(\App\Services\Administration\DecpcDashboard::class)->data($request->user())]);
+    })->middleware('role:agent_decpc');
 
     Route::post('/logout', [AuthController::class, 'logout']);
 
@@ -52,9 +56,16 @@ Route::middleware(['auth:sanctum'])->group(function () {
     */
 
     require __DIR__.'/modules/administration.php';
+    require __DIR__.'/modules/recruitment.php';
+    require __DIR__.'/modules/ia.php';
     require __DIR__.'/modules/parametrage.php';
-    require __DIR__.'/modules/indemnites.php';
+    Route::middleware(\App\Http\Middleware\DrhIndemnitesAccess::class)->group(function () {
+        require __DIR__.'/modules/indemnites.php';
+    });
     require __DIR__.'/modules/paie.php';
+
+    Route::get('/drh/dashboard', \App\Http\Controllers\Api\DrhDashboardController::class)
+        ->middleware(['role:agent_drh,drh', 'permission:enseignants.read', \App\Http\Middleware\DrhPersonnelAccess::class]);
     
 
 });

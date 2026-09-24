@@ -26,6 +26,11 @@ class StoreUserRequest extends FormRequest
     public function rules(): array
     {
         return [
+            'telephone' => ['required', 'string', 'max:20'],
+            'date_naiss' => ['required', 'date_format:Y-m-d', 'before_or_equal:today'],
+            'lieu_naissance' => ['sometimes', 'nullable', 'string', 'max:100'],
+            'adresse' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'genre' => ['required', 'in:masculin,feminin'],
 
             'nom' => [
                 'required',

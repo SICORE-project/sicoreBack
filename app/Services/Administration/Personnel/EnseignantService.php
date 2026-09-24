@@ -155,9 +155,15 @@ class EnseignantService
         $enseignant->delete();
     }
 
-    public function paginate(int $perPage = 20, array $filters = [])
+    public function paginate(int $perPage = 20, array $filters = [], ?\App\Models\Admin\User $user = null)
     {
         $query = Enseignant::query();
+        if ($user?->hasRole('agent_decpc')) {
+            app(\App\Services\Administration\DecpcScope::class)->apply($query, $user);
+        }
+        if ($user?->isDrh()) {
+            app(DrhScope::class)->apply($query, $user);
+        }
         foreach (preg_split('/\s+/u', trim($filters['search'] ?? ''), -1, PREG_SPLIT_NO_EMPTY) as $term) {
             $query->where(function ($names) use ($term) {
                 $value = '%'.mb_strtolower($term).'%';
