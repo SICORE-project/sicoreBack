@@ -77,7 +77,12 @@ class IaService
      */
     public function create(array $data): Ia
     {
-        return Ia::create($data)->load('region');
+        return \Illuminate\Support\Facades\DB::transaction(function () use ($data) {
+            $ia = Ia::create($data)->refresh();
+            app(RegionalStructureService::class)->sync($ia);
+
+            return $ia->load('region');
+        });
     }
 
     /**
@@ -88,6 +93,7 @@ class IaService
         $ia = $this->findById($id);
 
         $ia->update($data);
+        app(RegionalStructureService::class)->sync($ia);
 
         return $ia->fresh(['region']);
     }
@@ -100,6 +106,7 @@ class IaService
         $ia = $this->findById($id);
 
         $ia->delete();
+        app(RegionalStructureService::class)->sync($ia);
     }
 
 }

@@ -37,10 +37,12 @@ Route::patch('parametrage/lieux-service/{lieuService}/statut', [LieuServiceContr
     ->middleware('permission:parametrage.lieux_service.manage');
 
 Route::post('parametrage/enseignants/{enseignant}/affectations', [AffectationLieuServiceController::class, 'store'])
+    ->middleware(\App\Http\Middleware\DrhPersonnelAccess::class)
     ->whereNumber('enseignant')
     ->middleware('permission:parametrage.lieux_service.manage');
 
 Route::post('enseignants/{enseignant}/affectations', [AffectationLieuServiceController::class, 'store'])
+    ->middleware(\App\Http\Middleware\DrhPersonnelAccess::class)
     ->whereNumber('enseignant')
     ->middleware('permission:parametrage.lieux_service.manage');
 

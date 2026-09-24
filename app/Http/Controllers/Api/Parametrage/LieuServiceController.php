@@ -31,6 +31,8 @@ class LieuServiceController extends Controller
         ]);
 
         $lieux = LieuService::query()
+            ->where(fn ($query) => $query->whereNull('type')->orWhereNotIn('type', ['DRH', 'DECPC', 'DAGE', 'CI']))
+            ->whereNotIn('code', ['DRH', 'DECPC', 'DAGE', 'CI'])
             ->with(['ia:id,code,libelle', 'ief:id,ia_id,code,libelle'])
             ->when($validated['search'] ?? null, function ($query, string $search) {
                 $query->where(function ($query) use ($search) {
@@ -73,7 +75,11 @@ class LieuServiceController extends Controller
     public function iaOptions()
     {
         $ias = Ia::actif()
-            ->with(['lieuxServices' => fn ($query) => $query->actif()->where('type', 'IA')->orderBy('id')])
+            ->with([
+                'lieuxServices' => fn ($query) => $query->actif()->where('type', 'IA')->orderBy('id'),
+                'iefs' => fn ($query) => $query->actif()->orderBy('libelle'),
+                'iefs.lieuxServices' => fn ($query) => $query->actif()->where('type', 'IEF')->orderBy('id'),
+            ])
             ->orderBy('libelle')
             ->get(['id', 'code', 'libelle'])
             ->map(fn (Ia $ia) => [
@@ -81,6 +87,14 @@ class LieuServiceController extends Controller
                 'code' => $ia->code,
                 'libelle' => $ia->libelle,
                 'lieu_service_id' => $ia->lieuxServices->first()?->id,
+                'iefs' => $ia->iefs->map(fn ($ief) => [
+                    'id' => $ief->id,
+                    'ia_id' => $ia->id,
+                    'code' => $ief->code,
+                    'libelle' => $ief->libelle,
+                    'lieu_service_id' => $ief->lieuxServices
+                        ->first(fn ($lieu) => in_array($lieu->code, [$ief->code, 'ORG-IEF-'.$ief->id], true))?->id,
+                ])->values(),
             ])
             ->filter(fn (array $ia) => $ia['lieu_service_id'] !== null)
             ->values();
@@ -304,7 +318,7 @@ class LieuServiceController extends Controller
 
     private function inferPerimetreFromType(?string $type): string
     {
-        if (in_array(strtoupper((string) $type), ['DRH', 'DAGE', 'DECPC'], true)) {
+        if (in_array(strtoupper((string) $type), ['DRH', 'DAGE', 'DECPC', 'CI'], true)) {
             return 'national';
         }
 

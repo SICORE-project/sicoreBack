@@ -113,7 +113,7 @@ class UserSeeder extends Seeder
                 'role_id' => $drhRole ? $drhRole->id : null,
                 'lieu_service_id' => $drh?->id,
                 'statut' => 'actif',
-                'fonction' => 'Directeur RH',
+                'fonction' => 'Directeur des ressources humaines',
                 'genre' => 'feminin',
                 'must_change_password' => false,
                 'tentatives_connexion' => 0,

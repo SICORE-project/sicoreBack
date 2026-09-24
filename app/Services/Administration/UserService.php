@@ -10,12 +10,61 @@ use App\Models\Parametrage\Ief;
 
 class UserService
 {
+    private function withIaScope(array $data, ?User $user = null): array
+    {
+        $roleId = $data['role_id'] ?? $user?->role_id;
+        if (! empty($data['matricule_enseignant'])) {
+            $teacher = \App\Models\Personnel\Enseignant::where('matricule', $data['matricule_enseignant'])->firstOrFail();
+            if (User::where('enseignant_id', $teacher->id)->when($user, fn ($q) => $q->where('id', '!=', $user->id))->exists()) {
+                throw \Illuminate\Validation\ValidationException::withMessages(['matricule_enseignant' => 'Ce dossier enseignant est déjà associé à un compte.']);
+            }
+            $data['enseignant_id'] = $teacher->id;
+        }
+        unset($data['matricule_enseignant']);
+        if (\App\Models\Admin\Role::whereKey($roleId)->where('slug', 'enseignant')->exists()) {
+            $structure = \App\Models\Parametrage\LieuService::find(array_key_exists('lieu_service_id', $data) ? $data['lieu_service_id'] : $user?->lieu_service_id);
+            $ief = $structure?->ief_id ? Ief::find($structure->ief_id) : null;
+            if (! $structure || ! $structure->est_actif || strtoupper($structure->type) !== 'IEF'
+                || ! $ief || ! Ia::whereKey($ief->ia_id)->exists()
+                || ($structure->ia_id && (string) $structure->ia_id !== (string) $ief->ia_id)) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'lieu_service_id' => 'L’enseignant doit être rattaché à une IEF de son IA, via une structure IEF active.',
+                ]);
+            }
+            if (array_key_exists('ia_id', $data) && (string) $data['ia_id'] !== (string) $ief->ia_id) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'ia_id' => 'L’IEF de rattachement doit appartenir à l’IA sélectionnée.',
+                ]);
+            }
+
+            return array_merge($data, ['ia_id' => $ief->ia_id, 'ief_id' => $ief->id]);
+        }
+        if (! \App\Models\Admin\Role::whereKey($roleId)->where('slug', 'gestionnaire_ia')->exists()) {
+            return $data;
+        }
+
+        $structure = \App\Models\Parametrage\LieuService::find(array_key_exists('lieu_service_id', $data) ? $data['lieu_service_id'] : $user?->lieu_service_id);
+        if (! $structure || ! $structure->est_actif || strtoupper($structure->type) !== 'IA'
+            || ! $structure->ia_id || ! Ia::whereKey($structure->ia_id)->exists()) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'lieu_service_id' => 'Le gestionnaire IA doit être rattaché à une structure IA active disposant d’une IA valide.',
+            ]);
+        }
+        if (array_key_exists('ia_id', $data) && (string) $data['ia_id'] !== (string) $structure->ia_id) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'ia_id' => 'L’IA doit correspondre à celle de la structure de rattachement.',
+            ]);
+        }
+
+        return array_merge($data, ['ia_id' => $structure->ia_id, 'ief_id' => null]);
+    }
 
     /**
      * Création d'un utilisateur
      */
     public function create(array $data): User
     {
+        $data = $this->withIaScope($data);
 
         // Hash du mot de passe
         $data['password'] = Hash::make($data['password']);
@@ -75,6 +124,7 @@ class UserService
      */
     public function update(User $user, array $data): User
     {
+        $data = $this->withIaScope($data, $user);
 
         if(isset($data['password'])){
 
@@ -122,8 +172,7 @@ public function assignUserToIa(int $userId, int $iaId): User
     }
 
     // 5. Rattacher
-    $user->ia_id = $iaId;
-    $user->save();
+    $this->update($user, ['ia_id' => $iaId]);
 
     return $user->load(['ia', 'role']);
 }
@@ -131,6 +180,11 @@ public function assignUserToIa(int $userId, int $iaId): User
 public function revokeUserFromIa(int $userId): User
 {
     $user = User::findOrFail($userId);
+    if ($user->hasRole('gestionnaire_ia')) {
+        throw \Illuminate\Validation\ValidationException::withMessages([
+            'ia_id' => 'Un gestionnaire IA doit rester rattaché à une IA. Changez son rôle avant de retirer son rattachement.',
+        ]);
+    }
     $user->update(['ia_id' => null]);
 
     return $user->load(['ia', 'role']);

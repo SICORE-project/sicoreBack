@@ -108,7 +108,7 @@ class UserController extends Controller
             ],
         ]);
 
-        $user->update(['role_id' => $request->role_id]);
+        $this->userService->update($user, ['role_id' => $request->role_id]);
 
         return response()->json([
             'success' => true,

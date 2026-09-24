@@ -43,6 +43,7 @@ class IaSeeder extends Seeder
             if ($ia->trashed()) {
                 $ia->restore();
             }
+            app(\App\Services\Parametrage\RegionalStructureService::class)->sync($ia->refresh());
         }
     }
 }

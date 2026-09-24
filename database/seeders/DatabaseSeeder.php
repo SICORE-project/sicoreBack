@@ -14,10 +14,13 @@ class DatabaseSeeder extends Seeder
             RoleSeeder::class,
             PermissionSeeder::class,
             RolePermissionSeeder::class,
+            AgentDecpcSeeder::class,
+            DecpcStructureSeeder::class,
+            AdminStructureSeeder::class,
             IaSeeder::class,
             IefSeeder::class,
             UserSeeder::class,
-            GestionPaieSeeder::class,
+            //GestionPaieSeeder::class,
         ]);
     }
 }

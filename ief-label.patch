@@ -1,0 +1,11 @@
+--- a/tests/Feature/IaPayrollReportsTest.php
++++ b/tests/Feature/IaPayrollReportsTest.php
+@@ -18,7 +18,7 @@
+             'ia_id' => 1, 'ia' => ['id' => 1, 'libelle' => 'Dakar'],
+             'permissions' => ['paie.bulletins.read', 'paie.sommes_percues.read', 'paie.etat_salaires.read', 'paie.cotisations.read', 'paie.effectifs_ief.read', 'paie.recap_banque.read']]]);
+         $this->get('/dashboard')->assertOk()->assertSee('Sommes perçues')->assertSee('État des salaires')
+-            ->assertSee('Cotisations sociales')->assertSee('Paie g?n?r?e par IEF')->assertSee('Récapitulatif par banque')->assertSee('Bulletins payés');
++            ->assertSee('Cotisations sociales')->assertSee('Paie générée par IEF')->assertSee('Récapitulatif par banque')->assertSee('Bulletins payés');
+         foreach (['sommes-percues' => 'paid', 'etat-salaires' => 'salaries', 'cotisations-sociales' => 'contributions', 'generee-ief' => 'workforce', 'recap-banque' => 'banks'] as $route => $view) {
+             $this->get('/paie/'.$route)->assertOk()->assertViewIs('pages.paie.'.$route)->assertSee('data-payroll-module="paie-'.$route.'"', false)->assertSee('Rapport IA')->assertSee('900 FCFA')->assertSee('Masse brute');
+             Http::assertSent(fn ($r) => str_contains($r->url(), '/ia/payroll/pages/paie-'.$route) && $r['ia_id'] == 1);
