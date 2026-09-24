@@ -30,6 +30,7 @@ class Enseignant extends Model
 
     protected $fillable = [
         'matricule',
+        'indice',
         'nom',
         'prenom',
         'date_naissance',

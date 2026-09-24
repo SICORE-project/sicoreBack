@@ -78,6 +78,7 @@ class UpdateEnseignantRequest extends FormRequest
         $enseignantId = $this->route('id');
 
         return [
+            'indice' => ['sometimes', 'nullable', 'integer', 'min:0', 'max:100000'],
             'matricule' => ['sometimes', 'required', 'string', 'max:9', 'regex:/\A[A-Za-z0-9]+\z/', Rule::unique('enseignants', 'matricule')->ignore($enseignantId)],
             'nom' => ['sometimes', 'required', 'string', 'max:50'],
             'prenom' => ['sometimes', 'required', 'string', 'max:50'],

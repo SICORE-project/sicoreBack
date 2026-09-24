@@ -9,6 +9,8 @@ class StatutEnseignant extends Model
 {
     use HasFactory;
 
+    protected $table = 'statuts_enseignant';
+
     protected $fillable = [
         'code',
         'libelle',

@@ -38,7 +38,13 @@ Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:lo
 Route::middleware(['auth:sanctum', 'role:admin,super_admin'])
     ->apiResource('diplomes', DiplomeController::class);
 
-Route::middleware(['auth:sanctum', \App\Http\Middleware\IaAccess::class, \App\Http\Middleware\DecpcAccess::class])->group(function () {
+Route::middleware(['auth:sanctum', \App\Http\Middleware\TeacherPersonalAccess::class, \App\Http\Middleware\IaAccess::class, \App\Http\Middleware\DecpcAccess::class])->group(function () {
+
+    Route::prefix('enseignant')->middleware('role:enseignant')->group(function () {
+        Route::get('dossier', [\App\Http\Controllers\Api\TeacherPersonalController::class, 'profile']);
+        Route::get('bulletins', [\App\Http\Controllers\Api\TeacherPersonalController::class, 'payslips']);
+        Route::get('bulletins/{id}/pdf', [\App\Http\Controllers\Api\TeacherPersonalController::class, 'pdf'])->whereNumber('id');
+    });
 
     Route::get('/me', [AuthController::class, 'me']);
 

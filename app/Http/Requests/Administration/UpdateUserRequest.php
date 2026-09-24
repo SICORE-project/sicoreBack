@@ -31,6 +31,7 @@ class UpdateUserRequest extends FormRequest
         $roleId = $this->input('role_id', $user?->role_id);
 
         return [
+            'matricule_enseignant' => [Rule::requiredIf(fn () => ! $user?->enseignant_id && Role::whereKey($roleId)->where('slug', 'enseignant')->exists()), 'nullable', 'string', Rule::exists('enseignants', 'matricule')->whereNull('deleted_at')],
             'telephone' => ['sometimes', 'required', 'string', 'max:20'],
             'date_naiss' => ['sometimes', 'required', 'date_format:Y-m-d', 'before_or_equal:today'],
             'lieu_naissance' => ['sometimes', 'nullable', 'string', 'max:100'],
