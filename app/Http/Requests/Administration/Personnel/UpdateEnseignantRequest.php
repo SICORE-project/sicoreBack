@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Administration\Personnel;
 
 use App\Http\Requests\Administration\Personnel\Concerns\ValidatesTeacherHierarchy;
+use App\Http\Requests\Administration\Personnel\Concerns\ValidatesTeacherIdentity;
 use App\Models\Parametrage\CorpsEnseignant;
 use App\Models\Parametrage\Diplome;
 use App\Models\Personnel\Enseignant;
@@ -11,10 +12,11 @@ use Illuminate\Validation\Rule;
 
 class UpdateEnseignantRequest extends FormRequest
 {
-    use ValidatesTeacherHierarchy;
+    use ValidatesTeacherHierarchy, ValidatesTeacherIdentity;
 
     protected function prepareForValidation(): void
     {
+        $this->prepareTeacherIdentity(true);
         $hierarchyFields = ['ia_id', 'ief_id', 'lieu_service_id'];
         if ($this->route('id') && $this->hasAny($hierarchyFields)) {
             $enseignant = Enseignant::query()->find($this->route('id'), $hierarchyFields);
@@ -75,11 +77,9 @@ class UpdateEnseignantRequest extends FormRequest
 
     public function rules(): array
     {
-        $enseignantId = $this->route('id');
-
         return [
-            'indice' => ['sometimes', 'nullable', 'integer', 'min:0', 'max:100000'],
-            'matricule' => ['sometimes', 'required', 'string', 'max:9', 'regex:/\A[A-Za-z0-9]+\z/', Rule::unique('enseignants', 'matricule')->ignore($enseignantId)],
+            ...$this->teacherIdentityRules(true),
+
             'nom' => ['sometimes', 'required', 'string', 'max:50'],
             'prenom' => ['sometimes', 'required', 'string', 'max:50'],
             'date_naissance' => ['required', 'date', 'before_or_equal:'.now()->subYears(18)->format('Y-m-d')],
@@ -131,6 +131,7 @@ class UpdateEnseignantRequest extends FormRequest
     public function messages(): array
     {
         return [
+            ...$this->teacherIdentityMessages(),
             'nombre_femmes.integer' => 'Le nombre de femmes doit être un nombre entier.',
             'nombre_femmes.min' => 'Le nombre de femmes ne peut pas être négatif.',
             'nombre_enfants.integer' => 'Le nombre d’enfants doit être un nombre entier.',
@@ -139,8 +140,6 @@ class UpdateEnseignantRequest extends FormRequest
             'date_fin_contrat.after_or_equal' => 'La fin du contrat doit être postérieure ou égale à la date de recrutement.',
             'diplome_id.exists' => 'Le diplôme sélectionné n’existe plus. Veuillez le sélectionner à nouveau.',
             'salaire_brut.min' => 'Le salaire brut ne peut pas être négatif.',
-            'matricule.max' => 'Le matricule ne doit pas dépasser 9 caractères.',
-            'matricule.regex' => 'Le matricule doit contenir uniquement des lettres et des chiffres.',
             'cni.regex' => 'Le numéro de carte d’identité doit contenir entre 13 et 15 chiffres.',
             'matricule.required' => 'Le matricule est obligatoire.',
             'matricule.unique' => 'Ce matricule existe déjà.',

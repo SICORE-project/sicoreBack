@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Administration\Personnel;
 
 use App\Http\Requests\Administration\Personnel\Concerns\ValidatesTeacherHierarchy;
+use App\Http\Requests\Administration\Personnel\Concerns\ValidatesTeacherIdentity;
 use App\Models\Parametrage\CorpsEnseignant;
 use App\Models\Parametrage\Diplome;
 use Illuminate\Foundation\Http\FormRequest;
@@ -10,10 +11,11 @@ use Illuminate\Validation\Rule;
 
 class StoreEnseignantRequest extends FormRequest
 {
-    use ValidatesTeacherHierarchy;
+    use ValidatesTeacherHierarchy, ValidatesTeacherIdentity;
 
     protected function prepareForValidation(): void
     {
+        $this->prepareTeacherIdentity();
         if ($this->has('nombre_femmes') && ! $this->filled('nombre_femmes')) {
             $this->merge(['nombre_femmes' => 0]);
         }
@@ -61,12 +63,7 @@ class StoreEnseignantRequest extends FormRequest
             // IDENTITÉ
             // =========================
 
-            'matricule' => [
-                'required',
-                'string',
-                'max:9', 'regex:/\A[A-Za-z0-9]+\z/',
-                'unique:enseignants,matricule',
-            ],
+            ...$this->teacherIdentityRules(),
 
             'nom' => [
                 'required',
@@ -357,6 +354,7 @@ class StoreEnseignantRequest extends FormRequest
     public function messages(): array
     {
         return [
+            ...$this->teacherIdentityMessages(),
             'nombre_femmes.integer' => 'Le nombre de femmes doit être un nombre entier.',
             'nombre_femmes.min' => 'Le nombre de femmes ne peut pas être négatif.',
             'nombre_enfants.integer' => 'Le nombre d’enfants doit être un nombre entier.',
@@ -365,8 +363,6 @@ class StoreEnseignantRequest extends FormRequest
             'date_fin_contrat.after_or_equal' => 'La fin du contrat doit être postérieure ou égale à la date de recrutement.',
             'diplome_id.exists' => 'Le diplôme sélectionné n’existe plus. Veuillez le sélectionner à nouveau.',
             'salaire_brut.min' => 'Le salaire brut ne peut pas être négatif.',
-            'matricule.max' => 'Le matricule ne doit pas dépasser 9 caractères.',
-            'matricule.regex' => 'Le matricule doit contenir uniquement des lettres et des chiffres.',
             'cni.regex' => 'Le numéro de carte d’identité doit contenir entre 13 et 15 chiffres.',
             'matricule.required' =>
                 'Le matricule est obligatoire.',

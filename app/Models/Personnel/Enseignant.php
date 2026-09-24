@@ -90,6 +90,7 @@ class Enseignant extends Model
     ];
 
     protected $casts = [
+        'indice' => 'string',
         'est_actif' => 'boolean',
         'conjoint_travaille' => 'boolean',
 
