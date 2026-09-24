@@ -3,6 +3,7 @@
 namespace App\Services\Administration\Personnel;
 
 use App\Models\Personnel\Enseignant;
+use App\Models\PayrollAuditLog;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
 
@@ -98,6 +99,17 @@ class EnseignantService
                         ]
                     );
             }
+
+            PayrollAuditLog::create([
+                'user_id' => $userId,
+                'action' => 'teacher.created',
+                'auditable_type' => Enseignant::class,
+                'auditable_id' => $enseignant->id,
+                'before' => null,
+                'after' => $enseignant->getAttributes(),
+                'ip_address' => request()->ip(),
+                'user_agent' => mb_substr((string) request()->userAgent(), 0, 500),
+            ]);
 
             return $enseignant->load([
                 'ia',

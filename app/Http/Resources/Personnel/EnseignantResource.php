@@ -75,6 +75,7 @@ class EnseignantResource extends JsonResource
             'id' => $this->id,
 
             'matricule' => $this->matricule,
+            'indice' => $this->indice,
 
             'nom' => $this->nom,
 

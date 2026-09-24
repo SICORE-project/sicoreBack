@@ -30,6 +30,7 @@ class Enseignant extends Model
 
     protected $fillable = [
         'matricule',
+        'indice',
         'nom',
         'prenom',
         'date_naissance',
@@ -89,6 +90,7 @@ class Enseignant extends Model
     ];
 
     protected $casts = [
+        'indice' => 'string',
         'est_actif' => 'boolean',
         'conjoint_travaille' => 'boolean',
 
