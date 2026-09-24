@@ -26,6 +26,10 @@ class PermissionSeeder extends Seeder
             // === PARAMÉTRAGE ===
             ['nom' => 'Consulter les régions', 'slug' => 'parametrage.regions.read', 'groupe' => 'parametrage', 'module' => 'regions', 'action' => 'read'],
             ['nom' => 'Gérer les régions', 'slug' => 'parametrage.regions.manage', 'groupe' => 'parametrage', 'module' => 'regions', 'action' => 'manage'],
+            ['nom' => 'Consulter les départements','slug' => 'parametrage.departements.read','groupe' => 'parametrage','module' => 'departements','action' => 'read',],
+            ['nom' => 'Gérer les départements','slug' => 'parametrage.departements.manage','groupe' => 'parametrage','module' => 'departements','action' => 'manage',],
+            ['nom' => 'Consulter les communes','slug' => 'parametrage.communes.read','groupe' => 'parametrage','module' => 'communes','action' => 'read',],
+            ['nom' => 'Gérer les communes','slug' => 'parametrage.communes.manage','groupe' => 'parametrage','module' => 'communes','action' => 'manage',],
             ['nom' => 'Consulter les IA', 'slug' => 'parametrage.ia.read', 'groupe' => 'parametrage', 'module' => 'ia', 'action' => 'read'],
             ['nom' => 'Gérer les IA', 'slug' => 'parametrage.ia.manage', 'groupe' => 'parametrage', 'module' => 'ia', 'action' => 'manage'],
             ['nom' => 'Consulter les IEF', 'slug' => 'parametrage.ief.read', 'groupe' => 'parametrage', 'module' => 'ief', 'action' => 'read'],
