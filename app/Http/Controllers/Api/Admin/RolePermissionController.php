@@ -46,7 +46,7 @@ class RolePermissionController extends Controller
         }
 
         $associations = $query->orderBy('roles.nom')
-            ->orderBy('permissions.module')
+            ->orderBy('permissions.nom')
             ->paginate($request->per_page ?? 50);
 
         return response()->json([
@@ -71,19 +71,14 @@ class RolePermissionController extends Controller
         }
 
         $permissions = $role->permissions()
-            ->orderBy('module')
-            ->orderBy('action')
+            ->orderBy('nom')
             ->get();
-
-        // Récupérer aussi les permissions regroupées par module
-        $permissionsByModule = $permissions->groupBy('module');
 
         return response()->json([
             'success' => true,
             'data' => [
                 'role' => $role,
                 'permissions' => $permissions,
-                'permissions_by_module' => $permissionsByModule,
                 'total' => $permissions->count(),
             ],
         ], 200);
@@ -345,7 +340,6 @@ class RolePermissionController extends Controller
                 return [
                     'permission_id' => $item->permission_id,
                     'permission_nom' => $permission ? $permission->nom : 'Inconnu',
-                    'permission_module' => $permission ? $permission->module : 'Inconnu',
                     'total' => $item->total,
                 ];
             });

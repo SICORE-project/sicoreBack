@@ -14,33 +14,31 @@ class RoleController extends Controller
      * GET: /api/admin/roles
      * Liste des rôles
      */
-    public function index(Request $request)
-    {
-        $query = Role::with('typeRole')->withCount('users');
+ public function index(Request $request)
+{
+    $query = Role::with('permissions')->withCount('users');
 
-        if ($request->has('search')) {
-            $search = $request->search;
-            $query->where(function ($q) use ($search) {
-                $q->where('nom', 'LIKE', "%{$search}%")
-                    ->orWhere('slug', 'LIKE', "%{$search}%");
-            });
-        }
-
-        if ($request->has('est_actif')) {
-            $query->where('est_actif', $request->est_actif);
-        }
-
-        if ($request->filled('type_role_id')) {
-            $query->where('type_role_id', $request->integer('type_role_id'));
-        }
-
-        $roles = $query->orderBy('nom')->paginate($request->per_page ?? 15);
-
-        return response()->json([
-            'success' => true,
-            'data' => $roles,
-        ], 200);
+    if ($request->has('search')) {
+        $search = $request->search;
+        $query->where(function ($q) use ($search) {
+            $q->where('nom', 'LIKE', "%{$search}%")
+                ->orWhere('slug', 'LIKE', "%{$search}%");
+        });
     }
+
+    if ($request->has('est_actif')) {
+        $query->where('est_actif', $request->est_actif);
+    }
+
+    // bloc type_role_id supprimé
+
+    $roles = $query->orderBy('nom')->paginate($request->per_page ?? 15);
+
+    return response()->json([
+        'success' => true,
+        'data' => $roles,
+    ], 200);
+}
 
     /**
      * GET: /api/admin/roles/all
@@ -48,7 +46,7 @@ class RoleController extends Controller
      */
     public function all()
     {
-        $roles = Role::with('typeRole')->where('est_actif', true)->orderBy('nom')->get();
+        $roles = Role::with('permissions')->where('est_actif', true)->orderBy('nom')->get();
 
         return response()->json([
             'success' => true,
@@ -60,43 +58,41 @@ class RoleController extends Controller
      * POST: /api/admin/roles
      * Créer un rôle
      */
-    public function store(Request $request)
-    {
-        $validator = Validator::make($request->all(), [
-            'nom' => 'required|string|max:50|unique:roles',
-            'slug' => 'required|string|max:50|unique:roles',
-            'description' => 'nullable|string',
-            'type_role_id' => 'required|exists:type_roles,id',
-            'est_actif' => 'nullable|boolean',
-            'permissions' => 'nullable|array',
-            'permissions.*' => 'exists:permissions,id',
-        ]);
+public function store(Request $request)
+{
+    $validator = Validator::make($request->all(), [
+        'nom' => 'required|string|max:50|unique:roles',
+        'slug' => 'required|string|max:50|unique:roles',
+        'description' => 'nullable|string',
+        'est_actif' => 'nullable|boolean',
+        'permissions' => 'nullable|array',
+        'permissions.*' => 'exists:permissions,id',
+    ]);
 
-        if ($validator->fails()) {
-            return response()->json([
-                'success' => false,
-                'errors' => $validator->errors(),
-            ], 422);
-        }
-
-        $role = Role::create([
-            'nom' => $request->nom,
-            'slug' => $request->slug,
-            'description' => $request->description,
-            'type_role_id' => $request->type_role_id,
-            'est_actif' => $request->est_actif ?? true,
-        ]);
-
-        if ($request->has('permissions')) {
-            $role->permissions()->attach($request->permissions);
-        }
-
+    if ($validator->fails()) {
         return response()->json([
-            'success' => true,
-            'message' => 'Rôle créé avec succès.',
-            'data' => $role->load('permissions', 'typeRole'),
-        ], 201);
+            'success' => false,
+            'errors' => $validator->errors(),
+        ], 422);
     }
+
+    $role = Role::create([
+        'nom' => $request->nom,
+        'slug' => $request->slug,
+        'description' => $request->description,
+        'est_actif' => $request->est_actif ?? true,
+    ]);
+
+    if ($request->has('permissions')) {
+        $role->permissions()->attach($request->permissions);
+    }
+
+    return response()->json([
+        'success' => true,
+        'message' => 'Rôle créé avec succès.',
+        'data' => $role->load('permissions'), // 'typeRole' retiré
+    ], 201);
+}
 
     /**
      * GET: /api/admin/roles/{id}
@@ -104,8 +100,7 @@ class RoleController extends Controller
      */
     public function show($id)
     {
-        $role = Role::with(['permissions', 'typeRole'])->withCount('users')->find($id);
-
+$role = Role::with('permissions')->withCount('users')->find($id);
         if (!$role) {
             return response()->json([
                 'success' => false,
@@ -123,52 +118,50 @@ class RoleController extends Controller
      * PUT: /api/admin/roles/{id}
      * Mettre à jour un rôle
      */
-    public function update(Request $request, $id)
-    {
-        $role = Role::find($id);
+   public function update(Request $request, $id)
+{
+    $role = Role::find($id);
 
-        if (!$role) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Rôle non trouvé.',
-            ], 404);
-        }
-
-        $validator = Validator::make($request->all(), [
-            'nom' => 'required|string|max:50|unique:roles,nom,' . $id,
-            'slug' => 'required|string|max:50|unique:roles,slug,' . $id,
-            'description' => 'nullable|string',
-            'type_role_id' => 'required|exists:type_roles,id',
-            'est_actif' => 'nullable|boolean',
-            'permissions' => 'nullable|array',
-            'permissions.*' => 'exists:permissions,id',
-        ]);
-
-        if ($validator->fails()) {
-            return response()->json([
-                'success' => false,
-                'errors' => $validator->errors(),
-            ], 422);
-        }
-
-        $role->update([
-            'nom' => $request->nom,
-            'slug' => $request->slug,
-            'description' => $request->description,
-            'type_role_id' => $request->type_role_id,
-            'est_actif' => $request->est_actif ?? $role->est_actif,
-        ]);
-
-        if ($request->has('permissions')) {
-            $role->permissions()->sync($request->permissions);
-        }
-
+    if (!$role) {
         return response()->json([
-            'success' => true,
-            'message' => 'Rôle mis à jour avec succès.',
-            'data' => $role->load('permissions', 'typeRole'),
-        ], 200);
+            'success' => false,
+            'message' => 'Rôle non trouvé.',
+        ], 404);
     }
+
+    $validator = Validator::make($request->all(), [
+        'nom' => 'required|string|max:50|unique:roles,nom,' . $id,
+        'slug' => 'required|string|max:50|unique:roles,slug,' . $id,
+        'description' => 'nullable|string',
+        'est_actif' => 'nullable|boolean',
+        'permissions' => 'nullable|array',
+        'permissions.*' => 'exists:permissions,id',
+    ]);
+
+    if ($validator->fails()) {
+        return response()->json([
+            'success' => false,
+            'errors' => $validator->errors(),
+        ], 422);
+    }
+
+    $role->update([
+        'nom' => $request->nom,
+        'slug' => $request->slug,
+        'description' => $request->description,
+        'est_actif' => $request->est_actif ?? $role->est_actif,
+    ]);
+
+    if ($request->has('permissions')) {
+        $role->permissions()->sync($request->permissions);
+    }
+
+    return response()->json([
+        'success' => true,
+        'message' => 'Rôle mis à jour avec succès.',
+        'data' => $role->load('permissions'), // 'typeRole' retiré
+    ], 200);
+}
 
     /**
      * DELETE: /api/admin/roles/{id}
