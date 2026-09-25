@@ -268,6 +268,14 @@ Route::prefix('admin')->group(function () {
     */
 
     Route::prefix('users')->group(function () {
+        Route::get('/filter-options', [UserController::class, 'filterOptions'])->middleware('permission:administration.users.read');
+        Route::get('/teacher-candidates', [\App\Http\Controllers\Api\TeacherAccountController::class, 'teachers'])
+            ->middleware('permission:administration.users.create');
+        Route::post('/teacher-accounts', [\App\Http\Controllers\Api\TeacherAccountController::class, 'store'])
+            ->middleware('permission:administration.users.create');
+        Route::post('/{user}/teacher-invitation', [\App\Http\Controllers\Api\TeacherAccountController::class, 'resend'])
+            ->whereNumber('user')->middleware(['permission:administration.users.create', 'throttle:5,1']);
+
 
 
         Route::get('/', [

@@ -2,7 +2,7 @@
 
 namespace App\Services\Administration;
 
-use App\Models\admin\User;
+use App\Models\Admin\User;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Hash;
 use App\Models\Parametrage\Ia;
@@ -43,20 +43,36 @@ class UserService
     /**
      * Liste paginée des utilisateurs.
      */
-    public function paginate(
-        int $perPage = 10,
-        ?string $structureType = null
-    ): LengthAwarePaginator
+    public function paginate(int $perPage = 10, ?string $structureType = null, array $filters = []): LengthAwarePaginator
     {
-        return User::with(['role', 'lieuService'])
-            ->when($structureType, function ($query, string $type) {
-                $query->whereHas('lieuService', function ($structureQuery) use ($type) {
-                    $structureQuery->whereRaw('UPPER(type) = ?', [mb_strtoupper($type)]);
+        $query = User::with(['role', 'lieuService', 'enseignant.ia', 'enseignant.ief', 'enseignant.lieuService', 'ia', 'ief', 'lieuService.ia', 'lieuService.ief']);
+        if ($structureType) $query->whereHas('lieuService', fn ($q) => $q->whereRaw('UPPER(type) = ?', [mb_strtoupper($structureType)]));
+        foreach (preg_split('/\s+/u', trim($filters['nom'] ?? ''), -1, PREG_SPLIT_NO_EMPTY) as $term) {
+            $query->where(fn ($q) => $q->whereLike('nom', '%'.$term.'%')->orWhereLike('prenom', '%'.$term.'%'));
+        }
+        if (! empty($filters['matricule'])) $query->whereHas('enseignant', fn ($q) => $q->whereLike('matricule', '%'.$filters['matricule'].'%'));
+        $location = array_filter([
+            'ia_id' => $filters['ia_id'] ?? null,
+            'ief_id' => $filters['ief_id'] ?? null,
+            'lieu_service_id' => $filters['etablissement_id'] ?? null,
+        ], fn ($value) => $value !== null && $value !== '');
+        if ($location) {
+            $query->where(function ($q) use ($location) {
+                // Match the whole location on one source, never mix different assignments.
+                $q->whereHas('enseignant', function ($teacher) use ($location) {
+                    foreach ($location as $column => $value) $teacher->where($column, $value);
+                })->orWhere(function ($account) use ($location) {
+                    $account->whereNull('enseignant_id')->where(function ($assignment) use ($location) {
+                        $assignment->where(function ($direct) use ($location) {
+                            foreach ($location as $column => $value) $direct->where($column, $value);
+                        })->orWhereHas('lieuService', function ($structure) use ($location) {
+                            foreach ($location as $column => $value) $structure->where($column === 'lieu_service_id' ? 'id' : $column, $value);
+                        });
+                    });
                 });
-            })
-            ->orderBy('nom')
-            ->orderBy('prenom')
-            ->paginate($perPage);
+            });
+        }
+        return $query->orderBy('nom')->orderBy('prenom')->orderBy('id')->paginate($perPage);
     }
 
 

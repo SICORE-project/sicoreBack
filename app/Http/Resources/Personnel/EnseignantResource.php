@@ -73,6 +73,7 @@ class EnseignantResource extends JsonResource
             // =====================================================
 
             'id' => $this->id,
+            'is_online' => \App\Services\Auth\UserPresence::online('teacher', $this->id),
 
             'matricule' => $this->matricule,
             'indice' => $this->indice,

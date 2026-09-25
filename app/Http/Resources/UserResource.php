@@ -15,6 +15,19 @@ class UserResource extends JsonResource
         return [
 
             'id' => $this->id,
+            'is_online' => $this->statut === 'actif' && \App\Services\Auth\UserPresence::online('user', $this->id),
+            'enseignant_id' => $this->enseignant_id,
+            'password_defined' => $this->password_changed_at !== null,
+            'matricule' => $this->whenLoaded('enseignant', fn () => $this->enseignant?->matricule),
+            'affectation' => $this->when($this->relationLoaded('enseignant'), function () {
+                $teacher = $this->enseignant;
+                $place = $teacher ? $teacher->lieuService : $this->lieuService;
+                return [
+                    'ia' => $teacher ? $teacher->ia?->libelle : ($this->ia?->libelle ?? $place?->ia?->libelle),
+                    'ief' => $teacher ? $teacher->ief?->libelle : ($this->ief?->libelle ?? $place?->ief?->libelle),
+                    'etablissement' => $place?->libelle,
+                ];
+            }),
 
             'nom' => $this->nom,
 
@@ -52,6 +65,8 @@ class UserResource extends JsonResource
             ] : null,
 
             'created_at' => $this->created_at?->format('d/m/Y H:i'),
+
+            'derniere_connexion' => $this->derniere_connexion?->timezone('Africa/Dakar')->format('d/m/Y H:i'),
 
             'updated_at' => $this->updated_at?->format('d/m/Y H:i'),
 

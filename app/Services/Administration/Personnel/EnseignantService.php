@@ -171,9 +171,11 @@ class EnseignantService
     {
         $query = Enseignant::query();
         foreach (preg_split('/\s+/u', trim($filters['search'] ?? ''), -1, PREG_SPLIT_NO_EMPTY) as $term) {
-            $query->where(function ($names) use ($term) {
+            $query->where(function ($identity) use ($term) {
                 $value = '%'.mb_strtolower($term).'%';
-                $names->whereRaw('LOWER(prenom) LIKE ?', [$value])->orWhereRaw('LOWER(nom) LIKE ?', [$value]);
+                $identity->whereRaw('LOWER(prenom) LIKE ?', [$value])
+                    ->orWhereRaw('LOWER(nom) LIKE ?', [$value])
+                    ->orWhereRaw('LOWER(matricule) LIKE ?', [$value]);
             });
         }
         foreach (['prenom', 'nom'] as $field) {

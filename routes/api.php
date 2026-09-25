@@ -38,7 +38,9 @@ Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:lo
 Route::middleware(['auth:sanctum', 'role:admin,super_admin'])
     ->apiResource('diplomes', DiplomeController::class);
 
-Route::middleware(['auth:sanctum'])->group(function () {
+Route::middleware(['auth:sanctum', \App\Http\Middleware\TrackUserPresence::class])->group(function () {
+
+    Route::get('/dashboard', \App\Http\Controllers\Api\DashboardController::class);
 
     Route::get('/me', [AuthController::class, 'me']);
 

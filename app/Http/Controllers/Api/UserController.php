@@ -21,22 +21,32 @@ class UserController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index(Request $request)
+    public function index(\App\Http\Requests\Administration\FilterUsersRequest $request)
     {
-        $validated = $request->validate([
-            'type_structure' => ['nullable', 'string', 'max:50'],
-            'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],
-        ]);
+        $validated = $request->validated();
 
         $users = $this->userService->paginate(
             $validated['per_page'] ?? 10,
             $validated['type_structure'] ?? null,
+            $validated,
         );
 
         return UserResource::collection($users)->additional([
             'success' => true,
             'message' => 'Liste des utilisateurs',
         ]);
+    }
+
+    public function filterOptions(\App\Http\Requests\Administration\FilterUsersRequest $request)
+    {
+        $data = $request->validated();
+        return response()->json(['data' => [
+            'ias' => \App\Models\Parametrage\Ia::orderBy('libelle')->get(['id', 'code', 'libelle']),
+            'iefs' => ! empty($data['ia_id'])
+                ? \App\Models\Parametrage\Ief::where('ia_id', $data['ia_id'])->orderBy('libelle')->get(['id', 'code', 'libelle']) : [],
+            'etablissements' => ! empty($data['ief_id'])
+                ? \App\Models\Parametrage\LieuService::where('ief_id', $data['ief_id'])->orderBy('libelle')->get(['id', 'code', 'libelle']) : [],
+        ]]);
     }
 
     /**
