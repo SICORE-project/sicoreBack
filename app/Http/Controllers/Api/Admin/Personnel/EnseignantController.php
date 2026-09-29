@@ -49,8 +49,11 @@ class EnseignantController extends Controller
      */
     public function store(StoreEnseignantRequest $request)
     {
+        $data = $request->validated();
+        $this->assertInPerimetre($request->user(), $data);
+
         $enseignant = $this->enseignantService->create(
-            $request->validated(),
+            $data,
             $request->user()?->id
         );
 
@@ -77,9 +80,12 @@ class EnseignantController extends Controller
 
     public function update(UpdateEnseignantRequest $request, int $id)
     {
+        $data = $request->validated();
+        $this->assertInPerimetre($request->user(), $data);
+
         $enseignant = $this->enseignantService->update(
             $this->enseignantService->find($id),
-            $request->validated(),
+            $data,
             $request->user()?->id
         );
 
@@ -98,5 +104,15 @@ class EnseignantController extends Controller
             'success' => true,
             'message' => 'Enseignant supprimé avec succès.',
         ]);
+    }
+
+    /** Un gestionnaire IA/IEF ne peut affecter un enseignant qu'à son propre périmètre. */
+    private function assertInPerimetre($user, array $data): void
+    {
+        foreach ($user?->perimetre() ?? [] as $column => $value) {
+            if (array_key_exists($column, $data) && (int) $data[$column] !== (int) $value) {
+                abort(403, 'Cet enseignant est hors de votre périmètre.');
+            }
+        }
     }
 }

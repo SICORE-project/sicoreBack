@@ -35,8 +35,12 @@ Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:lo
         PATCH  /api/diplomes/{diplome}  -> update
         DELETE /api/diplomes/{diplome}  -> destroy
     */
-Route::middleware(['auth:sanctum', 'role:admin,super_admin'])
-    ->apiResource('diplomes', DiplomeController::class);
+Route::middleware(['auth:sanctum'])->group(function () {
+    Route::apiResource('diplomes', DiplomeController::class)->only(['index', 'show'])
+        ->middleware('permission:parametrage.diplomes.read');
+    Route::apiResource('diplomes', DiplomeController::class)->except(['index', 'show'])
+        ->middleware('permission:parametrage.diplomes.manage');
+});
 
 Route::middleware(['auth:sanctum'])->group(function () {
 

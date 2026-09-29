@@ -26,6 +26,22 @@ class Enseignant extends Model
 {
     use HasFactory, SoftDeletes;
 
+    /** Limite la requête au périmètre (IA / IEF) de l'utilisateur. */
+    public function scopeVisibleTo($query, ?User $user)
+    {
+        $perimetre = $user?->perimetre();
+
+        if ($perimetre === null) {
+            return $query;
+        }
+
+        foreach ($perimetre as $column => $value) {
+            $value ? $query->where($column, $value) : $query->whereRaw('1 = 0');
+        }
+
+        return $query;
+    }
+
     protected $table = 'enseignants';
 
     protected $fillable = [

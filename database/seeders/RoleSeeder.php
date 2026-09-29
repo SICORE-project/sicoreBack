@@ -23,7 +23,7 @@ class RoleSeeder extends Seeder
             [
                 'nom' => 'Administrateur',
                 'slug' => 'admin',
-                'description' => 'Gestion de l\'application et des utilisateurs',
+                'description' => 'DAGE',
                 'type_role_code' => 'admin',
                 'est_actif' => true,
             ],
@@ -42,48 +42,19 @@ class RoleSeeder extends Seeder
                 'est_actif' => true,
             ],
             [
-                'nom' => 'Gestionnaire IEF',
-                'slug' => 'gestionnaire_ief',
-                'description' => 'Gestion des enseignants de l\'IEF',
+                'nom' => 'DECPC',
+                'slug' => 'decpc',
+                'description' => 'Choix des participants aux examens et envoi de la liste de convocation à la DAGE',
                 'type_role_code' => 'gestion',
-                'est_actif' => true,
-            ],
-            [
-                'nom' => 'DRH',
-                'slug' => 'drh',
-                'description' => 'Gestion des ressources humaines',
-                'type_role_code' => 'gestion',
-                'est_actif' => true,
-            ],
-            [
-                'nom' => 'Gestionnaire Paie',
-                'slug' => 'gestionnaire_paie',
-                'description' => 'Gestion de la paie des enseignants',
-                'type_role_code' => 'gestion',
-                'est_actif' => true,
-            ],
-            [
-                'nom' => 'Gestionnaire Budget',
-                'slug' => 'gestionnaire_budget',
-                'description' => 'Gestion du budget et des engagements',
-                'type_role_code' => 'gestion',
-                'est_actif' => true,
-            ],
-            [
-                'nom' => 'Consultant',
-                'slug' => 'consultant',
-                'description' => 'Consultation des données uniquement',
-                'type_role_code' => 'consultation',
                 'est_actif' => true,
             ],
             [
                 'nom' => 'Enseignant',
                 'slug' => 'enseignant',
-                'description' => 'Enseignement et gestion des cours',
+                'description' => 'Consultation de son propre dossier et de ses bulletins',
                 'type_role_code' => 'consultation',
                 'est_actif' => true,
             ],
-            
         ];
 
         foreach ($roles as $role) {

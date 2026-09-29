@@ -15,7 +15,10 @@ class LieuServiceScope
 
         $user->loadMissing(['role', 'lieuService']);
 
-        if (in_array($user->role?->niveau, ['systeme', 'admin'], true)) {
+        // Compatible avec l'ancien champ roles.niveau et le nouveau type de rôle (type_roles).
+        $niveau = $user->role?->typeRole?->code ?? ($user->role?->niveau ?? null);
+
+        if ($user->hasRole('super_admin') || $user->hasRole('admin') || in_array($niveau, ['systeme', 'admin'], true)) {
             return $query;
         }
 

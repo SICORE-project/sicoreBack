@@ -93,6 +93,10 @@ class AuthService
                 // 'role' inclut maintenant automatiquement 'permissions'
                 // grâce au eager load with('role.permissions') ci-dessus
                 'role'=>$user->role,
+                'permissions'=>$user->permissionSlugs(),
+                'ia_id'=>$user->ia_id,
+                'ief_id'=>$user->ief_id,
+                'acces_organisationnel'=>$user->perimetre(),
                 'lieu_service'=>$user->lieuService ? [
                     'id'=>$user->lieuService->id,
                     'type'=>$user->lieuService->type,

@@ -116,7 +116,7 @@ class EnseignantService
 
     public function find(int $id): Enseignant
     {
-        return Enseignant::with([
+        return Enseignant::visibleTo(auth()->user())->with([
             'ia',
             'ief',
             'corps',
@@ -157,7 +157,7 @@ class EnseignantService
 
     public function paginate(int $perPage = 20, array $filters = [])
     {
-        $query = Enseignant::query();
+        $query = Enseignant::query()->visibleTo(auth()->user());
         foreach (preg_split('/\s+/u', trim($filters['search'] ?? ''), -1, PREG_SPLIT_NO_EMPTY) as $term) {
             $query->where(function ($names) use ($term) {
                 $value = '%'.mb_strtolower($term).'%';

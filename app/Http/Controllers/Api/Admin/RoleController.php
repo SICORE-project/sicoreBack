@@ -131,7 +131,6 @@ $role = Role::with('permissions')->withCount('users')->find($id);
 
     $validator = Validator::make($request->all(), [
         'nom' => 'required|string|max:50|unique:roles,nom,' . $id,
-        'slug' => 'required|string|max:50|unique:roles,slug,' . $id,
         'description' => 'nullable|string',
         'est_actif' => 'nullable|boolean',
         'permissions' => 'nullable|array',
@@ -147,7 +146,7 @@ $role = Role::with('permissions')->withCount('users')->find($id);
 
     $role->update([
         'nom' => $request->nom,
-        'slug' => $request->slug,
+        // Le slug est l'identifiant technique du rôle : il n'est jamais modifié après création.
         'description' => $request->description,
         'est_actif' => $request->est_actif ?? $role->est_actif,
     ]);

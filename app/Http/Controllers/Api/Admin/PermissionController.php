@@ -152,6 +152,11 @@ class PermissionController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'nom' => 'required|string|max:100|unique:permissions',
+            // Slug optionnel : ex. « rapports.export ». Il doit correspondre à celui utilisé sur les routes.
+            'slug' => ['nullable', 'string', 'max:100', 'regex:/^[a-z0-9_]+(\.[a-z0-9_]+)*$/', 'unique:permissions,slug'],
+            'groupe' => ['nullable', 'string', 'max:50', 'regex:/^[a-z0-9_]+$/'],
+            'module' => ['nullable', 'string', 'max:50', 'regex:/^[a-z0-9_]+$/'],
+            'action' => ['nullable', 'string', 'max:50', 'regex:/^[a-z0-9_]+$/'],
             'description' => 'nullable|string',
             'est_actif' => 'nullable|boolean',
         ]);
@@ -163,11 +168,18 @@ class PermissionController extends Controller
             ], 422);
         }
 
-        $slug = $this->uniquePermissionSlug($request->nom);
+        $slug = $request->filled('slug')
+            ? $request->slug
+            : ($request->filled('groupe') && $request->filled('module') && $request->filled('action')
+                ? $request->groupe . '.' . $request->module . '.' . $request->action
+                : $this->uniquePermissionSlug($request->nom));
 
         $permission = Permission::create([
             'nom' => $request->nom,
             'slug' => $slug,
+            'groupe' => $request->groupe,
+            'module' => $request->module,
+            'action' => $request->action,
             'description' => $request->description,
             'est_actif' => $request->est_actif ?? true,
         ]);
@@ -217,6 +229,9 @@ class PermissionController extends Controller
 
         $validator = Validator::make($request->all(), [
             'nom' => 'required|string|max:100|unique:permissions,nom,' . $id,
+            'groupe' => ['nullable', 'string', 'max:50', 'regex:/^[a-z0-9_]+$/'],
+            'module' => ['nullable', 'string', 'max:50', 'regex:/^[a-z0-9_]+$/'],
+            'action' => ['nullable', 'string', 'max:50', 'regex:/^[a-z0-9_]+$/'],
             'description' => 'nullable|string',
             'est_actif' => 'nullable|boolean',
         ]);
@@ -234,15 +249,14 @@ class PermissionController extends Controller
             'est_actif' => $request->est_actif ?? $permission->est_actif,
         ];
 
-        /*
-        |--------------------------------------------------------------------------
-        | Ne régénérer le slug que si le nom a changé, pour éviter
-        | de casser des références externes au slug existant.
-        |--------------------------------------------------------------------------
-        */
-        if ($request->nom !== $permission->nom) {
-            $data['slug'] = $this->uniquePermissionSlug($request->nom, $id);
+        foreach (['groupe', 'module', 'action'] as $champ) {
+            if ($request->has($champ)) {
+                $data[$champ] = $request->input($champ);
+            }
         }
+
+        // Le slug n'est JAMAIS modifié après création : il est référencé par les routes
+        // (->middleware('permission:slug')) et renommer une permission ne doit pas couper des accès.
 
         $permission->update($data);
 
@@ -285,44 +299,11 @@ class PermissionController extends Controller
 
     /**
      * POST: /api/admin/permissions/sync
-     * Synchroniser les permissions par défaut
+     * Synchroniser les permissions depuis config/permissions.php (source unique)
      */
     public function sync()
     {
-        $defaultPermissions = [
-            // Administration
-            ['nom' => 'Consulter les utilisateurs', 'slug' => 'administration_users_read', 'groupe' => 'administration', 'module' => 'users', 'action' => 'read'],
-            ['nom' => 'Créer un utilisateur', 'slug' => 'administration_users_create', 'groupe' => 'administration', 'module' => 'users', 'action' => 'create'],
-            ['nom' => 'Modifier un utilisateur', 'slug' => 'administration_users_update', 'groupe' => 'administration', 'module' => 'users', 'action' => 'update'],
-            ['nom' => 'Supprimer un utilisateur', 'slug' => 'administration_users_delete', 'groupe' => 'administration', 'module' => 'users', 'action' => 'delete'],
-            ['nom' => 'Consulter les rôles', 'slug' => 'administration_roles_read', 'groupe' => 'administration', 'module' => 'roles', 'action' => 'read'],
-            ['nom' => 'Gérer les rôles', 'slug' => 'administration_roles_manage', 'groupe' => 'administration', 'module' => 'roles', 'action' => 'manage'],
-            ['nom' => 'Consulter les permissions', 'slug' => 'administration_permissions_read', 'groupe' => 'administration', 'module' => 'permissions', 'action' => 'read'],
-            ['nom' => 'Gérer les permissions', 'slug' => 'administration_permissions_manage', 'groupe' => 'administration', 'module' => 'permissions', 'action' => 'manage'],
-
-            // Enseignants
-            ['nom' => 'Consulter les enseignants', 'slug' => 'enseignants_read', 'groupe' => 'enseignants', 'module' => 'enseignants', 'action' => 'read'],
-            ['nom' => 'Créer un enseignant', 'slug' => 'enseignants_create', 'groupe' => 'enseignants', 'module' => 'enseignants', 'action' => 'create'],
-            ['nom' => 'Modifier un enseignant', 'slug' => 'enseignants_update', 'groupe' => 'enseignants', 'module' => 'enseignants', 'action' => 'update'],
-            ['nom' => 'Supprimer un enseignant', 'slug' => 'enseignants_delete', 'groupe' => 'enseignants', 'module' => 'enseignants', 'action' => 'delete'],
-            ['nom' => 'Valider un enseignant', 'slug' => 'enseignants_validate', 'groupe' => 'enseignants', 'module' => 'enseignants', 'action' => 'validate'],
-            ['nom' => 'Rechercher un enseignant', 'slug' => 'enseignants_search', 'groupe' => 'enseignants', 'module' => 'enseignants', 'action' => 'search'],
-            ['nom' => 'Exporter les enseignants', 'slug' => 'enseignants_export', 'groupe' => 'enseignants', 'module' => 'enseignants', 'action' => 'export'],
-
-            // Paie
-            ['nom' => 'Consulter les bulletins de paie', 'slug' => 'paie_bulletins_read', 'groupe' => 'paie', 'module' => 'bulletins', 'action' => 'read'],
-            ['nom' => 'Générer les bulletins de paie', 'slug' => 'paie_bulletins_generate', 'groupe' => 'paie', 'module' => 'bulletins', 'action' => 'generate'],
-            ['nom' => 'Valider les bulletins de paie', 'slug' => 'paie_bulletins_validate', 'groupe' => 'paie', 'module' => 'bulletins', 'action' => 'validate'],
-
-            // Indemnités
-            ['nom' => 'Consulter les indemnités', 'slug' => 'indemnites_read', 'groupe' => 'indemnites', 'module' => 'indemnites', 'action' => 'read'],
-            ['nom' => 'Gérer les indemnités', 'slug' => 'indemnites_manage', 'groupe' => 'indemnites', 'module' => 'indemnites', 'action' => 'manage'],
-            ['nom' => 'Valider les indemnités', 'slug' => 'indemnites_validate', 'groupe' => 'indemnites', 'module' => 'indemnites', 'action' => 'validate'],
-
-            // Budget
-            ['nom' => 'Consulter le budget', 'slug' => 'budget_read', 'groupe' => 'budget', 'module' => 'budget', 'action' => 'read'],
-            ['nom' => 'Gérer le budget', 'slug' => 'budget_manage', 'groupe' => 'budget', 'module' => 'budget', 'action' => 'manage'],
-        ];
+        $defaultPermissions = config('permissions', []);
 
         $created = 0;
         $updated = 0;
