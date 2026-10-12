@@ -38,6 +38,9 @@ Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:lo
 Route::middleware(['auth:sanctum', 'role:admin,super_admin'])
     ->apiResource('diplomes', DiplomeController::class);
 
+Route::middleware(['auth:sanctum', \App\Http\Middleware\TrackUserPresence::class])->group(function () {
+
+    Route::get('/dashboard', \App\Http\Controllers\Api\DashboardController::class);
 Route::middleware(['auth:sanctum', \App\Http\Middleware\TeacherPersonalAccess::class, \App\Http\Middleware\IaAccess::class, \App\Http\Middleware\DecpcAccess::class])->group(function () {
 
     Route::prefix('enseignant')->middleware('role:enseignant')->group(function () {

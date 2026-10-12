@@ -3,7 +3,7 @@
 namespace App\Services\Auth;
 
 use App\Mail\OtpMail;
-use App\Models\admin\User;
+use App\Models\Admin\User;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Validation\ValidationException;
@@ -79,6 +79,10 @@ class AuthService
             ->createToken('sicore-ui')
             ->plainTextToken;
 
+        UserPresence::touch($user);
+        $user->derniere_connexion = now();
+        $user->save();
+
 
 
         return response()->json([
@@ -135,6 +139,7 @@ class AuthService
      */
     public function logout($request)
     {
+        UserPresence::forget($request->user());
 
         $request
             ->user()
@@ -284,6 +289,7 @@ class AuthService
 
         // Invalider les anciennes connexions
         $user->tokens()->delete();
+        UserPresence::forget($user);
 
 
         // Retour de la réponse
@@ -457,6 +463,7 @@ class AuthService
         }
 
         $user->password = Hash::make($data['password']);
+        $user->password_changed_at = now();
         $user->save();
 
         DB::table('password_reset_otps')
@@ -465,6 +472,7 @@ class AuthService
 
         // Invalider les anciennes connexions
         $user->tokens()->delete();
+        UserPresence::forget($user);
 
         return response()->json([
             'message' => 'Mot de passe modifie avec succes. Vous pouvez maintenant vous connecter.',
