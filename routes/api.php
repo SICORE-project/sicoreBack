@@ -76,5 +76,6 @@ Route::middleware(['auth:sanctum', \App\Http\Middleware\TeacherPersonalAccess::c
     Route::get('/drh/dashboard', \App\Http\Controllers\Api\DrhDashboardController::class)
         ->middleware(['role:agent_drh,drh', 'permission:enseignants.read', \App\Http\Middleware\DrhPersonnelAccess::class]);
     
-
 });
+});
+
