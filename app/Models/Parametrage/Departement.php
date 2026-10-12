@@ -11,22 +11,26 @@ class Departement extends Model
 
     protected $fillable = [
         'code',
-        'nom',
+        'libelle',
         'region_id',
-        'chef_lieu',
-        'population',
         'est_actif',
     ];
 
     protected $casts = [
+        'region_id' => 'integer',
         'est_actif' => 'boolean',
-        'population' => 'integer',
     ];
 
-    // === RELATIONS ===
+
+
     public function region()
     {
         return $this->belongsTo(Region::class);
+    }
+
+    public function communes()
+    {
+        return $this->hasMany(Commune::class);
     }
 
     public function centresFormation()
@@ -34,7 +38,7 @@ class Departement extends Model
         return $this->hasMany(CentreFormation::class);
     }
 
-    // === SCOPES ===
+
     public function scopeActif($query)
     {
         return $query->where('est_actif', true);

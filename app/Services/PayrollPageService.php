@@ -17,6 +17,45 @@ use Illuminate\Validation\ValidationException;
 
 class PayrollPageService
 {
+    private ?int $iaScopeId = null;
+
+    public function forIa(int $iaId): self
+    {
+        $scoped = clone $this;
+        $scoped->iaScopeId = $iaId;
+        return $scoped;
+    }
+
+    private function scopedTeachers(): Builder
+    {
+        return Enseignant::query()->when($this->iaScopeId !== null,
+            fn ($query) => $query->where('ia_id', $this->iaScopeId)->whereNull('deleted_at'));
+    }
+
+    private function scopePayroll(Builder $query): Builder
+    {
+        return $query->when($this->iaScopeId !== null,
+            fn ($query) => $query->whereIn('enseignant_id', $this->scopedTeachers()->select('id')));
+    }
+
+    private function periods(): Collection
+    {
+        $periods = PayrollPeriod::query()->withCount([
+            'payslips' => fn ($q) => $this->scopePayroll($q),
+            'attendances' => fn ($q) => $this->scopePayroll($q),
+            'elements' => fn ($q) => $this->scopePayroll($q),
+        ])->latest('start_date')->get();
+        if ($this->iaScopeId !== null) {
+            foreach ($periods as $period) {
+                $slips = $this->scopePayroll(PayrollPayslip::query())->where('payroll_period_id', $period->id);
+                $period->employee_count = $period->payslips_count;
+                $period->total_gross = (clone $slips)->sum('gross_amount');
+                $period->total_deductions = (clone $slips)->sum('deduction_amount');
+                $period->total_net = (clone $slips)->sum('net_amount');
+            }
+        }
+        return $periods;
+    }
     private const RESULT_SLUGS = [
         'paie-recap-banque',
         'paie-cotisations-sociales',
@@ -68,7 +107,7 @@ class PayrollPageService
             throw ValidationException::withMessages(['slug' => 'Page de paie inconnue.']);
         }
 
-        $periods = PayrollPeriod::query()->withCount('payslips')->latest('start_date')->get();
+        $periods = $this->periods();
         $period = $periodId
             ? $periods->firstWhere('id', $periodId)
             : $this->defaultPeriod($slug, $periods);
@@ -91,15 +130,17 @@ class PayrollPageService
             $teacherRelations[] = 'mutuelle';
         }
         $activeColumn = Schema::hasColumn('enseignants', 'actif') ? 'actif' : 'est_actif';
-        $teachers = Enseignant::query()
+        $teachers = $this->scopedTeachers()
             ->with($teacherRelations)
             ->where($activeColumn, true)
             ->orderBy('matricule')
             ->get();
         $academicInspections = ias::query()
+            ->when($this->iaScopeId !== null, fn ($q) => $q->where('id', $this->iaScopeId))
             ->orderBy('libelle')
             ->get();
         $educationInspections = iefs::query()
+            ->when($this->iaScopeId !== null, fn ($q) => $q->where('ia_id', $this->iaScopeId))
             ->orderBy('libelle')
             ->get();
         $teachingCorps = DB::table('corps_enseignant')
@@ -414,7 +455,7 @@ class PayrollPageService
     /** @return array<string, mixed> */
     private function periodReport(?PayrollPeriod $selectedPeriod): array
     {
-        $periods = PayrollPeriod::query()->withCount(['attendances', 'elements', 'payslips'])->latest('start_date')->get();
+        $periods = $this->periods();
 
         return [
             'columns' => ['Période', 'Statut', 'Présences', 'Éléments', 'Bulletins', 'Brut', 'Retenues', 'Net', 'Version'],
@@ -544,7 +585,7 @@ class PayrollPageService
         $trainingCenters = $this->referenceMap('centres_formation', 'nom');
         $banking = $this->salaryBankingDetails($items->pluck('enseignant_id'));
         $tabaskiAdvances = $period
-            ? PayrollElement::query()
+            ? $this->scopePayroll(PayrollElement::query())
                 ->where('payroll_period_id', $period->id)
                 ->where('code', 'TABASKI_AVANCE')
                 ->where('status', 'validated')
@@ -967,9 +1008,9 @@ class PayrollPageService
     private function notGeneratedReport(?PayrollPeriod $period): array
     {
         $items = $period
-            ? Enseignant::query()
+            ? $this->scopedTeachers()
                 ->with(['user', 'corps', 'institutionFinanciere'])
-                ->where('actif', true)
+                ->where(Schema::hasColumn('enseignants', 'actif') ? 'actif' : 'est_actif', true)
                 ->whereDoesntHave('payslips', fn (Builder $query) => $query->where('payroll_period_id', $period->id))
                 ->limit(200)
                 ->get()
@@ -1282,7 +1323,7 @@ class PayrollPageService
 
     private function elementsForPeriod(PayrollPeriod $period): Builder
     {
-        return PayrollElement::query()
+        return $this->scopePayroll(PayrollElement::query())
             ->with([
                 'enseignant.user',
             ])
@@ -1313,7 +1354,7 @@ class PayrollPageService
             $relations[] = 'enseignant.etablissement.ief.ia';
         }
 
-        return PayrollPayslip::query()
+        return $this->scopePayroll(PayrollPayslip::query())
             ->with($relations)
             ->where('payroll_period_id', $period->id)
             ->orderBy('reference')
@@ -1373,7 +1414,7 @@ class PayrollPageService
         Collection $trainingCenters
     ): array {
         $iefIa = Schema::hasTable('iefs')
-            ? DB::table('iefs')->orderBy('libelle')->get(['id', 'ia_id', 'libelle'])
+            ? DB::table('iefs')->when($this->iaScopeId !== null, fn ($q) => $q->where('ia_id', $this->iaScopeId))->orderBy('libelle')->get(['id', 'ia_id', 'libelle'])
             : collect();
 
         return [
@@ -1471,6 +1512,8 @@ class PayrollPageService
         }
 
         return DB::table($table)
+            ->when($this->iaScopeId !== null && $table === 'ias', fn ($q) => $q->where('id', $this->iaScopeId))
+            ->when($this->iaScopeId !== null && $table === 'iefs', fn ($q) => $q->where('ia_id', $this->iaScopeId))
             ->orderBy($labelColumn)
             ->get(['id', $labelColumn])
             ->mapWithKeys(fn (object $row): array => [(int) $row->id => (string) $row->{$labelColumn}]);

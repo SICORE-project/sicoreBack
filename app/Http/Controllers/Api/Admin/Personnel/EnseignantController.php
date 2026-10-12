@@ -35,7 +35,7 @@ class EnseignantController extends Controller
         $perPage = min(max($perPage, 1), 100);
 
         $enseignants = $this->enseignantService
-            ->paginate($perPage, $filters);
+            ->paginate($perPage, $filters, $request->user());
 
         return EnseignantResource::collection($enseignants)
             ->additional([

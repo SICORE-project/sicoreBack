@@ -10,6 +10,12 @@ class RolePermissionSeeder extends Seeder
 {
     public function run(): void
     {
+        $agentDrh = Role::where('slug', 'agent_drh')->first();
+        if ($agentDrh) {
+            $agentDrh->permissions()->syncWithoutDetaching(
+                Permission::where('slug', 'enseignants.read')->pluck('id')->all()
+            );
+        }
         // Récupérer les rôles
         $superAdmin = Role::where('slug', 'super_admin')->first();
         $admin = Role::where('slug', 'admin')->first();
@@ -17,6 +23,7 @@ class RolePermissionSeeder extends Seeder
         $gestionnaireIa = Role::where('slug', 'gestionnaire_ia')->first();
         $gestionnaireIef = Role::where('slug', 'gestionnaire_ief')->first();
         $drh = Role::where('slug', 'drh')->first();
+        $decpc = Role::where('slug', 'decpc')->first();
         $gestionnairePaie = Role::where('slug', 'gestionnaire_paie')->first();
         $gestionnaireBudget = Role::where('slug', 'gestionnaire_budget')->first();
         $consultant = Role::where('slug', 'consultant')->first();
@@ -44,15 +51,18 @@ class RolePermissionSeeder extends Seeder
         // === GESTIONNAIRE IA ===
         if ($gestionnaireIa) {
             $iaPermissions = Permission::whereIn('slug', [
-                'parametrage.ia.read',
-                'parametrage.ia.manage',
-                'parametrage.ief.read',
-                'parametrage.ief.manage',
                 'enseignants.read',
                 'enseignants.create',
                 'enseignants.update',
                 'enseignants.validate',
                 'enseignants.comptes_bancaires.manage',
+                'paie.bulletins.read',
+                'paie.bulletins.export',
+                'paie.sommes_percues.read',
+                'paie.etat_salaires.read',
+                'paie.cotisations.read',
+                'paie.effectifs_ief.read',
+                'paie.recap_banque.read',
             ])->pluck('id')->toArray();
             $gestionnaireIa->permissions()->sync($iaPermissions);
         }
@@ -84,6 +94,16 @@ class RolePermissionSeeder extends Seeder
             $drh->permissions()->sync($drhPermissions);
         }
 
+        // === DECPC ===
+        if ($decpc) {
+            $decpcPermissions = Permission::whereIn('slug', [
+                'indemnites.read',
+                'indemnites.manage',
+                'indemnites.validate',
+            ])->pluck('id')->toArray();
+            $decpc->permissions()->syncWithoutDetaching($decpcPermissions);
+        }
+
         // === GESTIONNAIRE PAIE ===
         if ($gestionnairePaie) {
             $paiePermissions = Permission::where('groupe', 'paie')->pluck('id')->toArray();
@@ -111,5 +131,7 @@ class RolePermissionSeeder extends Seeder
             ])->pluck('id')->toArray();
             $enseignant->permissions()->sync($enseignantPermissions);
         }
+        $this->call(RecruitmentPermissionSeeder::class);
+        $this->call(AgentDecpcSeeder::class);
     }
 }
