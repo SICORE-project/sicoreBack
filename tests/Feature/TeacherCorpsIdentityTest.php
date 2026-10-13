@@ -29,7 +29,10 @@ class TeacherCorpsIdentityTest extends TestCase
         return array_replace([
             'matricule' => '001234/F', 'indice' => '1500',
             'nom' => 'Ndiaye', 'prenom' => 'Awa', 'date_naissance' => '1990-01-01',
-            'ia_id' => 1, 'ief_id' => 2, 'corps_id' => 5,
+            'ia_id' => 1, 'ief_id' => 2, 'corps_id' => 5, 'statut_enseignant_id' => 1,
+            'cni' => '1234567890123', 'telephone' => '771234567',
+            'situation_matrimoniale' => 'celibataire', 'nombre_enfants' => 0,
+            'compte_bancaire' => ['code_banque' => '00100', 'code_guichet' => '00001', 'numero_compte' => '00012345678', 'cle_rib' => '01'],
             'est_en_couple' => false, 'statut' => 'en_activite', 'est_actif' => true,
         ], $overrides);
     }
@@ -48,25 +51,41 @@ class TeacherCorpsIdentityTest extends TestCase
         $this->assertNotNull($audit->created_at);
     }
 
+    public function test_civil_servant_ignores_disabled_career_fields(): void
+    {
+        $this->postJson('/api/admin/personnel/enseignants', $this->payload([
+            'corps_id' => 5, 'diplome_id' => 999, 'salaire_brut' => 'invalid',
+            'date_recrutement' => 'invalid', 'annee_recrutement' => 'invalid',
+            'observations' => 'Ignored', 'statut' => 'invalid',
+        ]))->assertCreated()->assertJsonPath('data.corps.id', 5);
+        $this->assertDatabaseHas('enseignants', [
+            'matricule' => '001234/F', 'corps_id' => 5, 'diplome_id' => null,
+            'date_recrutement' => null, 'observations' => null, 'statut' => 'en_activite',
+        ]);
+    }
+
     public function test_non_civil_servant_uses_nine_digits_and_ignores_any_submitted_index(): void
     {
         $this->postJson('/api/admin/personnel/enseignants', $this->payload([
-            'corps_id' => 3, 'matricule' => '001234567/H', 'indice' => ['not', 'applicable'],
+            'corps_id' => 3, 'statut_enseignant_id' => 3, 'matricule' => '001234567/H', 'indice' => ['not', 'applicable'],
         ]))->assertCreated()->assertJsonPath('data.indice', null);
-        $this->assertDatabaseHas('enseignants', ['matricule' => '001234567/H', 'corps_id' => 3, 'indice' => null]);
+        $this->assertDatabaseHas('enseignants', ['matricule' => '001234567/H', 'corps_id' => null, 'indice' => null]);
         $this->assertNull(PayrollAuditLog::sole()->after['indice']);
     }
 
     public static function invalidIdentity(): array
     {
         return [
-            'missing corps' => [['corps_id' => null], 'corps_id'],
-            'unknown corps' => [['corps_id' => 999], 'corps_id'],
+            'digits in surname' => [['nom' => 'Ndiaye2'], 'nom'],
+            'digits in first name' => [['prenom' => 'Awa9'], 'prenom'],
+            'letters in phone' => [['telephone' => '77ABC123'], 'telephone'],
+            'letters in bank branch code' => [['compte_bancaire' => ['code_banque' => '00100', 'code_guichet' => 'A0001', 'numero_compte' => '00012345678', 'cle_rib' => '01']], 'compte_bancaire.code_guichet'],
+            'letters in RIB key' => [['compte_bancaire' => ['code_banque' => '00100', 'code_guichet' => '00001', 'numero_compte' => '00012345678', 'cle_rib' => 'AB']], 'compte_bancaire.cle_rib'],
             'five digits' => [['matricule' => '12345'], 'matricule'],
             'seven digits' => [['matricule' => '1234567'], 'matricule'],
             'civil servant nine digits' => [['matricule' => '123456789'], 'matricule'],
-            'non civil servant six digits' => [['corps_id' => 3], 'matricule'],
-            'non civil servant eight digits' => [['corps_id' => 3, 'matricule' => '12345678'], 'matricule'],
+            'non civil servant six digits' => [['corps_id' => 3, 'statut_enseignant_id' => 3], 'matricule'],
+            'non civil servant eight digits' => [['corps_id' => 3, 'statut_enseignant_id' => 3, 'matricule' => '12345678'], 'matricule'],
             'letters' => [['matricule' => 'A12345'], 'matricule'],
             'punctuation' => [['matricule' => '123-45'], 'matricule'],
             'internal space' => [['matricule' => '12 345'], 'matricule'],
@@ -136,12 +155,12 @@ class TeacherCorpsIdentityTest extends TestCase
     {
         $id = $this->postJson('/api/admin/personnel/enseignants', $this->payload())->json('data.id');
         $this->putJson('/api/admin/personnel/enseignants/'.$id, $this->payload([
-            'corps_id' => 3,
+            'corps_id' => 3, 'statut_enseignant_id' => 3,
         ]))->assertUnprocessable()->assertJsonValidationErrors('matricule');
         $this->putJson('/api/admin/personnel/enseignants/'.$id, $this->payload([
-            'corps_id' => 3, 'matricule' => '001234567/H',
+            'corps_id' => 3, 'statut_enseignant_id' => 3, 'matricule' => '001234567/H',
         ]))->assertOk()->assertJsonPath('data.indice', null);
-        $this->assertDatabaseHas('enseignants', ['id' => $id, 'corps_id' => 3, 'indice' => null]);
+        $this->assertDatabaseHas('enseignants', ['id' => $id, 'corps_id' => null, 'indice' => null]);
     }
 
     public function test_partial_identity_update_uses_saved_corps_and_does_not_flag_own_matricule_as_duplicate(): void

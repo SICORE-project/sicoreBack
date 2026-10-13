@@ -134,7 +134,7 @@ class PayrollActionRequest extends FormRequest
             'payroll_category_level.required_if' => 'La catégorie de paie est obligatoire pour un professeur contractuel.',
             'impr_monthly_amount.required' => 'Le montant IMPR validé est obligatoire.',
             'trimf_monthly_amount.required' => 'Le montant TRIMF validé est obligatoire.',
-            'corps_id.required' => 'Sélectionnez le corps d’enseignement concerné.',
+            'statut_enseignant_id.required' => 'Sélectionnez le statut enseignant concerné.',
             'ia_ids.required' => 'Sélectionnez au moins une Inspection académique (IA).',
             'ia_ids.min' => 'Sélectionnez au moins une Inspection académique (IA).',
             'annee_academique_id.required' => 'Sélectionnez l’année académique.',
@@ -150,11 +150,11 @@ class PayrollActionRequest extends FormRequest
     private function tabaskiRules(bool $deduction): array
     {
         $rules = [
-            'corps_id' => [
+            'statut_enseignant_id' => [
                 'required',
                 'integer',
-                Rule::exists('corps_enseignant', 'id')->where(
-                    fn ($query) => $query->whereIn('code', ['VAC', 'PC'])
+                Rule::exists('statuts_enseignant', 'id')->where(
+                    fn ($query) => $query->whereRaw("(LOWER(libelle) LIKE '%contractuel%' OR LOWER(libelle) LIKE '%vacataire%')")
                 ),
             ],
             'ia_ids' => ['required', 'array', 'min:1'],

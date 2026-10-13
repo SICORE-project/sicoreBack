@@ -10,7 +10,7 @@ use App\Models\PayrollPayslip;
 use App\Models\PayrollPeriod;
 use App\Models\roles;
 use Carbon\CarbonImmutable;
-use Database\Seeders\GestionPaieSeeder;
+use Tests\Fixtures\GestionPaieFixture;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Laravel\Sanctum\Sanctum;
@@ -86,7 +86,7 @@ class PayrollApiTest extends TestCase
     public function test_page_de_paie_est_alimentee_par_api(): void
     {
         $period = $this->period();
-        $this->seed(GestionPaieSeeder::class);
+        $this->seed(GestionPaieFixture::class);
         PayrollAttendance::query()->create([
             'payroll_period_id' => $period->id,
             'enseignant_id' => $this->teacher->id,
@@ -584,10 +584,10 @@ class PayrollApiTest extends TestCase
             ->count('application_reference'));
     }
 
-    public function test_gestion_paie_seeder_est_idempotent(): void
+    public function test_gestion_paie_fixture_est_idempotente(): void
     {
-        $this->seed(GestionPaieSeeder::class);
-        $this->seed(GestionPaieSeeder::class);
+        $this->seed(GestionPaieFixture::class);
+        $this->seed(GestionPaieFixture::class);
 
         $this->assertSame(2, DB::table('corps_enseignant')->whereIn('code', ['VAC', 'PC'])->count());
         $this->assertSame(1, DB::table('annee_academiques')->where('libelle', '2025-2026')->count());

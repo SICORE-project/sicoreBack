@@ -160,6 +160,7 @@ class PayrollPageController extends Controller
             ?? $teacher->getAttribute('corps_enseignant_id');
         $corpsLabel = $teacher->corps?->libelle
             ?? ($corpsId ? DB::table('corps_enseignant')->where('id', $corpsId)->value('libelle') : null);
+        if (!$teacher->isFonctionnaire()) $corpsLabel = null;
         $teacherName = trim(
             ($teacher->user?->prenom ?? $teacher->prenom ?? '').' '
             .($teacher->user?->nom ?? $teacher->nom ?? '')
@@ -181,6 +182,7 @@ class PayrollPageController extends Controller
                     'matricule' => $teacher->matricule,
                     'name' => $teacherName,
                     'corps' => $corpsLabel,
+                    'statut_enseignant' => $teacher->statutEnseignant?->libelle,
                     'bank' => $teacher->institutionFinanciere?->nom,
                     'account_last_four' => $teacher->numero_compte
                         ? mb_substr($teacher->numero_compte, -4)

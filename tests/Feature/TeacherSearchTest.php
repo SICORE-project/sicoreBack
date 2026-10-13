@@ -12,11 +12,11 @@ class TeacherSearchTest extends TestCase
     public function test_filters_are_combined_before_pagination(): void
     {
         Schema::create('enseignants', function ($t) {
-            $t->id(); $t->string('prenom'); $t->string('nom'); $t->softDeletes();
+            $t->id(); $t->string('matricule')->nullable(); $t->string('prenom'); $t->string('nom'); $t->softDeletes();
             foreach (['corps_id','diplome_id','ia_id','ief_id'] as $field) $t->integer($field);
         });
         $teacher = new Enseignant;
-        foreach (['ia','ief','corps','categorie','discipline','diplome','lieuService','comptesBancaires','syndicats','mutuelles'] as $name) {
+        foreach (['statutEnseignant','ia','ief','corps','categorie','discipline','diplome','lieuService','comptesBancaires','syndicats','mutuelles'] as $name) {
             $relation = $teacher->$name();
             $table = $relation->getRelated()->getTable();
             if (!Schema::hasTable($table)) Schema::create($table, function ($t) { $t->id(); $t->integer('enseignant_id')->nullable(); $t->softDeletes(); });

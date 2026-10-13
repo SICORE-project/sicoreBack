@@ -1,6 +1,6 @@
 <?php
 
-namespace Database\Seeders;
+namespace Tests\Fixtures;
 
 use App\Models\Parametrage\Categorie;
 use App\Models\PayrollPeriod;
@@ -8,7 +8,7 @@ use Carbon\CarbonImmutable;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 
-class GestionPaieSeeder extends Seeder
+class GestionPaieFixture extends Seeder
 {
     public function run(): void
     {

@@ -143,9 +143,9 @@ class PayrollPageService
             ->when($this->iaScopeId !== null, fn ($q) => $q->where('ia_id', $this->iaScopeId))
             ->orderBy('libelle')
             ->get();
-        $teachingCorps = DB::table('corps_enseignant')
-            ->whereIn('code', ['VAC', 'PC'])
-            ->orderByRaw("CASE code WHEN 'VAC' THEN 1 WHEN 'PC' THEN 2 ELSE 3 END")
+        $teachingCorps = DB::table('statuts_enseignant')
+            ->whereRaw("(LOWER(libelle) LIKE '%contractuel%' OR LOWER(libelle) LIKE '%vacataire%')")
+            ->orderBy('libelle')
             ->get();
         $academicYears = DB::table('annee_academiques')
             ->orderByDesc('date_debut')
@@ -172,7 +172,7 @@ class PayrollPageService
                 'code' => $inspection->code,
                 'ia_id' => $inspection->ia_id,
             ])->values(),
-            'teaching_corps' => $teachingCorps->map(fn (object $corps): array => [
+            'teaching_statuses' => $teachingCorps->map(fn (object $corps): array => [
                 'id' => $corps->id,
                 'value' => $corps->id,
                 'code' => $corps->code,
@@ -358,7 +358,7 @@ class PayrollPageService
                 'columns' => [
                     'Enseignant',
                     'Matricule',
-                    'Corps d’enseignement',
+                    'Statut enseignant',
                     'IA / IEF',
                     'Année académique',
                     'Mois d’application',
@@ -370,7 +370,7 @@ class PayrollPageService
                 'rows' => $items->map(fn (PayrollElement $item): array => [
                     $this->teacherName($item->enseignant),
                     $item->enseignant->matricule ?: '—',
-                    $this->tabaskiCorpsLabel($item),
+                    $this->tabaskiStatusLabel($item),
                     $this->tabaskiHierarchyLabel($item),
                     $item->academic_year ?: 'Non renseignée',
                     $period?->label ?? '—',
@@ -737,7 +737,7 @@ class PayrollPageService
                 'account' => $bank['account'] ?? $this->teacherAccountNumber($teacher),
                 'parts' => $this->teacherTaxParts($teacher),
                 'category' => $profileCategory ? (string) $profileCategory : '—',
-                'corps' => $corps->get($corpsId, $this->engagementLabel($teacher->type_engagement)),
+                'corps' => $corps->get($corpsId, '—'),
                 'ia' => $ias->get($iaId, 'IA non renseignée'),
                 'ief' => $iefs->get($iefId, 'IEF non renseignée'),
                 'training_center' => $trainingCenters->get(
@@ -1185,8 +1185,8 @@ class PayrollPageService
             'stats' => [
                 $this->stat('IEF couvertes', $groups->count(), 'Affectations actuelles', 'PI', 'green'),
                 $this->stat('Enseignants', $teachers->count(), 'Effectif actif', 'EN', 'blue'),
-                $this->stat('Contractuels', $teachers->where('type_engagement', 'contractuel')->count(), 'Corps PC', 'EC', 'yellow'),
-                $this->stat('Vacataires', $teachers->where('type_engagement', 'vacataire')->count(), 'Corps vacataire', 'EN', 'red'),
+                $this->stat('Contractuels', $teachers->where('type_engagement', 'contractuel')->count(), 'Statut contractuel', 'EC', 'yellow'),
+                $this->stat('Vacataires', $teachers->where('type_engagement', 'vacataire')->count(), 'Statut vacataire', 'EN', 'red'),
             ],
         ];
     }
@@ -1459,6 +1459,7 @@ class PayrollPageService
 
     private function teacherCorpsId(Enseignant $teacher): ?int
     {
+        if (!$teacher->isFonctionnaire()) return null;
         $id = $teacher->getAttribute('corps_id')
             ?? $teacher->getAttribute('corps_enseignant_id');
 
@@ -1842,11 +1843,11 @@ class PayrollPageService
         return $inspections->firstWhere('id', $this->teacherIaId($teacher))?->libelle;
     }
 
-    private function tabaskiCorpsLabel(PayrollElement $element): string
+    private function tabaskiStatusLabel(PayrollElement $element): string
     {
-        $corpsId = $element->application_corps_id ?? $element->enseignant->getAttribute('corps_id');
+        $corpsId = $element->application_statut_enseignant_id ?? $element->enseignant->statut_enseignant_id;
         $corps = $corpsId
-            ? DB::table('corps_enseignant')->where('id', (int) $corpsId)->first(['code', 'libelle'])
+            ? DB::table('statuts_enseignant')->where('id', (int) $corpsId)->first(['code', 'libelle'])
             : null;
 
         return $corps ? $corps->code.' — '.$corps->libelle : 'Non renseigné';

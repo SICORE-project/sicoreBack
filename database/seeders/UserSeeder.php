@@ -2,16 +2,20 @@
 
 namespace Database\Seeders;
 
-use Illuminate\Database\Seeder;
-use App\Models\Admin\User;
 use App\Models\Admin\Role;
-use App\Models\Parametrage\LieuService;
+use App\Models\Admin\User;
+use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
 
 class UserSeeder extends Seeder
 {
     public function run(): void
     {
+<<<<<<< HEAD
+        $role = Role::query()->where('slug', 'super_admin')->first();
+        if (! $role || User::query()->where('role_id', $role->id)->exists()) {
+            return;
+=======
         // Récupérer les rôles
         $superAdminRole = Role::where('slug', 'super_admin')->first();
         $adminRole = Role::where('slug', 'admin')->first();
@@ -167,13 +171,20 @@ class UserSeeder extends Seeder
         }
         if ($gestionnaireIefRole && ! $ief) {
             $this->command?->warn('Aucun lieu de service de type IEF : les comptes IEF restent sans rattachement.');
+>>>>>>> admin-param-gestionPersonnel
         }
 
-        foreach ($users as $user) {
-            User::updateOrCreate(
-                ['email' => $user['email']],
-                $user
-            );
-        }
+        // Seul le compte initial permettant d'accéder au CRUD est créé.
+        User::query()->firstOrCreate(['email' => 'mamadou.diop@sicore.sn'], [
+            'nom' => 'Diop',
+            'prenom' => 'Mamadou',
+            'password' => Hash::make('password'),
+            'role_id' => $role->id,
+            'statut' => 'actif',
+            'fonction' => 'Super Administrateur',
+            'genre' => 'masculin',
+            'must_change_password' => true,
+            'tentatives_connexion' => 0,
+        ]);
     }
 }

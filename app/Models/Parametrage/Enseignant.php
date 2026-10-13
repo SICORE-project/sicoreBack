@@ -10,6 +10,8 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Enseignant extends Model
 {
+    use \App\Models\Concerns\HasTeacherEmploymentStatus;
+
     use HasFactory, SoftDeletes;
 
     protected $table = 'enseignants';
@@ -27,6 +29,7 @@ class Enseignant extends Model
         'adresse',
         'photo',
         'situation_familiale_id',
+        'situation_matrimoniale',
         'nombre_enfants',
         'nombre_femmes',
         'nombre_parts_fiscales',

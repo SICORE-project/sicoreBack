@@ -257,31 +257,11 @@ Route::prefix('specialites')->group(function () {
     Route::get('/actives', [SpecialiteController::class, 'actives'])->middleware('permission:parametrage.specialites.read');
 });
 
-Route::prefix('regions')->group(function () {
-
-    Route::get('/', [RegionController::class, 'index'])->middleware('permission:parametrage.regions.read');
-    Route::post('/', [RegionController::class, 'store'])->middleware('permission:parametrage.regions.manage');
-    Route::get('/{id}', [RegionController::class, 'show'])->whereNumber('id')->middleware('permission:parametrage.regions.read');
-    Route::put('/{id}', [RegionController::class, 'update'])->whereNumber('id')->middleware('permission:parametrage.regions.manage');
-    Route::patch('/{id}/statut', [RegionController::class, 'changeStatut'])->whereNumber('id')->middleware('permission:parametrage.regions.manage');
-    Route::delete('/{id}', [RegionController::class, 'destroy'])->whereNumber('id')->middleware('role:admin,super_admin');
-
-});
-Route::prefix('departements')->group(function () {
-    Route::get('/',[DepartementController::class, 'index'])->middleware('permission:parametrage.departements.read');
-    Route::post('/',[DepartementController::class, 'store'])->middleware('permission:parametrage.departements.manage');
-    Route::get('/{id}',[DepartementController::class, 'show'])->whereNumber('id')->middleware('permission:parametrage.departements.read');
-    Route::put('/{id}',[DepartementController::class, 'update'])->whereNumber('id')->middleware('permission:parametrage.departements.manage');
-    Route::patch('/{id}/statut',[DepartementController::class, 'changeStatut'])->whereNumber('id')->middleware('permission:parametrage.departements.manage');
-    Route::delete('/{id}',[DepartementController::class, 'destroy'])->whereNumber('id')->middleware('role:admin,super_admin');
-});
-
-Route::prefix('communes')->group(function () {
-
-    Route::get('/', [CommuneController::class,'index',])->middleware('permission:parametrage.communes.read');
-    Route::post('/', [CommuneController::class,'store',])->middleware('permission:parametrage.communes.manage');
-    Route::get('/{id}', [CommuneController::class,'show',])->whereNumber('id')->middleware('permission:parametrage.communes.read' );
-    Route::put('/{id}', [ CommuneController::class,'update',])->whereNumber('id')->middleware('permission:parametrage.communes.manage' );
-    Route::patch('/{id}/statut', [CommuneController::class,'changeStatut',])->whereNumber('id')->middleware('permission:parametrage.communes.manage' );
-    Route::delete('/{id}', [CommuneController::class,'destroy',])->whereNumber('id')->middleware('role:admin,super_admin');
+Route::prefix('statuts-enseignant')->group(function () {
+    $controller = \App\Http\Controllers\Api\Parametrage\StatutEnseignantController::class;
+    Route::get('/', [$controller, 'index'])->middleware('permission:enseignants.create');
+    Route::get('/{id}', [$controller, 'show'])->whereNumber('id')->middleware('permission:enseignants.create');
+    Route::post('/', [$controller, 'store'])->middleware('role:admin,super_admin');
+    Route::put('/{id}', [$controller, 'update'])->whereNumber('id')->middleware('role:admin,super_admin');
+    Route::delete('/{id}', [$controller, 'destroy'])->whereNumber('id')->middleware('role:admin,super_admin');
 });

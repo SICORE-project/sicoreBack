@@ -63,8 +63,8 @@ class AuthService
 
 
 
-        if ($user->hasRole('gestionnaire_ia')) {
-            app(\App\Services\Administration\IaScope::class)->id($user);
+        if (mb_strtolower((string) $user->role->slug) === 'drh') {
+            return response()->json(['message' => 'Le profil DRH ne dispose pas de compte de connexion.'], 403);
         }
 
         // Nettoyage ancien token
