@@ -13,6 +13,12 @@ class UserResource extends JsonResource
     public function toArray(Request $request): array
     {
         return [
+            $this->mergeWhen($this->resource->hasRole('agent_decpc'), fn () => [
+                'decpc' => app(\App\Services\Administration\DecpcDashboard::class)->context($this->resource),
+            ]),
+            $this->mergeWhen($this->resource->isDrh(), fn () => [
+                'drh' => app(\App\Services\Administration\Personnel\DrhDashboard::class)->context($this->resource),
+            ]),
 
             'id' => $this->id,
             'is_online' => $this->statut === 'actif' && \App\Services\Auth\UserPresence::online('user', $this->id),
@@ -40,6 +46,7 @@ class UserResource extends JsonResource
             'genre' => $this->genre,
 
             'date_naiss' => $this->date_naiss?->format('d/m/Y'),
+            'date_naiss_iso' => $this->date_naiss?->format('Y-m-d'),
 
             'lieu_naissance' => $this->lieu_naissance,
 
@@ -62,6 +69,11 @@ class UserResource extends JsonResource
                 'code' => $this->lieuService->code,
                 'type' => $this->lieuService->type,
                 'libelle' => $this->lieuService->libelle,
+            ] : null,
+
+            'ia' => $this->ia ? [
+                'id' => $this->ia->id,
+                'libelle' => $this->ia->libelle,
             ] : null,
 
             'created_at' => $this->created_at?->format('d/m/Y H:i'),

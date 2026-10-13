@@ -24,6 +24,12 @@ class PermissionSeeder extends Seeder
 
 
             // === PARAMÉTRAGE ===
+            ['nom' => 'Consulter les régions', 'slug' => 'parametrage.regions.read', 'groupe' => 'parametrage', 'module' => 'regions', 'action' => 'read'],
+            ['nom' => 'Gérer les régions', 'slug' => 'parametrage.regions.manage', 'groupe' => 'parametrage', 'module' => 'regions', 'action' => 'manage'],
+            ['nom' => 'Consulter les départements','slug' => 'parametrage.departements.read','groupe' => 'parametrage','module' => 'departements','action' => 'read',],
+            ['nom' => 'Gérer les départements','slug' => 'parametrage.departements.manage','groupe' => 'parametrage','module' => 'departements','action' => 'manage',],
+            ['nom' => 'Consulter les communes','slug' => 'parametrage.communes.read','groupe' => 'parametrage','module' => 'communes','action' => 'read',],
+            ['nom' => 'Gérer les communes','slug' => 'parametrage.communes.manage','groupe' => 'parametrage','module' => 'communes','action' => 'manage',],
             ['nom' => 'Consulter les IA', 'slug' => 'parametrage.ia.read', 'groupe' => 'parametrage', 'module' => 'ia', 'action' => 'read'],
             ['nom' => 'Gérer les IA', 'slug' => 'parametrage.ia.manage', 'groupe' => 'parametrage', 'module' => 'ia', 'action' => 'manage'],
             ['nom' => 'Consulter les IEF', 'slug' => 'parametrage.ief.read', 'groupe' => 'parametrage', 'module' => 'ief', 'action' => 'read'],
@@ -57,6 +63,13 @@ class PermissionSeeder extends Seeder
 
             // === PAIE ===
             ['nom' => 'Consulter les bulletins de paie', 'slug' => 'paie.bulletins.read', 'groupe' => 'paie', 'module' => 'bulletins', 'action' => 'read'],
+            ['nom' => 'Exporter les bulletins de paie', 'slug' => 'paie.bulletins.export', 'groupe' => 'paie', 'module' => 'bulletins', 'action' => 'export'],
+            ['nom' => 'Consulter la masse salariale', 'slug' => 'paie.masse_salariale.read', 'groupe' => 'paie', 'module' => 'masse_salariale', 'action' => 'read'],
+            ['nom' => 'Consulter les sommes perçues', 'slug' => 'paie.sommes_percues.read', 'groupe' => 'paie', 'module' => 'sommes_percues', 'action' => 'read'],
+            ['nom' => 'Consulter l’état des salaires', 'slug' => 'paie.etat_salaires.read', 'groupe' => 'paie', 'module' => 'etat_salaires', 'action' => 'read'],
+            ['nom' => 'Consulter les cotisations sociales', 'slug' => 'paie.cotisations.read', 'groupe' => 'paie', 'module' => 'cotisations', 'action' => 'read'],
+            ['nom' => 'Consulter les effectifs par IEF', 'slug' => 'paie.effectifs_ief.read', 'groupe' => 'paie', 'module' => 'effectifs_ief', 'action' => 'read'],
+            ['nom' => 'Consulter le récapitulatif par banque', 'slug' => 'paie.recap_banque.read', 'groupe' => 'paie', 'module' => 'recap_banque', 'action' => 'read'],
             ['nom' => 'Générer les bulletins de paie', 'slug' => 'paie.bulletins.generate', 'groupe' => 'paie', 'module' => 'bulletins', 'action' => 'generate'],
             ['nom' => 'Valider les bulletins de paie', 'slug' => 'paie.bulletins.validate', 'groupe' => 'paie', 'module' => 'bulletins', 'action' => 'validate'],
             ['nom' => 'Consulter les rubriques de paie', 'slug' => 'paie.rubriques.read', 'groupe' => 'paie', 'module' => 'rubriques', 'action' => 'read'],

@@ -30,7 +30,7 @@ class AuthService
 
 
         // ⚠️ Changement : on charge aussi les permissions du rôle
-        $user = User::with(['role.permissions', 'lieuService'])
+        $user = User::with(['role.permissions', 'lieuService', 'ia'])
             ->where('email',$identifier)
             ->first();
 
@@ -93,7 +93,22 @@ class AuthService
 
             'token_type'=>'Bearer',
 
+            ...($user->hasRole('agent_decpc') ? [
+                'redirect_to' => '/decpc/dashboard',
+                'decpc' => app(\App\Services\Administration\DecpcDashboard::class)->context($user),
+            ] : []),
+
+            ...($user->isDrh() ? [
+                'redirect_to' => '/drh/dashboard',
+                'drh' => app(\App\Services\Administration\Personnel\DrhDashboard::class)->context($user),
+            ] : []),
+
+            ...($user->hasRole('gestionnaire_ia') ? [
+                'redirect_to' => '/dashboard',
+            ] : []),
+
             'user'=>[
+                'ia_id' => $user->ia_id,
                 'id'=>$user->id,
                 'nom'=>$user->nom,
                 'prenom'=>$user->prenom,
@@ -105,7 +120,11 @@ class AuthService
                     'id'=>$user->lieuService->id,
                     'type'=>$user->lieuService->type,
                     'libelle'=>$user->lieuService->libelle,
-                ] : null
+                ] : null,
+                'ia'=>$user->ia ? [
+                    'id'=>$user->ia->id,
+                    'libelle'=>$user->ia->libelle,
+                ] : null,
             ]
 
         ]);

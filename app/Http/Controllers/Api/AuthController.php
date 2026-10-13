@@ -47,7 +47,7 @@ class AuthController extends Controller
 
         return response()->json([
             'user'=>new UserResource(
-                $request->user()->loadMissing(['role', 'lieuService'])
+                $request->user()->loadMissing(['role', 'lieuService', 'ia'])
             )
         ]);
 
