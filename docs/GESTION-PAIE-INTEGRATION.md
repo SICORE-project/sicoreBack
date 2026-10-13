@@ -28,9 +28,10 @@ php artisan key:generate
 php artisan optimize:clear
 php artisan migrate:status
 php artisan migrate --force
-php artisan db:seed --class=GestionPaieSeeder
 php artisan serve --host=127.0.0.1 --port=8000
 ```
+
+Les catégories, corps, années académiques et périodes de paie sont à créer depuis leurs écrans de gestion. Les données de recette de paie sont réservées aux tests automatisés.
 
 Ne jamais utiliser `migrate:fresh` sur une base partagée. Sauvegarder la base
 avant d'appliquer des migrations sur un environnement d'intégration.

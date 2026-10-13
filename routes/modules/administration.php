@@ -380,6 +380,7 @@ Route::prefix('admin')->group(function () {
             ->middleware('permission:administration.users.read');
 
         Route::prefix('personnel/enseignants')->group(function () {
+            Route::post('/import', [\App\Http\Controllers\Api\Admin\Personnel\TeacherImportController::class, 'store'])->middleware(['role:admin,super_admin,gestionnaire_ia', 'permission:enseignants.create']);
             Route::get('/', [EnseignantController::class, 'index'])
                 ->middleware('permission:enseignants.read');
             Route::post('/', [EnseignantController::class, 'store'])

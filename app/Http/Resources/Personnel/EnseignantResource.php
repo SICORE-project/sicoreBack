@@ -103,6 +103,9 @@ class EnseignantResource extends JsonResource
                 $this->adresse,
 
             'cni' => $this->cni,
+            'statut_enseignant_id' => $this->statut_enseignant_id,
+            'statut_enseignant' => $this->statutEnseignant ? $this->statutEnseignant->only(['id', 'code', 'libelle']) : null,
+            'situation_matrimoniale' => $this->situation_matrimoniale,
             'salaire_brut' => $this->salaire_brut,
             'generation' => $this->generation,
             'date_prise_service' => $this->date_prise_service?->format('Y-m-d'),
@@ -183,7 +186,7 @@ class EnseignantResource extends JsonResource
 
             'corps' => $this->whenLoaded(
                 'corps',
-                fn () => $this->corps
+                fn () => $this->isFonctionnaire() && $this->corps
                     ? [
                         'id' =>
                             $this->corps->id,

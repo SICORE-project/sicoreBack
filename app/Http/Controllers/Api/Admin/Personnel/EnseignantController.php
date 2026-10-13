@@ -23,6 +23,7 @@ class EnseignantController extends Controller
     {
         $filters = $request->validate([
             'search' => ['nullable', 'string', 'max:100'],
+            'statut_enseignant_id' => ['nullable', 'integer', 'min:1'],
             'prenom' => ['nullable', 'string', 'max:50'],
             'nom' => ['nullable', 'string', 'max:50'],
             'corps_id' => ['nullable', 'integer', 'min:1'],

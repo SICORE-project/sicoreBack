@@ -113,7 +113,7 @@ class UserController extends Controller
         $request->validate([
             'role_id' => [
                 'required',
-                Rule::exists('roles', 'id'),
+                Rule::exists('roles', 'id')->where(fn ($query) => $query->whereRaw('LOWER(slug) <> ?', ['drh'])),
                 CompatibleRoleStructure::roleForStructure($user->lieu_service_id),
             ],
         ]);

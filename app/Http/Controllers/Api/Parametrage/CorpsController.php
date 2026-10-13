@@ -20,8 +20,9 @@ class CorpsController extends Controller
             ->when($request->filled('search'), function ($query) use ($request): void {
                 $search = trim((string) $request->input('search'));
                 $query->where(function ($query) use ($search): void {
-                    $query->where('libelle', 'ilike', "%{$search}%")
-                        ->orWhere('description', 'ilike', "%{$search}%");
+                    $query->whereRaw('LOWER(libelle) LIKE ?', ['%'.mb_strtolower($search).'%'])
+                        ->orWhereRaw('LOWER(code) LIKE ?', ['%'.mb_strtolower($search).'%'])
+                        ->orWhereRaw('LOWER(description) LIKE ?', ['%'.mb_strtolower($search).'%']);
                 });
             })
             ->orderByDesc('created_at')
@@ -40,12 +41,16 @@ class CorpsController extends Controller
     public function store(Request $request)
     {
         $request->merge(['libelle' => trim((string) $request->input('libelle'))]);
+        if ($request->filled('code')) {
+            $request->merge(['code' => Str::upper(trim((string) $request->input('code')))]);
+        }
 
         $data = $request->validate([
+            'code' => ['nullable', 'string', 'max:20', Rule::unique('corps_enseignant', 'code')],
             'libelle' => [
                 'required',
                 'string',
-                'max:255',
+                'max:100',
                 Rule::unique('corps_enseignant', 'libelle'),
             ],
 
@@ -54,10 +59,11 @@ class CorpsController extends Controller
             'description' => [
                 'nullable',
                 'string',
+                'max:255',
             ],
         ], ['libelle.unique' => 'Un corps enseignant avec ce libellé existe déjà.']);
 
-        $data['code'] = $this->uniqueCode($data['libelle']);
+        $data['code'] = $data['code'] ?? $this->uniqueCode($data['libelle']);
         $corps = CorpsEnseignant::create($data);
 
         return response()->json([
@@ -99,12 +105,16 @@ class CorpsController extends Controller
         }
 
         $request->merge(['libelle' => trim((string) $request->input('libelle'))]);
+        if ($request->filled('code')) {
+            $request->merge(['code' => Str::upper(trim((string) $request->input('code')))]);
+        }
 
         $data = $request->validate([
+            'code' => ['sometimes', 'required', 'string', 'max:20', Rule::unique('corps_enseignant', 'code')->ignore($corps->id)],
             'libelle' => [
                 'required',
                 'string',
-                'max:255',
+                'max:100',
                 Rule::unique('corps_enseignant', 'libelle')->ignore($corps->id),
             ],
 
@@ -113,6 +123,7 @@ class CorpsController extends Controller
             'description' => [
                 'nullable',
                 'string',
+                'max:255',
             ],
         ], ['libelle.unique' => 'Un corps enseignant avec ce libellé existe déjà.']);
 
@@ -165,12 +176,13 @@ class CorpsController extends Controller
 
     private function uniqueCode(string $libelle): string
     {
-        $base = Str::limit(Str::upper(Str::slug($libelle, '-')) ?: 'CORPS', 44, '');
+        $base = Str::limit(Str::upper(Str::slug($libelle, '-')) ?: 'CORPS', 20, '');
         $code = $base;
         $suffix = 2;
 
         while (CorpsEnseignant::query()->where('code', $code)->exists()) {
-            $code = Str::limit($base, 44, '').'-'.$suffix++;
+            $ending = '-'.$suffix++;
+            $code = Str::limit($base, 20 - strlen($ending), '').$ending;
         }
 
         return $code;

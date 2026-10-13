@@ -261,3 +261,12 @@ Route::prefix('specialites')->group(function () {
     Route::patch('/{id}/statut', [SpecialiteController::class, 'changeStatus'])->middleware('permission:parametrage.specialites.manage');
     Route::get('/actives', [SpecialiteController::class, 'actives'])->middleware('permission:parametrage.specialites.read');
 });
+
+Route::prefix('statuts-enseignant')->group(function () {
+    $controller = \App\Http\Controllers\Api\Parametrage\StatutEnseignantController::class;
+    Route::get('/', [$controller, 'index'])->middleware('permission:enseignants.create');
+    Route::get('/{id}', [$controller, 'show'])->whereNumber('id')->middleware('permission:enseignants.create');
+    Route::post('/', [$controller, 'store'])->middleware('role:admin,super_admin');
+    Route::put('/{id}', [$controller, 'update'])->whereNumber('id')->middleware('role:admin,super_admin');
+    Route::delete('/{id}', [$controller, 'destroy'])->whereNumber('id')->middleware('role:admin,super_admin');
+});

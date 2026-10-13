@@ -53,7 +53,7 @@ class StoreUserRequest extends FormRequest
 
             'role_id' => [
                 'required',
-                'exists:roles,id'
+                Rule::exists('roles', 'id')->where(fn ($query) => $query->whereRaw('LOWER(slug) <> ?', ['drh']))
             ],
 
             'statut' => [

@@ -63,6 +63,10 @@ class AuthService
 
 
 
+        if (mb_strtolower((string) $user->role->slug) === 'drh') {
+            return response()->json(['message' => 'Le profil DRH ne dispose pas de compte de connexion.'], 403);
+        }
+
         // Nettoyage ancien token
         $user->tokens()
             ->where('name','sicore-ui')

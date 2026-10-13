@@ -115,6 +115,7 @@ class EnseignantService
                 'ia',
                 'ief',
                 'corps',
+                'statutEnseignant',
                 'categorie',
                 'discipline',
                 'diplome',
@@ -132,6 +133,7 @@ class EnseignantService
             'ia',
             'ief',
             'corps',
+            'statutEnseignant',
             'categorie',
             'discipline',
             'diplome',
@@ -183,13 +185,14 @@ class EnseignantService
                 $query->whereRaw('LOWER('.$field.') LIKE ?', ['%'.mb_strtolower(trim($filters[$field])).'%']);
             }
         }
-        foreach (['corps_id', 'diplome_id', 'ia_id', 'ief_id'] as $field) {
+        foreach (['statut_enseignant_id', 'corps_id', 'diplome_id', 'ia_id', 'ief_id'] as $field) {
             if (!empty($filters[$field])) { $query->where($field, $filters[$field]); }
         }
         return $query->with([
                 'ia',
                 'ief',
                 'corps',
+                'statutEnseignant',
                 'categorie',
                 'discipline',
                 'diplome',

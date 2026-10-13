@@ -16,6 +16,7 @@ trait BuildsTeacherSchema
         (require database_path('migrations/2026_09_22_000001_add_administrative_status_and_indice_to_enseignants.php'))->up();
         (require database_path('migrations/2026_09_22_000002_store_teacher_indice_as_text.php'))->up();
         (require database_path('migrations/2026_09_22_000003_make_teacher_indice_unique.php'))->up();
+        (require database_path('migrations/2026_07_28_222517_create_statuts_enseignant_table.php'))->up();
         $teacher = new Enseignant;
         foreach (['ia', 'ief', 'corps', 'categorie', 'discipline', 'diplome', 'lieuService', 'comptesBancaires', 'syndicats', 'mutuelles'] as $name) {
             $relation = $teacher->$name();
@@ -49,10 +50,26 @@ trait BuildsTeacherSchema
             ['id' => 4, 'libelle' => 'Contractuel', 'code' => 'CTR'],
             ['id' => 5, 'libelle' => 'Fonctionnaire', 'code' => 'FONC'],
         ]);
+        DB::table('statuts_enseignant')->insert([
+            ['id' => 1, 'code' => 'FONC', 'libelle' => 'Fonctionnaire'],
+            ['id' => 2, 'code' => 'CONT', 'libelle' => 'Contractuel'],
+            ['id' => 3, 'code' => 'VAC', 'libelle' => 'Vacataire'],
+        ]);
+        (require database_path('migrations/2026_10_13_000001_teacher_status_and_marital_situation.php'))->up();
+        Schema::table('comptes_bancaires_enseignants', function (Blueprint $table) {
+            foreach (['code_banque', 'code_guichet', 'numero_compte', 'cle_rib', 'type_virement'] as $field) $table->string($field)->nullable();
+            $table->integer('institut_financier_id')->nullable();
+            $table->boolean('est_principal')->default(true);
+            $table->boolean('est_actif')->default(true);
+            $table->timestamps();
+        });
+        $relation = (new \App\Models\Personnel\CompteBancaireEnseignant)->institutFinancier();
+        if (!Schema::hasTable($relation->getRelated()->getTable())) Schema::create($relation->getRelated()->getTable(), function (Blueprint $table) { $table->id(); });
         DB::table('categories')->insert(['id' => 5, 'corps_id' => 4, 'libelle' => 'A1']);
         DB::table('diplomes')->insert(['id' => 6, 'categorie_id' => 5, 'libelle' => 'Licence', 'salaire_brut' => 250000]);
         Schema::create('users', function (Blueprint $table): void {
             $table->id();
+            $table->softDeletes();
         });
         DB::table('users')->insert(['id' => 8]);
         Schema::create('payroll_audit_logs', function (Blueprint $table): void {
