@@ -214,7 +214,7 @@ class StoreEnseignantRequest extends FormRequest
             // =========================
 
             'compte_bancaire' => [
-                'nullable',
+                'required',
                 'array',
             ],
 
@@ -225,27 +225,27 @@ class StoreEnseignantRequest extends FormRequest
             ],
 
             'compte_bancaire.code_banque' => [
-                'nullable',
+                'required',
                 'string',
-                'max:5',
+                'size:5',
             ],
 
             'compte_bancaire.code_guichet' => [
-                'nullable',
+                'required',
                 'string',
-                'max:5',
+                'size:5',
             ],
 
             'compte_bancaire.numero_compte' => [
-                'nullable',
+                'required',
                 'string',
-                'max:11',
-],
+                'size:12',
+            ],
 
             'compte_bancaire.cle_rib' => [
-                'nullable',
+                'required',
                 'string',
-                'max:2',
+                'size:2',
             ],
 
             'compte_bancaire.iban' => [
@@ -418,6 +418,11 @@ class StoreEnseignantRequest extends FormRequest
             'compte_bancaire.institut_financier_id.exists' =>
                 'L’institut financier sélectionné n’existe pas.',
             
+            'compte_bancaire.code_banque.size' => 'Le code banque doit comporter exactement 5 caractères.',
+            'compte_bancaire.code_guichet.size' => 'Le code guichet doit comporter exactement 5 caractères.',
+            'compte_bancaire.numero_compte.size' => 'Le numéro de compte doit comporter exactement 12 caractères.',
+            'compte_bancaire.cle_rib.size' => 'La clé RIB doit comporter exactement 2 caractères.',
+            'compte_bancaire.required' => 'Les coordonnées bancaires (RIB complet de 24 caractères) sont obligatoires.',
             'compte_bancaire.numero_compte.max' =>
                 'Le numéro de compte ne doit pas dépasser 11 caractères.',
 

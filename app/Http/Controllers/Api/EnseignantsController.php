@@ -65,7 +65,11 @@ class EnseignantsController extends Controller
                 'cle_rib' => $compte?->cle_rib ?: $enseignant->cle_rib,
             ];
 
-            $rib['complet'] = collect($rib)->every(fn ($valeur) => filled($valeur));
+            // RIB complet : 24 caractères (banque 5 + guichet 5 + compte 12 + clé 2).
+            $rib['complet'] = strlen((string) $rib['code_banque']) === 5
+                && strlen((string) $rib['code_guichet']) === 5
+                && strlen((string) $rib['numero_compte_bancaire']) === 12
+                && strlen((string) $rib['cle_rib']) === 2;
             $data[$enseignant->id] = $rib;
         }
 
