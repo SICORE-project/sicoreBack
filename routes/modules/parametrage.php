@@ -16,6 +16,9 @@ use App\Http\Controllers\Api\Parametrage\PeriodePaieController;
 use App\Http\Controllers\Api\Parametrage\RubriquePaieController;
 use App\Http\Controllers\Api\Parametrage\SpecialiteController;
 use App\Http\Controllers\Api\Parametrage\SyndicatController;
+use App\Http\Controllers\Api\Parametrage\RegionController;
+use App\Http\Controllers\Api\Parametrage\DepartementController;
+use App\Http\Controllers\Api\Parametrage\CommuneController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('parametrage/lieux-service', [LieuServiceController::class, 'catalogue'])
@@ -37,10 +40,12 @@ Route::patch('parametrage/lieux-service/{lieuService}/statut', [LieuServiceContr
     ->middleware('permission:parametrage.lieux_service.manage');
 
 Route::post('parametrage/enseignants/{enseignant}/affectations', [AffectationLieuServiceController::class, 'store'])
+    ->middleware(\App\Http\Middleware\DrhPersonnelAccess::class)
     ->whereNumber('enseignant')
     ->middleware('permission:parametrage.lieux_service.manage');
 
 Route::post('enseignants/{enseignant}/affectations', [AffectationLieuServiceController::class, 'store'])
+    ->middleware(\App\Http\Middleware\DrhPersonnelAccess::class)
     ->whereNumber('enseignant')
     ->middleware('permission:parametrage.lieux_service.manage');
 
@@ -214,22 +219,14 @@ Route::prefix('periodes-paie')->group(function () {
 });
 
 Route::prefix('syndicats')->group(function () {
-    Route::get('/', [SyndicatController::class, 'index'])
-        ->middleware('permission:parametrage.syndicats.read');
-    Route::post('/', [SyndicatController::class, 'store'])
-        ->middleware('permission:parametrage.syndicats.manage');
-    Route::get('/{id}', [SyndicatController::class, 'show'])
-        ->whereNumber('id')->middleware('permission:parametrage.syndicats.read');
-    Route::put('/{id}', [SyndicatController::class, 'update'])
-        ->whereNumber('id')->middleware('permission:parametrage.syndicats.manage');
-    Route::patch('/{id}', [SyndicatController::class, 'update'])
-        ->whereNumber('id')->middleware('permission:parametrage.syndicats.manage');
-    Route::delete('/{id}', [SyndicatController::class, 'destroy'])
-        ->whereNumber('id')->middleware('permission:parametrage.syndicats.manage');
-    Route::patch('/{id}/activate', [SyndicatController::class, 'activate'])
-        ->whereNumber('id')->middleware('permission:parametrage.syndicats.manage');
-    Route::patch('/{id}/deactivate', [SyndicatController::class, 'deactivate'])
-        ->whereNumber('id')->middleware('permission:parametrage.syndicats.manage');
+    Route::get('/', [SyndicatController::class, 'index']) ->middleware('permission:parametrage.syndicats.read');
+    Route::post('/', [SyndicatController::class, 'store']) ->middleware('permission:parametrage.syndicats.manage');
+    Route::get('/{id}', [SyndicatController::class, 'show'])->whereNumber('id')->middleware('permission:parametrage.syndicats.read');
+    Route::put('/{id}', [SyndicatController::class, 'update'])->whereNumber('id')->middleware('permission:parametrage.syndicats.manage');
+    Route::patch('/{id}', [SyndicatController::class, 'update'])->whereNumber('id')->middleware('permission:parametrage.syndicats.manage');
+    Route::delete('/{id}', [SyndicatController::class, 'destroy'])->whereNumber('id')->middleware('permission:parametrage.syndicats.manage');
+    Route::patch('/{id}/activate', [SyndicatController::class, 'activate'])->whereNumber('id')->middleware('permission:parametrage.syndicats.manage');
+    Route::patch('/{id}/deactivate', [SyndicatController::class, 'deactivate'])->whereNumber('id')->middleware('permission:parametrage.syndicats.manage');
 });
 
 Route::prefix('iefs')->group(function () {
@@ -265,4 +262,13 @@ Route::prefix('specialites')->group(function () {
     Route::put('/{id}', [SpecialiteController::class, 'update'])->middleware('permission:parametrage.specialites.manage');
     Route::patch('/{id}/statut', [SpecialiteController::class, 'changeStatus'])->middleware('permission:parametrage.specialites.manage');
     Route::get('/actives', [SpecialiteController::class, 'actives'])->middleware('permission:parametrage.specialites.read');
+});
+
+Route::prefix('statuts-enseignant')->group(function () {
+    $controller = \App\Http\Controllers\Api\Parametrage\StatutEnseignantController::class;
+    Route::get('/', [$controller, 'index'])->middleware('permission:enseignants.create');
+    Route::get('/{id}', [$controller, 'show'])->whereNumber('id')->middleware('permission:enseignants.create');
+    Route::post('/', [$controller, 'store'])->middleware('role:admin,super_admin');
+    Route::put('/{id}', [$controller, 'update'])->whereNumber('id')->middleware('role:admin,super_admin');
+    Route::delete('/{id}', [$controller, 'destroy'])->whereNumber('id')->middleware('role:admin,super_admin');
 });

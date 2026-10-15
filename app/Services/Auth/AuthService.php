@@ -3,7 +3,7 @@
 namespace App\Services\Auth;
 
 use App\Mail\OtpMail;
-use App\Models\admin\User;
+use App\Models\Admin\User;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Validation\ValidationException;
@@ -30,7 +30,7 @@ class AuthService
 
 
         // ⚠️ Changement : on charge aussi les permissions du rôle
-        $user = User::with(['role.permissions', 'lieuService'])
+        $user = User::with(['role.permissions', 'lieuService', 'ia'])
             ->where('email',$identifier)
             ->first();
 
@@ -63,6 +63,10 @@ class AuthService
 
 
 
+        if (mb_strtolower((string) $user->role->slug) === 'drh') {
+            return response()->json(['message' => 'Le profil DRH ne dispose pas de compte de connexion.'], 403);
+        }
+
         // Nettoyage ancien token
         $user->tokens()
             ->where('name','sicore-ui')
@@ -75,6 +79,10 @@ class AuthService
             ->createToken('sicore-ui')
             ->plainTextToken;
 
+        UserPresence::touch($user);
+        $user->derniere_connexion = now();
+        $user->save();
+
 
 
         return response()->json([
@@ -85,7 +93,22 @@ class AuthService
 
             'token_type'=>'Bearer',
 
+            ...($user->hasRole('agent_decpc') ? [
+                'redirect_to' => '/decpc/dashboard',
+                'decpc' => app(\App\Services\Administration\DecpcDashboard::class)->context($user),
+            ] : []),
+
+            ...($user->isDrh() ? [
+                'redirect_to' => '/drh/dashboard',
+                'drh' => app(\App\Services\Administration\Personnel\DrhDashboard::class)->context($user),
+            ] : []),
+
+            ...($user->hasRole('gestionnaire_ia') ? [
+                'redirect_to' => '/dashboard',
+            ] : []),
+
             'user'=>[
+                'ia_id' => $user->ia_id,
                 'id'=>$user->id,
                 'nom'=>$user->nom,
                 'prenom'=>$user->prenom,
@@ -101,7 +124,11 @@ class AuthService
                     'id'=>$user->lieuService->id,
                     'type'=>$user->lieuService->type,
                     'libelle'=>$user->lieuService->libelle,
-                ] : null
+                ] : null,
+                'ia'=>$user->ia ? [
+                    'id'=>$user->ia->id,
+                    'libelle'=>$user->ia->libelle,
+                ] : null,
             ]
 
         ]);
@@ -116,6 +143,7 @@ class AuthService
      */
     public function logout($request)
     {
+        UserPresence::forget($request->user());
 
         $request
             ->user()
@@ -265,6 +293,7 @@ class AuthService
 
         // Invalider les anciennes connexions
         $user->tokens()->delete();
+        UserPresence::forget($user);
 
 
         // Retour de la réponse
@@ -438,6 +467,7 @@ class AuthService
         }
 
         $user->password = Hash::make($data['password']);
+        $user->password_changed_at = now();
         $user->save();
 
         DB::table('password_reset_otps')
@@ -446,6 +476,7 @@ class AuthService
 
         // Invalider les anciennes connexions
         $user->tokens()->delete();
+        UserPresence::forget($user);
 
         return response()->json([
             'message' => 'Mot de passe modifie avec succes. Vous pouvez maintenant vous connecter.',

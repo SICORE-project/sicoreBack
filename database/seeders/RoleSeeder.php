@@ -9,10 +9,24 @@ use App\Models\Admin\TypeRole;
 class RoleSeeder extends Seeder
 {
 
-   
+
     public function run(): void
     {
         $roles = [
+            [
+                'nom' => 'Agent DECPC',
+                'slug' => 'agent_decpc',
+                'description' => 'Personnel et indemnités dans le périmètre DECPC attribué',
+                'type_role_code' => 'gestion',
+                'est_actif' => true,
+            ],
+            [
+                'nom' => 'Agent DRH',
+                'slug' => 'agent_drh',
+                'description' => 'Consultation du personnel dans le périmètre attribué',
+                'type_role_code' => 'gestion',
+                'est_actif' => true,
+            ],
             [
                 'nom' => 'Super Administrateur',
                 'slug' => 'super_admin',
@@ -41,6 +55,7 @@ class RoleSeeder extends Seeder
                 'type_role_code' => 'gestion',
                 'est_actif' => true,
             ],
+
             [
                 'nom' => 'DECPC',
                 'slug' => 'decpc',
@@ -62,7 +77,7 @@ class RoleSeeder extends Seeder
             unset($role['type_role_code']);
 
             // Chercher par nom, si existe on met à jour
-            $existing = Role::where('nom', $role['nom'])->first();
+            $existing = Role::where('slug', $role['slug'])->first();
             if ($existing) {
                 $existing->update($role);
             } else {

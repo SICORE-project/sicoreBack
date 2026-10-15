@@ -42,9 +42,22 @@ Route::middleware(['auth:sanctum'])->group(function () {
         ->middleware('permission:parametrage.diplomes.manage');
 });
 
-Route::middleware(['auth:sanctum'])->group(function () {
+Route::middleware(['auth:sanctum', \App\Http\Middleware\TrackUserPresence::class])->group(function () {
+
+    Route::get('/dashboard', \App\Http\Controllers\Api\DashboardController::class);
+Route::middleware(['auth:sanctum', \App\Http\Middleware\TeacherPersonalAccess::class, \App\Http\Middleware\IaAccess::class, \App\Http\Middleware\DecpcAccess::class])->group(function () {
+
+    Route::prefix('enseignant')->middleware('role:enseignant')->group(function () {
+        Route::get('dossier', [\App\Http\Controllers\Api\TeacherPersonalController::class, 'profile']);
+        Route::get('bulletins', [\App\Http\Controllers\Api\TeacherPersonalController::class, 'payslips']);
+        Route::get('bulletins/{id}/pdf', [\App\Http\Controllers\Api\TeacherPersonalController::class, 'pdf'])->whereNumber('id');
+    });
 
     Route::get('/me', [AuthController::class, 'me']);
+
+    Route::get('/decpc/dashboard', function (\Illuminate\Http\Request $request) {
+        return response()->json(['data' => app(\App\Services\Administration\DecpcDashboard::class)->data($request->user())]);
+    })->middleware('role:agent_decpc');
 
     Route::post('/logout', [AuthController::class, 'logout']);
 
@@ -56,9 +69,17 @@ Route::middleware(['auth:sanctum'])->group(function () {
     */
 
     require __DIR__.'/modules/administration.php';
+    require __DIR__.'/modules/recruitment.php';
+    require __DIR__.'/modules/ia.php';
     require __DIR__.'/modules/parametrage.php';
-    require __DIR__.'/modules/indemnites.php';
+    Route::middleware(\App\Http\Middleware\DrhIndemnitesAccess::class)->group(function () {
+        require __DIR__.'/modules/indemnites.php';
+    });
     require __DIR__.'/modules/paie.php';
-    
 
+    Route::get('/drh/dashboard', \App\Http\Controllers\Api\DrhDashboardController::class)
+        ->middleware(['role:agent_drh,drh', 'permission:enseignants.read', \App\Http\Middleware\DrhPersonnelAccess::class]);
+    
 });
+});
+

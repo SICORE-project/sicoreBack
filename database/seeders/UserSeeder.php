@@ -2,10 +2,9 @@
 
 namespace Database\Seeders;
 
-use Illuminate\Database\Seeder;
-use App\Models\Admin\User;
 use App\Models\Admin\Role;
-use App\Models\Parametrage\LieuService;
+use App\Models\Admin\User;
+use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
 
 class UserSeeder extends Seeder
@@ -86,11 +85,17 @@ class UserSeeder extends Seeder
             $this->command?->warn('Aucun lieu de service de type IA : Fatou Fall reste sans rattachement.');
         }
 
-        foreach ($users as $user) {
-            User::updateOrCreate(
-                ['email' => $user['email']],
-                $user
-            );
-        }
+        // Seul le compte initial permettant d'accéder au CRUD est créé.
+        User::query()->firstOrCreate(['email' => 'mamadou.diop@sicore.sn'], [
+            'nom' => 'Diop',
+            'prenom' => 'Mamadou',
+            'password' => Hash::make('password'),
+            'role_id' => $role->id,
+            'statut' => 'actif',
+            'fonction' => 'Super Administrateur',
+            'genre' => 'masculin',
+            'must_change_password' => true,
+            'tentatives_connexion' => 0,
+        ]);
     }
 }

@@ -8,6 +8,7 @@ use App\Models\PayrollPeriod;
 use App\Models\PayrollRun;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Symfony\Component\HttpKernel\Exception\ConflictHttpException;
 
 class PayrollCalculationService
@@ -38,8 +39,9 @@ class PayrollCalculationService
                 );
             }
 
-            $incompleteStructuredProfiles = Enseignant::query()
-                ->where('actif', true)
+            $activeColumn = Schema::hasColumn('enseignants', 'est_actif') ? 'est_actif' : 'actif';
+            $incompleteProfilesQuery = Enseignant::query()
+                ->where($activeColumn, true)
                 ->whereIn('type_engagement', [
                     PayrollReferenceService::CONTRACTUEL,
                     PayrollReferenceService::VACATAIRE,
@@ -59,8 +61,11 @@ class PayrollCalculationService
                                         ->orWhereNull('payroll_category_level');
                                 });
                         });
-                })
-                ->count();
+                });
+            if (Schema::hasColumn('enseignants', 'deleted_at')) {
+                $incompleteProfilesQuery->whereNull('deleted_at');
+            }
+            $incompleteStructuredProfiles = $incompleteProfilesQuery->count();
 
             if ($incompleteStructuredProfiles > 0) {
                 throw new ConflictHttpException(sprintf(
@@ -69,12 +74,15 @@ class PayrollCalculationService
                 ));
             }
 
-            $enseignants = Enseignant::query()
+            $teachersQuery = Enseignant::query()
                 ->with(['user', 'institutionFinanciere', 'corps', 'etablissement'])
-                ->where('actif', true)
+                ->where($activeColumn, true)
                 ->where('salaire_base', '>', 0)
-                ->orderBy('id')
-                ->get();
+                ->orderBy('id');
+            if (Schema::hasColumn('enseignants', 'deleted_at')) {
+                $teachersQuery->whereNull('deleted_at');
+            }
+            $enseignants = $teachersQuery->get();
 
             if ($enseignants->isEmpty()) {
                 throw new ConflictHttpException(

@@ -159,6 +159,11 @@ class User extends Authenticatable
             ->pluck('slug')->all();
     }
 
+    public function isDrh(): bool
+    {
+        return in_array($this->role?->slug, ['drh', 'agent_drh'], true);
+    }
+
     public function hasPermission($permissionSlug)
     {
         if (!$this->role) return false;
