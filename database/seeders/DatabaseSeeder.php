@@ -10,10 +10,11 @@ class DatabaseSeeder extends Seeder
     {
         // Référentiels sans CRUD et initialisation des accès système uniquement.
         $this->call([
-            TypeRoleSeeder::class,
-            RoleSeeder::class,
-            PermissionSeeder::class,
-            RolePermissionSeeder::class,
+            // RegionSeeder::class,
+            // TypeRoleSeeder::class,
+            //RoleSeeder::class,
+            //PermissionSeeder::class,
+            //RolePermissionSeeder::class,
             UserSeeder::class,
         ]);
     }
