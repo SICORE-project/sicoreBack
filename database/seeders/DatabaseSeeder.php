@@ -8,8 +8,7 @@ class DatabaseSeeder extends Seeder
 {
     public function run(): void
     {
-        // Authentification uniquement : les référentiels et la paie sont
-        // alimentés par les CRUD des modules fusionnés, pas par des démos.
+        // Référentiels sans CRUD et initialisation des accès système uniquement.
         $this->call([
             TypeRoleSeeder::class,
             RoleSeeder::class,

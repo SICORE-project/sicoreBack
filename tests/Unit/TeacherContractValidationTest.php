@@ -40,6 +40,8 @@ class TeacherContractValidationTest extends TestCase
         });
         Schema::create('enseignants', function (Blueprint $table): void {
             $table->id();
+            $table->string('matricule')->nullable();
+            $table->string('indice')->nullable();
             $table->unsignedBigInteger('corps_id');
             $table->unsignedBigInteger('categorie_id')->nullable();
             $table->unsignedBigInteger('diplome_id')->nullable();

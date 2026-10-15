@@ -249,13 +249,14 @@ class PayrollActionService
             $academicYear = DB::table('annee_academiques')
                 ->where('id', (int) $data['annee_academique_id'])
                 ->first();
-            $corps = DB::table('corps_enseignant')
-                ->where('id', (int) $data['corps_id'])
+            $corps = DB::table('statuts_enseignant')
+                ->where('id', (int) $data['statut_enseignant_id'])
+                ->whereRaw("(LOWER(libelle) LIKE '%contractuel%' OR LOWER(libelle) LIKE '%vacataire%')")
                 ->first();
 
             if (! $academicYear || ! $corps) {
                 throw ValidationException::withMessages([
-                    'corps_id' => 'Le corps ou l’année académique sélectionné(e) n’est plus disponible.',
+                    'statut_enseignant_id' => 'Le statut enseignant ou l’année académique sélectionné(e) n’est plus disponible.',
                 ]);
             }
             if ((bool) $academicYear->est_cloturee) {
@@ -270,12 +271,11 @@ class PayrollActionService
                 : collect([(int) $data['month']]);
             $periods = $this->periodsForAcademicMonths($academicYear, $months, $code === 'TABASKI_RETENUE' ? 'months' : 'month');
 
-            $activeColumn = Schema::hasColumn('enseignants', 'est_actif') ? 'est_actif' : 'actif';
-            $corpsColumn = Schema::hasColumn('enseignants', 'corps_id') ? 'corps_id' : 'corps_enseignant_id';
+            $activeColumn = Schema::hasColumn('enseignants', 'actif') ? 'actif' : 'est_actif';
             $teachersQuery = Enseignant::query()
                 ->with('user')
                 ->where($activeColumn, true)
-                ->where($corpsColumn, (int) $corps->id)
+                ->where('statut_enseignant_id', (int) $corps->id)
                 ->where(function ($query) use ($iaIds): void {
                     if (Schema::hasColumn('enseignants', 'ia_id')) {
                         $query->whereIn('ia_id', $iaIds->all());
@@ -310,7 +310,7 @@ class PayrollActionService
 
             if ($teachers->isEmpty()) {
                 throw ValidationException::withMessages([
-                    'corps_id' => 'Aucun enseignant actif de ce corps ne correspond aux IA sélectionnées.',
+                    'statut_enseignant_id' => 'Aucun enseignant actif de ce statut ne correspond aux IA sélectionnées.',
                 ]);
             }
 
@@ -350,7 +350,8 @@ class PayrollActionService
                             'annee_academique_id' => (int) $academicYear->id,
                             'application_scope' => 'collective',
                             'application_reference' => $applicationReference,
-                            'application_corps_id' => (int) $corps->id,
+                            'application_corps_id' => null,
+                            'application_statut_enseignant_id' => (int) $corps->id,
                             'application_ia_id' => $this->teacherIaId($teacher),
                             'application_ief_id' => $this->teacherIefId($teacher),
                             'applied_at' => now(),
@@ -374,8 +375,8 @@ class PayrollActionService
                 'months' => $months->all(),
                 'academic_year' => $academicYear->libelle,
                 'annee_academique_id' => (int) $academicYear->id,
-                'corps_id' => (int) $corps->id,
-                'corps_code' => (string) $corps->code,
+                'statut_enseignant_id' => (int) $corps->id,
+                'statut_enseignant_code' => (string) $corps->code,
                 'ia_ids' => $iaIds->all(),
                 'amount' => round((float) $data['amount'], 2),
                 'affected_teachers' => $teachers->count(),

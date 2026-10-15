@@ -24,12 +24,15 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Enseignant extends Model
 {
+    use \App\Models\Concerns\HasTeacherEmploymentStatus;
+
     use HasFactory, SoftDeletes;
 
     protected $table = 'enseignants';
 
     protected $fillable = [
         'matricule',
+        'indice',
         'nom',
         'prenom',
         'date_naissance',
@@ -42,6 +45,7 @@ class Enseignant extends Model
         'photo',
 
         'situation_familiale_id',
+        'situation_matrimoniale',
         'est_en_couple',
         'nombre_enfants',
         'nombre_femmes',
@@ -89,6 +93,7 @@ class Enseignant extends Model
     ];
 
     protected $casts = [
+        'indice' => 'string',
         'est_actif' => 'boolean',
         'conjoint_travaille' => 'boolean',
 

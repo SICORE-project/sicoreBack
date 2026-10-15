@@ -111,6 +111,20 @@ class LieuServiceApiTest extends TestCase
             ->assertJsonPath('data.0.hierarchie_coherente', true);
     }
 
+    public function test_directions_are_excluded_from_establishments_without_deleting_them(): void
+    {
+        foreach (['DRH', 'DECPC', 'DAGE', 'CI'] as $code) {
+            DB::table('lieu_de_services')->insert(['code' => $code, 'libelle' => $code, 'type' => $code]);
+        }
+        $response = $this->getJson('/api/parametrage/lieux-service')->assertOk();
+        foreach (['DRH', 'DECPC', 'DAGE', 'CI'] as $code) {
+            $response->assertJsonMissing(['code' => $code]);
+            $this->assertDatabaseHas('lieu_de_services', ['code' => $code]);
+        }
+        $this->getJson('/api/parametrage/lieux-service?search=Plateau')->assertOk()->assertJsonCount(1, 'data');
+        $this->getJson('/api/parametrage/lieux-service?type=DECPC')->assertOk()->assertJsonPath('meta.total', 0);
+    }
+
     public function test_attached_teachers_prevent_reparenting_but_allow_name_and_phone_changes(): void
     {
         DB::table('enseignants')->where('id', 1)->update(['lieu_service_id' => 1, 'ia_id' => 1, 'ief_id' => 1]);

@@ -6,5 +6,17 @@ use Illuminate\Database\Eloquent\Model;
 
 class indemnites extends Model
 {
-    //
+    protected $fillable = [
+        'utilisateur_id', 'type_indemnite_id', 'bareme_id', 'montant', 'montant_base',
+        'frais_deplacement', 'montant_total', 'statut', 'nombre_copies', 'ordre_de_mission',
+        'lieu_affectation', 'indice', 'nombre_heures', 'nombre_kilometrages',
+        'valide_par', 'valide_at', 'commentaire_validation',
+    ];
+
+    protected $casts = [
+        'montant_total' => 'decimal:2',
+        'montant_base' => 'decimal:2',
+        'frais_deplacement' => 'decimal:2',
+        'valide_at' => 'datetime',
+    ];
 }

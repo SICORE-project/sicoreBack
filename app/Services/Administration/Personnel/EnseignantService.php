@@ -3,6 +3,7 @@
 namespace App\Services\Administration\Personnel;
 
 use App\Models\Personnel\Enseignant;
+use App\Models\PayrollAuditLog;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
 
@@ -99,10 +100,22 @@ class EnseignantService
                     );
             }
 
+            PayrollAuditLog::create([
+                'user_id' => $userId,
+                'action' => 'teacher.created',
+                'auditable_type' => Enseignant::class,
+                'auditable_id' => $enseignant->id,
+                'before' => null,
+                'after' => $enseignant->getAttributes(),
+                'ip_address' => request()->ip(),
+                'user_agent' => mb_substr((string) request()->userAgent(), 0, 500),
+            ]);
+
             return $enseignant->load([
                 'ia',
                 'ief',
                 'corps',
+                'statutEnseignant',
                 'categorie',
                 'discipline',
                 'diplome',
@@ -120,6 +133,7 @@ class EnseignantService
             'ia',
             'ief',
             'corps',
+            'statutEnseignant',
             'categorie',
             'discipline',
             'diplome',
@@ -155,13 +169,21 @@ class EnseignantService
         $enseignant->delete();
     }
 
-    public function paginate(int $perPage = 20, array $filters = [])
+    public function paginate(int $perPage = 20, array $filters = [], ?\App\Models\Admin\User $user = null)
     {
         $query = Enseignant::query();
+        if ($user?->hasRole('agent_decpc')) {
+            app(\App\Services\Administration\DecpcScope::class)->apply($query, $user);
+        }
+        if ($user?->isDrh()) {
+            app(DrhScope::class)->apply($query, $user);
+        }
         foreach (preg_split('/\s+/u', trim($filters['search'] ?? ''), -1, PREG_SPLIT_NO_EMPTY) as $term) {
-            $query->where(function ($names) use ($term) {
+            $query->where(function ($identity) use ($term) {
                 $value = '%'.mb_strtolower($term).'%';
-                $names->whereRaw('LOWER(prenom) LIKE ?', [$value])->orWhereRaw('LOWER(nom) LIKE ?', [$value]);
+                $identity->whereRaw('LOWER(prenom) LIKE ?', [$value])
+                    ->orWhereRaw('LOWER(nom) LIKE ?', [$value])
+                    ->orWhereRaw('LOWER(matricule) LIKE ?', [$value]);
             });
         }
         foreach (['prenom', 'nom'] as $field) {
@@ -169,13 +191,14 @@ class EnseignantService
                 $query->whereRaw('LOWER('.$field.') LIKE ?', ['%'.mb_strtolower(trim($filters[$field])).'%']);
             }
         }
-        foreach (['corps_id', 'diplome_id', 'ia_id', 'ief_id'] as $field) {
+        foreach (['statut_enseignant_id', 'corps_id', 'diplome_id', 'ia_id', 'ief_id'] as $field) {
             if (!empty($filters[$field])) { $query->where($field, $filters[$field]); }
         }
         return $query->with([
                 'ia',
                 'ief',
                 'corps',
+                'statutEnseignant',
                 'categorie',
                 'discipline',
                 'diplome',

@@ -9,6 +9,8 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Enseignant extends Model
 {
+    use \App\Models\Concerns\HasTeacherEmploymentStatus;
+
     protected $table = 'enseignants';
 
     protected $guarded = [];
@@ -45,7 +47,12 @@ class Enseignant extends Model
 
     public function corps(): BelongsTo
     {
-        return $this->belongsTo(corps_enseignants::class, 'corps_id');
+        return $this->belongsTo(\App\Models\Parametrage\CorpsEnseignant::class, 'corps_id');
+    }
+
+    public function statutEnseignant(): BelongsTo
+    {
+        return $this->belongsTo(\App\Models\Parametrage\StatutEnseignant::class, 'statut_enseignant_id');
     }
 
     public function etablissement(): BelongsTo

@@ -69,7 +69,7 @@ class UserController extends Controller
             'prenom' => 'required|string|max:50',
             'email' => 'required|email|unique:users',
             'password' => 'required|string|min:8|confirmed',
-            'role_id' => 'nullable|exists:roles,id',
+            'role_id' => ['nullable', \Illuminate\Validation\Rule::exists('roles', 'id')->where(fn ($query) => $query->whereRaw('LOWER(slug) <> ?', ['drh']))],
             'statut' => 'nullable|in:actif,inactif,bloque',
             'fonction' => 'nullable|string|max:100',
             'genre' => 'nullable|in:masculin,feminin,non_precise',
@@ -141,7 +141,7 @@ class UserController extends Controller
             'prenom' => 'nullable|string|max:50',
             'email' => 'nullable|email|unique:users,email,' . $id,
             'password' => 'nullable|string|min:8|confirmed',
-            'role_id' => 'nullable|exists:roles,id',
+            'role_id' => ['nullable', \Illuminate\Validation\Rule::exists('roles', 'id')->where(fn ($query) => $query->whereRaw('LOWER(slug) <> ?', ['drh']))],
             'statut' => 'nullable|in:actif,inactif,bloque',
             'fonction' => 'nullable|string|max:100',
             'genre' => 'nullable|in:masculin,feminin,non_precise',
@@ -215,7 +215,7 @@ class UserController extends Controller
         }
 
         $validator = Validator::make($request->all(), [
-            'role_id' => 'required|exists:roles,id',
+            'role_id' => ['required', \Illuminate\Validation\Rule::exists('roles', 'id')->where(fn ($query) => $query->whereRaw('LOWER(slug) <> ?', ['drh']))],
         ]);
 
         if ($validator->fails()) {
