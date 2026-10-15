@@ -41,6 +41,7 @@ class UserSeeder extends Seeder
         $ief ??= $services->first(fn (LieuService $lieu) => strtoupper((string) $lieu->type) === 'IEF');
 
         $users = [
+
             // === Super Administrateur ===
             [
                 'nom' => 'Diop',
@@ -66,6 +67,7 @@ class UserSeeder extends Seeder
                 'must_change_password' => false,
                 'tentatives_connexion' => 0,
             ],
+            
             // === Administrateur ===
             [
                 'nom' => 'Ndiaye',

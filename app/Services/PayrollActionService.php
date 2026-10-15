@@ -259,6 +259,11 @@ class PayrollActionService
                     'statut_enseignant_id' => 'Le statut enseignant ou l’année académique sélectionné(e) n’est plus disponible.',
                 ]);
             }
+            if ((bool) $academicYear->est_cloturee) {
+                throw ValidationException::withMessages([
+                    'annee_academique_id' => 'Cette année académique est clôturée. Sélectionnez une année non clôturée.',
+                ]);
+            }
 
             $iaIds = collect($data['ia_ids'])->map(fn (mixed $id): int => (int) $id)->unique()->sort()->values();
             $months = $code === 'TABASKI_RETENUE'
@@ -276,14 +281,26 @@ class PayrollActionService
                         $query->whereIn('ia_id', $iaIds->all());
                     }
 
+                    if (Schema::hasColumn('enseignants', 'ief_id')) {
+                        $query->orWhereIn('ief_id', DB::table('iefs')
+                            ->whereIn('ia_id', $iaIds->all())
+                            ->select('id'));
+                    }
+
                     if (Schema::hasTable('etablissements')) {
-                        $method = Schema::hasColumn('enseignants', 'ia_id') ? 'orWhereHas' : 'whereHas';
-                        $query->{$method}('etablissement.ief', fn ($iefQuery) => $iefQuery->whereIn('iefs.ia_id', $iaIds->all()));
+                        $query->orWhereHas('etablissement.ief', fn ($iefQuery) => $iefQuery->whereIn('iefs.ia_id', $iaIds->all()));
                     }
                 });
 
+            if (Schema::hasColumn('enseignants', 'deleted_at')) {
+                $teachersQuery->whereNull('deleted_at');
+            }
+
             if (Schema::hasTable('etablissements')) {
                 $teachersQuery->with('etablissement.ief');
+            }
+            if (Schema::hasTable('iefs')) {
+                $teachersQuery->with('ief');
             }
 
             $teachers = $teachersQuery
@@ -298,10 +315,10 @@ class PayrollActionService
             }
 
             $applicationReference = sprintf(
-                '%s-AY%d-%s-IA%s-M%s',
+                '%s-AY%d-C%d-IA%s-M%s',
                 $code,
                 (int) $academicYear->id,
-                strtoupper((string) $corps->code),
+                (int) $corps->id,
                 substr(hash('sha256', $iaIds->implode(',')), 0, 10),
                 $months->map(fn (int $month): string => str_pad((string) $month, 2, '0', STR_PAD_LEFT))->implode('-')
             );
@@ -382,9 +399,16 @@ class PayrollActionService
 
     private function teacherForHierarchy(array $data): Enseignant
     {
-        $query = Enseignant::query()->where('actif', true);
+        $activeColumn = Schema::hasColumn('enseignants', 'est_actif') ? 'est_actif' : 'actif';
+        $query = Enseignant::query()->where($activeColumn, true);
+        if (Schema::hasColumn('enseignants', 'deleted_at')) {
+            $query->whereNull('deleted_at');
+        }
         if (Schema::hasTable('etablissements')) {
             $query->with('etablissement.ief');
+        }
+        if (Schema::hasTable('iefs')) {
+            $query->with('ief');
         }
 
         $teacher = $query->findOrFail($data['enseignant_id']);
@@ -397,6 +421,9 @@ class PayrollActionService
     {
         if (Schema::hasTable('etablissements')) {
             $teacher->loadMissing('etablissement.ief');
+        }
+        if (Schema::hasTable('iefs')) {
+            $teacher->loadMissing('ief');
         }
 
         if (
@@ -609,10 +636,19 @@ class PayrollActionService
             ->keyBy('code');
         $missing = $codesByMonth->values()->reject(fn (string $code): bool => $periodsByCode->has($code));
 
-        if ($missing->isNotEmpty()) {
-            throw ValidationException::withMessages([
-                $field => 'Créez d’abord les périodes de paie suivantes : '.$missing->implode(', ').'.',
-            ]);
+        // Les périodes internes de paie sont créées à la demande, jamais par
+        // un seeder de démonstration. Une période existante fermée reste protégée.
+        foreach ($missing as $code) {
+            $month = CarbonImmutable::parse($code.'-01');
+            $periodsByCode->put($code, PayrollPeriod::query()->firstOrCreate(
+                ['code' => $code],
+                [
+                    'label' => ucfirst($month->locale('fr')->translatedFormat('F Y')),
+                    'start_date' => $month->startOfMonth()->toDateString(),
+                    'end_date' => $month->endOfMonth()->toDateString(),
+                    'status' => PayrollPeriod::STATUS_OPEN,
+                ]
+            ));
         }
 
         return $wanted->map(function (int $month) use ($codesByMonth, $periodsByCode): PayrollPeriod {
@@ -625,6 +661,12 @@ class PayrollActionService
         $id = $teacher->getAttribute('ia_id');
         if ($id === null && $teacher->relationLoaded('etablissement')) {
             $id = $teacher->etablissement?->ief?->ia_id;
+        }
+        if ($id === null && $teacher->relationLoaded('ief')) {
+            $id = $teacher->ief?->ia_id;
+        }
+        if ($id === null && ! $teacher->relationLoaded('ief') && $this->teacherIefId($teacher) !== null) {
+            $id = DB::table('iefs')->where('id', $this->teacherIefId($teacher))->value('ia_id');
         }
 
         return $id === null ? null : (int) $id;

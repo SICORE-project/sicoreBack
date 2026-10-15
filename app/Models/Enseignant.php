@@ -60,6 +60,11 @@ class Enseignant extends Model
         return $this->belongsTo(etablissements::class, 'etablissement_id');
     }
 
+    public function ief(): BelongsTo
+    {
+        return $this->belongsTo(iefs::class, 'ief_id');
+    }
+
     public function attendances(): HasMany
     {
         return $this->hasMany(PayrollAttendance::class);
