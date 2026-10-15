@@ -20,6 +20,10 @@ class RoleMiddleware
         }
 
 
+        if (in_array('admin', $roles, true)) {
+            $roles[] = 'administrateur';
+        }
+
         if (! $user->role || ! in_array($user->role->slug, $roles, true)) {
 
             return response()->json([

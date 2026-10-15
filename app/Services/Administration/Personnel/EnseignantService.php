@@ -129,7 +129,7 @@ class EnseignantService
 
     public function find(int $id): Enseignant
     {
-        return Enseignant::with([
+        return Enseignant::visibleTo(auth()->user())->with([
             'ia',
             'ief',
             'corps',
@@ -171,13 +171,7 @@ class EnseignantService
 
     public function paginate(int $perPage = 20, array $filters = [], ?\App\Models\Admin\User $user = null)
     {
-        $query = Enseignant::query();
-        if ($user?->hasRole('agent_decpc')) {
-            app(\App\Services\Administration\DecpcScope::class)->apply($query, $user);
-        }
-        if ($user?->isDrh()) {
-            app(DrhScope::class)->apply($query, $user);
-        }
+        $query = Enseignant::query()->visibleTo(auth()->user());
         foreach (preg_split('/\s+/u', trim($filters['search'] ?? ''), -1, PREG_SPLIT_NO_EMPTY) as $term) {
             $query->where(function ($identity) use ($term) {
                 $value = '%'.mb_strtolower($term).'%';

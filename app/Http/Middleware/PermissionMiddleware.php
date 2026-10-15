@@ -8,7 +8,7 @@ use Symfony\Component\HttpFoundation\Response;
 
 class PermissionMiddleware
 {
-    public function handle(Request $request, Closure $next, string $permission): Response
+    public function handle(Request $request, Closure $next, string ...$permissions): Response
     {
         $user = $request->user();
 
@@ -25,11 +25,14 @@ class PermissionMiddleware
             return $next($request);
         }
 
-        if (!$user->hasPermission($permission)) {
+        // Plusieurs permissions déclarées = au moins une suffit.
+        $allowed = collect($permissions)->contains(fn ($p) => $user->hasPermission($p));
+
+        if (!$allowed) {
             return response()->json([
                 'success' => false,
                 'message' => 'Vous ne disposez pas de cette permission.',
-                'required_permission' => $permission
+                'required_permission' => implode(' | ', $permissions)
             ], 403);
         }
 

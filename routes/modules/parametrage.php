@@ -132,63 +132,68 @@ Route::prefix('lieux-service')->group(function () {
  * Routes for the Corps resource.
  */
 Route::prefix('corps')->group(function () {
-    Route::get('/', [CorpsController::class, 'index'])->middleware('permission:enseignants.create');
-    Route::get('/{id}', [CorpsController::class, 'show'])->whereNumber('id')->middleware('permission:enseignants.create');
-    Route::post('/', [CorpsController::class, 'store'])->middleware('role:admin,super_admin');
-    Route::put('/{id}', [CorpsController::class, 'update'])->whereNumber('id')->middleware('role:admin,super_admin');
-    Route::patch('/{id}', [CorpsController::class, 'update'])->whereNumber('id')->middleware('role:admin,super_admin');
-    Route::delete('/{id}', [CorpsController::class, 'destroy'])->whereNumber('id')->middleware('role:admin,super_admin');
+    Route::get('/', [CorpsController::class, 'index'])->middleware('permission:enseignants.create,parametrage.corps.read');
+    Route::get('/{id}', [CorpsController::class, 'show'])->whereNumber('id')->middleware('permission:enseignants.create,parametrage.corps.read');
+    Route::post('/', [CorpsController::class, 'store'])->middleware('permission:parametrage.corps.manage');
+    Route::put('/{id}', [CorpsController::class, 'update'])->whereNumber('id')->middleware('permission:parametrage.corps.manage');
+    Route::patch('/{id}', [CorpsController::class, 'update'])->whereNumber('id')->middleware('permission:parametrage.corps.manage');
+    Route::delete('/{id}', [CorpsController::class, 'destroy'])->whereNumber('id')->middleware('permission:parametrage.corps.manage');
 });
 
 Route::prefix('grades')->group(function () {
-    Route::get('/', [GradeController::class, 'index'])->middleware('permission:enseignants.create');
-    Route::get('/{id}', [GradeController::class, 'show'])->whereNumber('id')->middleware('permission:enseignants.create');
-    Route::post('/', [GradeController::class, 'store'])->middleware('role:admin,super_admin');
-    Route::match(['put', 'patch'], '/{id}', [GradeController::class, 'update'])->whereNumber('id')->middleware('role:admin,super_admin');
-    Route::delete('/{id}', [GradeController::class, 'destroy'])->whereNumber('id')->middleware('role:admin,super_admin');
+    Route::get('/', [GradeController::class, 'index'])->middleware('permission:enseignants.create,parametrage.corps.read');
+    Route::get('/{id}', [GradeController::class, 'show'])->whereNumber('id')->middleware('permission:enseignants.create,parametrage.corps.read');
+    Route::post('/', [GradeController::class, 'store'])->middleware('permission:parametrage.corps.manage');
+    Route::match(['put', 'patch'], '/{id}', [GradeController::class, 'update'])->whereNumber('id')->middleware('permission:parametrage.corps.manage');
+    Route::delete('/{id}', [GradeController::class, 'destroy'])->whereNumber('id')->middleware('permission:parametrage.corps.manage');
 });
 
-Route::prefix('parametrage/disciplines')->middleware('role:admin,super_admin')->group(function () {
-    Route::get('/', [SpecialiteEnseignantController::class, 'index']);
-    Route::post('/', [SpecialiteEnseignantController::class, 'store']);
-    Route::get('/{discipline}', [SpecialiteEnseignantController::class, 'show'])->whereNumber('discipline');
-    Route::put('/{discipline}', [SpecialiteEnseignantController::class, 'update'])->whereNumber('discipline');
-    Route::patch('/{discipline}/statut', [SpecialiteEnseignantController::class, 'updateStatus'])->whereNumber('discipline');
-    Route::delete('/{discipline}', [SpecialiteEnseignantController::class, 'destroy'])->whereNumber('discipline');
+Route::prefix('parametrage/disciplines')->group(function () {
+    Route::get('/', [SpecialiteEnseignantController::class, 'index'])->middleware('permission:parametrage.disciplines.read');
+    Route::post('/', [SpecialiteEnseignantController::class, 'store'])->middleware('permission:parametrage.disciplines.manage');
+    Route::get('/{discipline}', [SpecialiteEnseignantController::class, 'show'])->whereNumber('discipline')->middleware('permission:parametrage.disciplines.read');
+    Route::put('/{discipline}', [SpecialiteEnseignantController::class, 'update'])->whereNumber('discipline')->middleware('permission:parametrage.disciplines.manage');
+    Route::patch('/{discipline}/statut', [SpecialiteEnseignantController::class, 'updateStatus'])->whereNumber('discipline')->middleware('permission:parametrage.disciplines.manage');
+    Route::delete('/{discipline}', [SpecialiteEnseignantController::class, 'destroy'])->whereNumber('discipline')->middleware('permission:parametrage.disciplines.manage');
 });
 
 Route::prefix('categories')->group(function () {
-    Route::get('/', [CategorieController::class, 'index'])->middleware('permission:enseignants.create');
-    Route::get('/{id}', [CategorieController::class, 'show'])->whereNumber('id')->middleware('permission:enseignants.create');
-    Route::post('/', [CategorieController::class, 'store'])->middleware('role:admin,super_admin');
-    Route::match(['put', 'patch'], '/{id}', [CategorieController::class, 'update'])->whereNumber('id')->middleware('role:admin,super_admin');
-    Route::delete('/{id}', [CategorieController::class, 'destroy'])->whereNumber('id')->middleware('role:admin,super_admin');
+    Route::get('/', [CategorieController::class, 'index'])->middleware('permission:enseignants.create,parametrage.categories.read');
+    Route::get('/{id}', [CategorieController::class, 'show'])->whereNumber('id')->middleware('permission:enseignants.create,parametrage.categories.read');
+    Route::post('/', [CategorieController::class, 'store'])->middleware('permission:parametrage.categories.manage');
+    Route::match(['put', 'patch'], '/{id}', [CategorieController::class, 'update'])->whereNumber('id')->middleware('permission:parametrage.categories.manage');
+    Route::delete('/{id}', [CategorieController::class, 'destroy'])->whereNumber('id')->middleware('permission:parametrage.categories.manage');
 });
 
-Route::prefix('annees-academiques')->middleware('role:admin,super_admin')->group(function () {
-    Route::get('/', [AnneeAcademiqueController::class, 'index']);
-    Route::post('/', [AnneeAcademiqueController::class, 'store']);
-    Route::get('/{id}', [AnneeAcademiqueController::class, 'show'])->whereNumber('id');
-    Route::match(['put', 'patch'], '/{id}', [AnneeAcademiqueController::class, 'update'])->whereNumber('id');
-    Route::delete('/{id}', [AnneeAcademiqueController::class, 'destroy'])->whereNumber('id');
-    Route::patch('/{id}/activate', [AnneeAcademiqueController::class, 'activate'])->whereNumber('id');
-    Route::patch('/{id}/deactivate', [AnneeAcademiqueController::class, 'deactivate'])->whereNumber('id');
-    Route::patch('/{id}/close', [AnneeAcademiqueController::class, 'close'])->whereNumber('id');
+Route::prefix('annees-academiques')->group(function () {
+    Route::get('/', [AnneeAcademiqueController::class, 'index'])->middleware('permission:parametrage.annees_academiques.read');
+    Route::post('/', [AnneeAcademiqueController::class, 'store'])->middleware('permission:parametrage.annees_academiques.manage');
+    Route::get('/{id}', [AnneeAcademiqueController::class, 'show'])->whereNumber('id')->middleware('permission:parametrage.annees_academiques.read');
+    Route::match(['put', 'patch'], '/{id}', [AnneeAcademiqueController::class, 'update'])->whereNumber('id')->middleware('permission:parametrage.annees_academiques.manage');
+    Route::delete('/{id}', [AnneeAcademiqueController::class, 'destroy'])->whereNumber('id')->middleware('permission:parametrage.annees_academiques.manage');
+    Route::patch('/{id}/activate', [AnneeAcademiqueController::class, 'activate'])->whereNumber('id')->middleware('permission:parametrage.annees_academiques.manage');
+    Route::patch('/{id}/deactivate', [AnneeAcademiqueController::class, 'deactivate'])->whereNumber('id')->middleware('permission:parametrage.annees_academiques.manage');
+    Route::patch('/{id}/close', [AnneeAcademiqueController::class, 'close'])->whereNumber('id')->middleware('permission:parametrage.annees_academiques.manage');
 });
 
 Route::prefix('parametrage/institutions-financieres')->group(function (): void {
-    Route::get('/', [InstitutFinancierController::class, 'index']);
+    Route::get('/', [InstitutFinancierController::class, 'index'])
+        ->middleware('permission:parametrage.institutions_financieres.read');
 
-    Route::post('/', [InstitutFinancierController::class, 'store']);
+    Route::post('/', [InstitutFinancierController::class, 'store'])
+        ->middleware('permission:parametrage.institutions_financieres.manage');
 
     Route::put('/{institution}', [InstitutFinancierController::class, 'update'])
-        ->whereNumber('institution');
+        ->whereNumber('institution')
+        ->middleware('permission:parametrage.institutions_financieres.manage');
 
     Route::patch('/{institution}/statut', [InstitutFinancierController::class, 'updateStatut'])
-        ->whereNumber('institution');
+        ->whereNumber('institution')
+        ->middleware('permission:parametrage.institutions_financieres.manage');
 
     Route::delete('/{institution}', [InstitutFinancierController::class, 'destroy'])
-        ->whereNumber('institution');
+        ->whereNumber('institution')
+        ->middleware('permission:parametrage.institutions_financieres.manage');
 });
 
 /*
@@ -197,20 +202,20 @@ Route::prefix('parametrage/institutions-financieres')->group(function (): void {
 |--------------------------------------------------------------------------
 | Gestion du référentiel des gains et retenues utilisés dans la paie.
 */
-Route::prefix('rubriques-paie')->middleware('role:admin,super_admin')->group(function () {
-    Route::get('/', [RubriquePaieController::class, 'index']);
-    Route::post('/', [RubriquePaieController::class, 'store']);
-    Route::get('/{id}', [RubriquePaieController::class, 'show'])->whereNumber('id');
-    Route::match(['put', 'patch'], '/{id}', [RubriquePaieController::class, 'update'])->whereNumber('id');
-    Route::delete('/{id}', [RubriquePaieController::class, 'destroy'])->whereNumber('id');
+Route::prefix('rubriques-paie')->group(function () {
+    Route::get('/', [RubriquePaieController::class, 'index'])->middleware('permission:paie.rubriques.read');
+    Route::post('/', [RubriquePaieController::class, 'store'])->middleware('permission:paie.rubriques.manage');
+    Route::get('/{id}', [RubriquePaieController::class, 'show'])->whereNumber('id')->middleware('permission:paie.rubriques.read');
+    Route::match(['put', 'patch'], '/{id}', [RubriquePaieController::class, 'update'])->whereNumber('id')->middleware('permission:paie.rubriques.manage');
+    Route::delete('/{id}', [RubriquePaieController::class, 'destroy'])->whereNumber('id')->middleware('permission:paie.rubriques.manage');
 });
 
-Route::prefix('periodes-paie')->middleware('role:admin,super_admin')->group(function () {
-    Route::get('/', [PeriodePaieController::class, 'index']);
-    Route::post('/', [PeriodePaieController::class, 'store']);
-    Route::get('/{id}', [PeriodePaieController::class, 'show'])->whereNumber('id');
-    Route::match(['put', 'patch'], '/{id}', [PeriodePaieController::class, 'update'])->whereNumber('id');
-    Route::delete('/{id}', [PeriodePaieController::class, 'destroy'])->whereNumber('id');
+Route::prefix('periodes-paie')->group(function () {
+    Route::get('/', [PeriodePaieController::class, 'index'])->middleware('permission:parametrage.periodes_paie.read');
+    Route::post('/', [PeriodePaieController::class, 'store'])->middleware('permission:parametrage.periodes_paie.manage');
+    Route::get('/{id}', [PeriodePaieController::class, 'show'])->whereNumber('id')->middleware('permission:parametrage.periodes_paie.read');
+    Route::match(['put', 'patch'], '/{id}', [PeriodePaieController::class, 'update'])->whereNumber('id')->middleware('permission:parametrage.periodes_paie.manage');
+    Route::delete('/{id}', [PeriodePaieController::class, 'destroy'])->whereNumber('id')->middleware('permission:parametrage.periodes_paie.manage');
 });
 
 Route::prefix('syndicats')->group(function () {
@@ -230,7 +235,7 @@ Route::prefix('iefs')->group(function () {
     Route::get('/{id}', [IefController::class, 'show'])->whereNumber('id')->middleware('permission:parametrage.ief.read');
     Route::put('/{id}', [IefController::class, 'update'])->whereNumber('id')->middleware('permission:parametrage.ief.manage');
     Route::patch('/{id}/ia', [IefController::class, 'rattacherIa'])->whereNumber('id')->middleware('permission:parametrage.ief.manage');
-    Route::delete('/{id}', [IefController::class, 'destroy'])->whereNumber('id')->middleware('role:admin,super_admin');
+    Route::delete('/{id}', [IefController::class, 'destroy'])->whereNumber('id')->middleware('permission:parametrage.ief.delete');
 });
 
 /*
@@ -246,7 +251,9 @@ Route::prefix('ias')->group(function () {
     Route::post('/', [IaController::class, 'store'])->middleware('permission:parametrage.ia.manage');
     Route::get('/{id}', [IaController::class, 'show'])->whereNumber('id')->middleware('permission:parametrage.ia.read');
     Route::put('/{id}', [IaController::class, 'update'])->whereNumber('id')->middleware('permission:parametrage.ia.manage');
-    Route::delete('/{id}', [IaController::class, 'destroy'])->whereNumber('id')->middleware('role:admin,super_admin');
+    Route::delete('/{id}', [IaController::class, 'destroy'])
+        ->whereNumber('id')
+        ->middleware('permission:parametrage.ia.delete');
 });
 
 Route::prefix('specialites')->group(function () {

@@ -51,6 +51,8 @@ class ConvocationWordTemplateService
         'Prénom' => 'prenom',
         'Nom' => 'nom',
         'Fonction (Correction ou Surveillant)' => 'fonction',
+        // Intitulé court des anciens modèles.
+        'Fonction' => 'fonction',
         'Catégorie de personnel (Fonctionnaire, Contractuelle, Vacataire)' => 'categorie_personnel',
         'Provenance' => 'provenance',
 
@@ -136,7 +138,7 @@ class ConvocationWordTemplateService
 
         if ($tableInfos) {
             $colonnes = $this->mapperColonnes($tableInfos, self::CHAMPS_INFOS);
-            $lignes = $this->lireLignesDonnees($tableInfos, $colonnes);
+            $lignes = $this->lireLignesDonnees($tableInfos, $colonnes, self::CHAMPS_INFOS);
 
            
             if (! empty($lignes)) {
@@ -147,7 +149,7 @@ class ConvocationWordTemplateService
         if ($tableCentre) {
             $colonnes = $this->mapperColonnes($tableCentre, self::CHAMPS_CENTRE);
 
-            foreach ($this->lireLignesDonnees($tableCentre, $colonnes) as $ligne) {
+            foreach ($this->lireLignesDonnees($tableCentre, $colonnes, self::CHAMPS_CENTRE) as $ligne) {
                 $centre = $this->resoudreCentre($ligne, $avertissements);
 
                 if ($centre) {
@@ -159,7 +161,7 @@ class ConvocationWordTemplateService
         if ($tableMembre) {
             $colonnes = $this->mapperColonnes($tableMembre, self::CHAMPS_MEMBRE);
 
-            foreach ($this->lireLignesDonnees($tableMembre, $colonnes) as $ligne) {
+            foreach ($this->lireLignesDonnees($tableMembre, $colonnes, self::CHAMPS_MEMBRE) as $ligne) {
                 $membre = $this->resoudreMembre($ligne, $avertissements);
 
                 if ($membre) {
@@ -248,12 +250,14 @@ class ConvocationWordTemplateService
      * @param  array<int, string>  $colonnes  index de colonne => champ interne
      * @return array<int, array<string, string>> une entrée par ligne : champ interne => valeur brute
      */
-    private function lireLignesDonnees(WordTable $table, array $colonnes): array
+    private function lireLignesDonnees(WordTable $table, array $colonnes, array $champs): array
     {
         $donnees = [];
+        // Un modèle plus ancien peut ne pas avoir toutes les colonnes : celles qui manquent valent ''.
+        $parDefaut = array_fill_keys(array_values($champs), '');
 
         foreach (array_slice($table->getRows(), 1) as $ligne) {
-            $valeurs = $this->lireLigne($ligne, $colonnes);
+            $valeurs = array_merge($parDefaut, $this->lireLigne($ligne, $colonnes));
 
             if (count(array_filter($valeurs, fn ($v) => $v !== '')) > 0) {
                 $donnees[] = $valeurs;
