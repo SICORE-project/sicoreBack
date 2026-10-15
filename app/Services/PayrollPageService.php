@@ -1078,7 +1078,6 @@ class PayrollPageService
         ];
     }
 
-    /** @return array<string, mixed> */
  /** @return array<string, mixed> */
 private function notGeneratedReport(?PayrollPeriod $period): array
 {
