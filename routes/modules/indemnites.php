@@ -53,6 +53,7 @@ Route::get('indemnites/{id}/frais', [IndemnitesController::class, 'listeFrais'])
 |--------------------------------------------------------------------------
 */
 
+Route::get('enseignants/coordonnees-bancaires', [EnseignantsController::class, 'coordonneesBancaires'])->middleware('permission:indemnites.read');
 Route::get('enseignants', [EnseignantsController::class, 'index'])->middleware('permission:convocations.read,indemnites.read');
 
 
@@ -193,6 +194,7 @@ Route::get('accuses-reception/{id}/consulter', [AccuseReceptionController::class
 // interceptée par la route "show" (GET frais-deplacement/{id}) — liste des
 // bénéficiaires d'une convocation dont le dossier de pièces justificatives
 // est complet (seuls ceux-là peuvent recevoir une fiche de déplacement).
+Route::get('frais-deplacement/beneficiaires-eligibles-lot', [FraisDeplacementController::class, 'beneficiairesEligiblesLot'])->middleware('permission:indemnites.read');
 Route::get('frais-deplacement/beneficiaires-eligibles', [FraisDeplacementController::class, 'beneficiairesEligibles'])->middleware('permission:indemnites.read');
 
 Route::apiResource('frais-deplacement', FraisDeplacementController::class)->only(['index', 'show'])->middleware('permission:indemnites.read');
@@ -224,6 +226,7 @@ Route::get('frais-deplacement/{id}/download', [FraisDeplacementPdfController::cl
 |--------------------------------------------------------------------------
 */
 
+Route::get('indemnite-correction/correcteurs-eligibles-lot', [IndemniteCorrectionController::class, 'correcteursEligiblesLot'])->middleware('permission:indemnites.read');
 Route::get('indemnite-correction/correcteurs-eligibles', [IndemniteCorrectionController::class, 'correcteursEligibles'])->middleware('permission:indemnites.read');
 Route::post('indemnite-correction/calculer-groupe', [IndemniteCorrectionController::class, 'calculerGroupe'])->middleware('permission:indemnites.manage');
 
@@ -234,6 +237,7 @@ Route::post('indemnite-correction/calculer-groupe', [IndemniteCorrectionControll
 |--------------------------------------------------------------------------
 */
 
+Route::get('indemnite-surveillance/surveillants-eligibles-lot', [IndemniteSurveillanceController::class, 'surveillantsEligiblesLot'])->middleware('permission:indemnites.read');
 Route::get('indemnite-surveillance/surveillants-eligibles', [IndemniteSurveillanceController::class, 'surveillantsEligibles'])->middleware('permission:indemnites.read');
 Route::post('indemnite-surveillance/calculer-groupe', [IndemniteSurveillanceController::class, 'calculerGroupe'])->middleware('permission:indemnites.manage');
 
@@ -246,6 +250,7 @@ Route::post('indemnite-surveillance/calculer-groupe', [IndemniteSurveillanceCont
 
 // Routes à 2 segments déclarées AVANT apiResource() pour ne pas être
 // interceptées par la route "show" (GET etat-paie-indemnites/{id})
+Route::post('etat-paie-indemnites/fiche-pdf', [EtatPaieIndemnitesController::class, 'fichePdf'])->middleware('permission:indemnites.read');
 Route::get('etat-paie-indemnites/individuels', [EtatPaieIndemnitesController::class, 'individuels'])->middleware('permission:indemnites.read');
 Route::get('etat-paie-indemnites/consolides', [EtatPaieIndemnitesController::class, 'consolides'])->middleware('permission:indemnites.read');
 Route::get('etat-paie-indemnites/export', [EtatPaieIndemnitesController::class, 'export'])->middleware('permission:indemnites.read');
