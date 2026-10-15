@@ -1079,61 +1079,66 @@ class PayrollPageService
     }
 
     /** @return array<string, mixed> */
-    private function notGeneratedReport(?PayrollPeriod $period): array
-    {
-        $items = $period
-            ? $this->scopedTeachers()
-                ->with(['user', 'corps', 'institutionFinanciere'])
-                ->where(Schema::hasColumn('enseignants', 'actif') ? 'actif' : 'est_actif', true)
-                ->whereDoesntHave('payslips', fn (Builder $query) => $query->where('payroll_period_id', $period->id))
-                ->limit(200);
-            if (Schema::hasColumn('enseignants', 'deleted_at')) {
-                $query->whereNull('deleted_at');
-            }
-            $items = $query->get();
+ /** @return array<string, mixed> */
+private function notGeneratedReport(?PayrollPeriod $period): array
+{
+    $items = collect();
+
+    if ($period) {
+        $query = $this->scopedTeachers()
+            ->with(['user', 'corps', 'institutionFinanciere'])
+            ->where(Schema::hasColumn('enseignants', 'actif') ? 'actif' : 'est_actif', true)
+            ->whereDoesntHave('payslips', fn (Builder $query) => $query->where('payroll_period_id', $period->id))
+            ->limit(200);
+
+        if (Schema::hasColumn('enseignants', 'deleted_at')) {
+            $query->whereNull('deleted_at');
         }
 
-        return [
-            'columns' => ['Matricule', 'Enseignant', 'État du profil', 'Engagement', 'Corps', 'Salaire de base', 'Banque', 'Situation du bulletin', 'Actions'],
-            'rows' => $items->map(fn (Enseignant $teacher): array => [
-                $teacher->matricule ?: '—',
-                $this->teacherName($teacher),
-                $teacher->payroll_profile_configured_at
-                    ? ['value' => 'Profil configuré', 'badge' => 'active']
-                    : ['value' => 'À configurer', 'badge' => 'pending'],
-                match ($teacher->type_engagement) {
-                    'contractuel' => 'Professeur contractuel',
-                    'vacataire' => 'Vacataire',
-                    default => 'Non renseigné',
-                },
-                $teacher->corps?->libelle ?? 'Non renseigné',
-                $this->money($teacher->salaire_base),
-                $teacher->institutionFinanciere?->nom ?? 'Non renseignée',
-                $this->payrollProfileReason($teacher),
-                $this->actionCell(
-                    $teacher->payroll_profile_configured_at ? 'Modifier le profil' : 'Configurer',
-                    'configure-teacher-payroll', [
-                        'enseignant_id' => $teacher->id,
-                    ]),
-            ])->values(),
-            'actions' => [
-                $this->action('Configurer un formateur', 'configure-teacher-payroll', 'primary'),
-                $this->exportAction(),
-            ],
-            'stats' => [
-                $this->stat('Non générés', $items->count(), 'Enseignants actifs', 'NG', 'red'),
-                $this->stat('Profils à configurer', $items->whereNull('payroll_profile_configured_at')->count(), 'Donnée bloquante', 'FC', 'yellow'),
-                $this->stat('Sans banque', $items->whereNull('institution_financiere_id')->count(), 'Coordonnées manquantes', 'BQ', 'blue'),
-                $this->stat('À traiter', $items->count(), 'Profil ou calcul de paie', 'CT', 'green'),
-            ],
-            'notice' => $period
-                ? sprintf(
-                    'Paie non générée pour %s : un profil configuré reste visible jusqu’à la génération de son bulletin.',
-                    $period->label
-                )
-                : 'Sélectionnez un mois de paie pour identifier les bulletins non générés.',
-        ];
+        $items = $query->get();
     }
+
+    return [
+        'columns' => ['Matricule', 'Enseignant', 'État du profil', 'Engagement', 'Corps', 'Salaire de base', 'Banque', 'Situation du bulletin', 'Actions'],
+        'rows' => $items->map(fn (Enseignant $teacher): array => [
+            $teacher->matricule ?: '—',
+            $this->teacherName($teacher),
+            $teacher->payroll_profile_configured_at
+                ? ['value' => 'Profil configuré', 'badge' => 'active']
+                : ['value' => 'À configurer', 'badge' => 'pending'],
+            match ($teacher->type_engagement) {
+                'contractuel' => 'Professeur contractuel',
+                'vacataire' => 'Vacataire',
+                default => 'Non renseigné',
+            },
+            $teacher->corps?->libelle ?? 'Non renseigné',
+            $this->money($teacher->salaire_base),
+            $teacher->institutionFinanciere?->nom ?? 'Non renseignée',
+            $this->payrollProfileReason($teacher),
+            $this->actionCell(
+                $teacher->payroll_profile_configured_at ? 'Modifier le profil' : 'Configurer',
+                'configure-teacher-payroll', [
+                    'enseignant_id' => $teacher->id,
+                ]),
+        ])->values(),
+        'actions' => [
+            $this->action('Configurer un formateur', 'configure-teacher-payroll', 'primary'),
+            $this->exportAction(),
+        ],
+        'stats' => [
+            $this->stat('Non générés', $items->count(), 'Enseignants actifs', 'NG', 'red'),
+            $this->stat('Profils à configurer', $items->whereNull('payroll_profile_configured_at')->count(), 'Donnée bloquante', 'FC', 'yellow'),
+            $this->stat('Sans banque', $items->whereNull('institution_financiere_id')->count(), 'Coordonnées manquantes', 'BQ', 'blue'),
+            $this->stat('À traiter', $items->count(), 'Profil ou calcul de paie', 'CT', 'green'),
+        ],
+        'notice' => $period
+            ? sprintf(
+                'Paie non générée pour %s : un profil configuré reste visible jusqu’à la génération de son bulletin.',
+                $period->label
+            )
+            : 'Sélectionnez un mois de paie pour identifier les bulletins non générés.',
+    ];
+}
 
     /** @return array<string, mixed> */
     private function paidReport(?PayrollPeriod $period): array

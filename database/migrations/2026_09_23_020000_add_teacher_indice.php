@@ -8,11 +8,21 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::table('enseignants', fn (Blueprint $table) => $table->unsignedInteger('indice')->nullable());
+        // Vérifier si la colonne existe déjà avant de l'ajouter
+        if (!Schema::hasColumn('enseignants', 'indice')) {
+            Schema::table('enseignants', function (Blueprint $table) {
+                $table->unsignedInteger('indice')->nullable();
+            });
+        }
     }
 
     public function down(): void
     {
-        Schema::table('enseignants', fn (Blueprint $table) => $table->dropColumn('indice'));
+        // Vérifier si la colonne existe avant de la supprimer
+        if (Schema::hasColumn('enseignants', 'indice')) {
+            Schema::table('enseignants', function (Blueprint $table) {
+                $table->dropColumn('indice');
+            });
+        }
     }
 };
