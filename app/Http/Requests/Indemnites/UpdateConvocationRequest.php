@@ -16,7 +16,7 @@ class UpdateConvocationRequest extends FormRequest
         return [
             'type_convocation_id' => ['nullable', 'integer', 'exists:types_convocation,id'],
             'date_emission' => ['sometimes', 'date'],
-            'date_debut' => ['nullable', 'date'],
+            'date_debut' => ['nullable', 'date', $this->has('date_emission') ? 'after_or_equal:date_emission' : 'nullable'],
             'date_fin' => ['nullable', 'date', 'after_or_equal:date_debut'],
             'heure_debut' => ['nullable', 'date_format:H:i'],
             'objet' => ['sometimes', 'string', 'max:255'],
@@ -27,6 +27,14 @@ class UpdateConvocationRequest extends FormRequest
             'lieu_affectation' => ['nullable', 'string', 'max:255'],
             'statut' => ['nullable', 'in:brouillon,emise,envoyee,cloturee'],
             'utilisateur_id' => ['sometimes', 'integer', 'exists:users,id'],
+        ];
+    }
+
+    public function messages(): array
+    {
+        return [
+            'date_debut.after_or_equal' => "La période de l'examen ne peut pas commencer avant la date d'émission.",
+            'date_fin.after_or_equal' => 'La fin de la période ne peut pas être antérieure à son début.',
         ];
     }
 }

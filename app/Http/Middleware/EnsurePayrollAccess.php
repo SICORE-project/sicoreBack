@@ -11,11 +11,14 @@ class EnsurePayrollAccess
     public function handle(Request $request, Closure $next, string $level = 'read'): Response
     {
         $user = $request->user()?->loadMissing('role');
-        $role = $user?->role?->slug;
-        $roles = (array) config("payroll.{$level}_roles", []);
-        $ability = "payroll:{$level}";
+        $permission = match ($level) {
+            'close' => 'paie.bulletins.validate',
+            'write' => 'paie.bulletins.generate',
+            default => 'paie.bulletins.read',
+        };
+        $allowed = $user && ($user->hasRole('super_admin') || $user->hasPermission($permission));
 
-        if (! $user || ! in_array($role, $roles, true) || ! $user->tokenCan($ability)) {
+        if (! $allowed) {
             abort(403, 'Vous ne disposez pas de l’autorisation requise pour cette opération de paie.');
         }
 

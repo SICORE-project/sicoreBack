@@ -6,132 +6,50 @@ use App\Models\Admin\Permission;
 use App\Models\Admin\Role;
 use Illuminate\Database\Seeder;
 
+/**
+ * Permissions PAR DÉFAUT des profils de base. Les profils créés ensuite dans
+ * l'interface reçoivent leurs permissions depuis l'écran Profils / Rôles.
+ * Le seeder AJOUTE les permissions par défaut manquantes sans jamais en retirer :
+ * les réglages faits dans l'interface sont conservés.
+ */
 class RolePermissionSeeder extends Seeder
 {
     public function run(): void
     {
-        $agentDrh = Role::where('slug', 'agent_drh')->first();
-        if ($agentDrh) {
-            $agentDrh->permissions()->syncWithoutDetaching(
-                Permission::where('slug', 'enseignants.read')->pluck('id')->all()
-            );
-        }
-        // Récupérer les rôles
-        $superAdmin = Role::where('slug', 'super_admin')->first();
-        $admin = Role::where('slug', 'admin')->first();
-        $parametreur = Role::where('slug', 'parametreur')->first();
-        $gestionnaireIa = Role::where('slug', 'gestionnaire_ia')->first();
-        $gestionnaireIef = Role::where('slug', 'gestionnaire_ief')->first();
-        $drh = Role::where('slug', 'drh')->first();
-        $decpc = Role::where('slug', 'decpc')->first();
-        $gestionnairePaie = Role::where('slug', 'gestionnaire_paie')->first();
-        $gestionnaireBudget = Role::where('slug', 'gestionnaire_budget')->first();
-        $consultant = Role::where('slug', 'consultant')->first();
+        $set = fn (string $slug, array $perms) => Role::whereIn('slug', $slug === 'admin' ? ['admin', 'administrateur'] : [$slug])->first()
+            ?->permissions()->syncWithoutDetaching(Permission::whereIn('slug', $perms)->pluck('id')->all());
 
-        // Récupérer toutes les permissions
-        $allPermissions = Permission::pluck('id')->toArray();
+        $groupes = fn (array $g) => Permission::whereIn('groupe', $g)->pluck('slug')->all();
 
-        // === SUPER ADMIN : toutes les permissions ===
-        if ($superAdmin) {
-            $superAdmin->permissions()->sync($allPermissions);
-        }
+        // Référentiels en lecture seule, nécessaires aux formulaires enseignants
+        $referentiels = [
+            'parametrage.corps.read', 'parametrage.categories.read', 'parametrage.diplomes.read',
+            'parametrage.specialites.read', 'parametrage.syndicats.read',
+            'parametrage.institutions_financieres.read', 'parametrage.lieux_service.read',
+            'parametrage.centres_formation.read',
+        ];
 
-        // === ADMIN ===
-        if ($admin) {
-            $adminPermissions = Permission::whereIn('groupe', ['administration', 'parametrage', 'personnel'])->pluck('id')->toArray();
-            $admin->permissions()->sync($adminPermissions);
-        }
+        // SUPER ADMIN : tout
+        $set('super_admin', Permission::pluck('slug')->all());
 
-        // === PARAMÉTREUR ===
-        // if ($parametreur) {
-        //     $paramPermissions = Permission::where('groupe', 'parametrage')->pluck('id')->toArray();
-        //     $parametreur->permissions()->sync($paramPermissions);
-        // }
+        // ADMIN : administration, paramétrage, personnel, indemnités, paie (national)
+        $set('admin', $groupes(['administration', 'parametrage', 'personnel', 'indemnites', 'paie']));
 
-        // === GESTIONNAIRE IA ===
-        if ($gestionnaireIa) {
-            $iaPermissions = Permission::whereIn('slug', [
-                'enseignants.read',
-                'enseignants.create',
-                'enseignants.update',
-                'enseignants.validate',
-                'enseignants.comptes_bancaires.manage',
-                'paie.bulletins.read',
-                'paie.bulletins.export',
-                'paie.sommes_percues.read',
-                'paie.etat_salaires.read',
-                'paie.cotisations.read',
-                'paie.effectifs_ief.read',
-                'paie.recap_banque.read',
-            ])->pluck('id')->toArray();
-            $gestionnaireIa->permissions()->sync($iaPermissions);
-        }
+        // GESTIONNAIRE IA : enseignants et IEF de SON IA (périmètre = ia_id de l'utilisateur)
+        $set('gestionnaire_ia', array_merge($referentiels, [
+            'parametrage.ia.read', 'parametrage.ief.read', 'parametrage.ief.manage',
+            'enseignants.read', 'enseignants.create', 'enseignants.update', 'enseignants.validate',
+            'enseignants.search', 'enseignants.export', 'enseignants.comptes_bancaires.manage',
+        ]));
 
-        // === GESTIONNAIRE IEF ===
-        if ($gestionnaireIef) {
-            $iefPermissions = Permission::whereIn('slug', [
-                'parametrage.ief.read',
-                'enseignants.read',
-                'enseignants.create',
-                'enseignants.update',
-                'enseignants.comptes_bancaires.manage',
-            ])->pluck('id')->toArray();
-            $gestionnaireIef->permissions()->sync($iefPermissions);
-        }
+        // DECPC : gère entièrement les convocations et les pièces justificatives
+        $set('decpc', array_merge($referentiels, [
+            'pieces.read', 'pieces.manage', 'pieces.validate', 'convocations.read', 'convocations.manage',
+            'parametrage.ia.read', 'parametrage.ief.read',
+            'enseignants.read', 'enseignants.search',
+        ]));
 
-        // === DRH ===
-        if ($drh) {
-            $drhPermissions = Permission::whereIn('slug', [
-                'enseignants.read',
-                'enseignants.create',
-                'enseignants.update',
-                'enseignants.delete',
-                'enseignants.validate',
-                'enseignants.export',
-                'enseignants.search',
-                'enseignants.comptes_bancaires.manage',
-            ])->pluck('id')->toArray();
-            $drh->permissions()->sync($drhPermissions);
-        }
-
-        // === DECPC ===
-        if ($decpc) {
-            $decpcPermissions = Permission::whereIn('slug', [
-                'indemnites.read',
-                'indemnites.manage',
-                'indemnites.validate',
-            ])->pluck('id')->toArray();
-            $decpc->permissions()->syncWithoutDetaching($decpcPermissions);
-        }
-
-        // === GESTIONNAIRE PAIE ===
-        if ($gestionnairePaie) {
-            $paiePermissions = Permission::where('groupe', 'paie')->pluck('id')->toArray();
-            $gestionnairePaie->permissions()->sync($paiePermissions);
-        }
-
-        // === GESTIONNAIRE BUDGET ===
-        if ($gestionnaireBudget) {
-            $budgetPermissions = Permission::where('groupe', 'budget')->pluck('id')->toArray();
-            $gestionnaireBudget->permissions()->sync($budgetPermissions);
-        }
-
-        // === CONSULTANT ===
-        if ($consultant) {
-            $consultPermissions = Permission::where('action', 'read')->pluck('id')->toArray();
-            $consultant->permissions()->sync($consultPermissions);
-        }
-
-        // === ENSEIGNANT ===
-        $enseignant = Role::where('slug', 'enseignant')->first();
-        if ($enseignant) {
-            $enseignantPermissions = Permission::whereIn('slug', [
-                'paie.bulletins.read',
-                'paie.bulletins.export',
-            ])->pluck('id')->toArray();
-            $enseignant->permissions()->sync($enseignantPermissions);
-        }
-        $this->call(RecruitmentPermissionSeeder::class);
-        $this->call(AgentDecpcSeeder::class);
+        // ENSEIGNANT : uniquement ses propres bulletins
+        $set('enseignant', ['paie.mes_bulletins.read']);
     }
 }

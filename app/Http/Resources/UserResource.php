@@ -64,6 +64,14 @@ class UserResource extends JsonResource
                 'slug' => $this->role?->slug,
             ],
 
+            'permissions' => $this->permissionSlugs(),
+
+            'ia_id' => $this->ia_id,
+
+            'ief_id' => $this->ief_id,
+
+            'acces_organisationnel' => $this->perimetre(),
+
             'lieu_service' => $this->lieuService ? [
                 'id' => $this->lieuService->id,
                 'code' => $this->lieuService->code,

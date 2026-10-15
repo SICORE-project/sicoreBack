@@ -37,7 +37,7 @@ class RoleSeeder extends Seeder
             [
                 'nom' => 'Administrateur',
                 'slug' => 'admin',
-                'description' => 'Gestion de l\'application et des utilisateurs',
+                'description' => 'DAGE',
                 'type_role_code' => 'admin',
                 'est_actif' => true,
             ],
@@ -59,19 +59,17 @@ class RoleSeeder extends Seeder
             [
                 'nom' => 'DECPC',
                 'slug' => 'decpc',
-                'description' => 'Planification, organisation et supervision des examens, concours professionnels et certifications (CAP, BEP, BT, BTS et CPS), ainsi que délivrance des diplômes et attestations correspondants',
+                'description' => 'Choix des participants aux examens et envoi de la liste de convocation à la DAGE',
                 'type_role_code' => 'gestion',
                 'est_actif' => true,
             ],
-
             [
                 'nom' => 'Enseignant',
                 'slug' => 'enseignant',
-                'description' => 'Enseignement et gestion des cours',
+                'description' => 'Consultation de son propre dossier et de ses bulletins',
                 'type_role_code' => 'consultation',
                 'est_actif' => true,
             ],
-
         ];
 
         foreach ($roles as $role) {
