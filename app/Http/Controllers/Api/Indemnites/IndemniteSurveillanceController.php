@@ -119,4 +119,23 @@ class IndemniteSurveillanceController extends Controller
             ['creees' => $creees, 'erreurs' => $erreurs]
         );
     }
+
+    /**
+     * Même résultat que surveillantsEligibles() pour plusieurs convocations en un seul appel :
+     * [convocation_id => données]. Évite un aller-retour réseau par convocation.
+     */
+    public function surveillantsEligiblesLot(Request $request)
+    {
+        $resultat = [];
+
+        foreach ($this->identifiantsConvocations($request) as $id) {
+            $reponse = $this->surveillantsEligibles(new Request(['convocation_id' => $id]));
+
+            if ($reponse->getStatusCode() === 200) {
+                $resultat[$id] = $reponse->getData(true)['data'] ?? null;
+            }
+        }
+
+        return $this->success('Surveillants éligibles par convocation.', $resultat);
+    }
 }

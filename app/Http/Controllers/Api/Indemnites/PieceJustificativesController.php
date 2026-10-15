@@ -32,6 +32,11 @@ class PieceJustificativesController extends Controller
             $query->where('convocation_id', $request->query('convocation_id'));
         }
 
+        // Plusieurs convocations à la fois (liste par défaut de la page Pièces justificatives).
+        if ($request->filled('convocation_ids')) {
+            $query->whereIn('convocation_id', $this->identifiantsConvocations($request));
+        }
+
         // Necessaire a la page front "Pieces justificatives" : le dossier
         // se consulte TOUJOURS pour un membre precis d'une convocation
         // (PiecesJustificativesController::recupererDossier() cote front,

@@ -48,7 +48,7 @@ class FraisDeplacementController extends Controller
 
     private const SEUIL_INDICE_GROUPE_I = 2296;
 
-    private const SEUIL_INDICE_GROUPE_II = 1728;
+    private const SEUIL_INDICE_GROUPE_II = 1729;
 
     private const SEUIL_SALAIRE_ANNUEL_GROUPE_I = 24294500;
 
@@ -264,6 +264,14 @@ class FraisDeplacementController extends Controller
         // formulaire ET on la mémorise sur l'enseignant, pour ne plus avoir
         // à la ressaisir la prochaine fois.
         $statutAgent = $this->categoriePersonnelEnseignant($convocation, $enseignant) ?? $request->validated('statut_agent');
+
+        if ($statutAgent === null) {
+            return $this->error(
+                "Le type de bénéficiaire (fonctionnaire, contractuel ou vacataire) n'est pas renseigné pour cette personne. Renseignez sa catégorie de personnel dans la convocation, puis recommencez.",
+                422
+            );
+        }
+
         $indiceAgent = null;
 
         if ($statutAgent === 'fonctionnaire') {
@@ -328,7 +336,6 @@ class FraisDeplacementController extends Controller
             'declare_par' => $request->user()?->id,
             'grade_emploi' => $request->validated('grade_emploi'),
             'lieu_depart' => $request->validated('lieu_depart'),
-            'heure_depart' => $request->validated('heure_depart'),
             'lieu_destination' => $request->validated('lieu_destination'),
             'motif' => $request->validated('motif'),
             'date_depart' => $request->validated('date_depart'),
@@ -501,7 +508,6 @@ class FraisDeplacementController extends Controller
         $mission->update([
             'grade_emploi' => $request->validated('grade_emploi'),
             'lieu_depart' => $request->validated('lieu_depart'),
-            'heure_depart' => $request->validated('heure_depart'),
             'lieu_destination' => $request->validated('lieu_destination'),
             'motif' => $request->validated('motif'),
             'date_depart' => $request->validated('date_depart'),
@@ -714,6 +720,11 @@ class FraisDeplacementController extends Controller
 
         if (! $mission) {
             return $this->error('Fiche de déplacement introuvable.', 404);
+        }
+
+        // Une fiche déjà validée, remboursée ou clôturée ne repasse pas à « validée ».
+        if (in_array($mission->statut, ['valide', 'rembourse', 'cloture'], true)) {
+            return $this->error('Cette fiche est déjà validée, remboursée ou clôturée.', 422);
         }
 
         $mission->update([
@@ -1061,5 +1072,24 @@ class FraisDeplacementController extends Controller
             'depose_par' => $deposeParId,
             'commentaire' => $commentaire,
         ]);
+    }
+
+    /**
+     * Même résultat que beneficiairesEligibles() pour plusieurs convocations en un seul appel :
+     * [convocation_id => données]. Évite un aller-retour réseau par convocation.
+     */
+    public function beneficiairesEligiblesLot(Request $request)
+    {
+        $resultat = [];
+
+        foreach ($this->identifiantsConvocations($request) as $id) {
+            $reponse = $this->beneficiairesEligibles(new Request(['convocation_id' => $id]));
+
+            if ($reponse->getStatusCode() === 200) {
+                $resultat[$id] = $reponse->getData(true)['data'] ?? null;
+            }
+        }
+
+        return $this->success('Bénéficiaires éligibles par convocation.', $resultat);
     }
 }
