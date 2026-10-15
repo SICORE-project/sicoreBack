@@ -14,6 +14,12 @@ class EtatPaieIndemnitesController extends Controller
 {
     use ApiResponseTrait;
 
+    private const TYPES = [
+        'frais_deplacement' => 'Frais de déplacement',
+        'indemnite_correction' => 'Indemnité de correction',
+        'indemnite_surveillance' => 'Indemnité de surveillance',
+    ];
+
     /** Liste des états de paie, filtrable par type, session, centre (lieu d'examen) et objet. */
     public function index(Request $request)
     {
@@ -66,9 +72,57 @@ class EtatPaieIndemnitesController extends Controller
             return $this->error('Cet état de paie est verrouillé.', 423);
         }
 
+        if ($etat->statut !== 'brouillon') {
+            return $this->error('Seul un état de paie en brouillon peut être supprimé.', 422);
+        }
+
         $etat->delete();
 
         return $this->success('État de paie supprimé avec succès.');
+    }
+
+    /** Brouillon → validé par la DAGE : l'état est alors verrouillé (plus de suppression). */
+    public function valider(Request $request, string $id)
+    {
+        return $this->changerStatut($id, 'brouillon', 'valide', "Seul un état en brouillon peut être validé.", [
+            'verrouille' => true,
+            'valide_par' => $request->user()?->id,
+            'valide_at' => now(),
+        ], 'État de paie validé.');
+    }
+
+    /** Validé → transmis (au service de paie). */
+    public function transmettre(string $id)
+    {
+        return $this->changerStatut($id, 'valide', 'transmis', "Seul un état validé peut être transmis.", [
+            'transmit_sica' => true,
+        ], 'État de paie transmis.');
+    }
+
+    /** Transmis → archivé. */
+    public function archiver(Request $request, string $id)
+    {
+        return $this->changerStatut($id, 'transmis', 'archive', "Seul un état transmis peut être archivé.", [
+            'archive_par' => $request->user()?->id,
+            'archive_at' => now(),
+        ], 'État de paie archivé.');
+    }
+
+    private function changerStatut(string $id, string $statutRequis, string $nouveau, string $refus, array $champs, string $message)
+    {
+        $etat = etat_paie_indemnites::find($id);
+
+        if (! $etat) {
+            return $this->error('État de paie introuvable.', 404);
+        }
+
+        if ($etat->statut !== $statutRequis) {
+            return $this->error($refus, 422);
+        }
+
+        $etat->update($champs + ['statut' => $nouveau]);
+
+        return $this->success($message, $etat);
     }
 
     /** Fiche PDF d'un tableau de membres (sans rien enregistrer). */
@@ -93,6 +147,34 @@ class EtatPaieIndemnitesController extends Controller
         return response($pdf->output(), 200, [
             'Content-Type' => 'application/pdf',
             'Content-Disposition' => 'inline; filename="etat-de-paiement.pdf"',
+        ]);
+    }
+
+    /** PDF d'un état de paie enregistré, tel qu'il a été figé à sa création. */
+    public function pdf(string $id)
+    {
+        $etat = etat_paie_indemnites::find($id);
+
+        if (! $etat) {
+            return $this->error('État de paie introuvable.', 404);
+        }
+
+        $pdf = Pdf::loadView('pdf.etat-paie-fiche', [
+            'typeLibelle' => self::TYPES[$etat->type] ?? $etat->type,
+            'objet' => $etat->perimetre['objet'] ?? null,
+            'session' => $etat->session,
+            'centre' => $etat->lieu_examen,
+            'details' => $etat->details ?? [],
+            'reference' => $etat->reference,
+            'statut' => $etat->statut,
+            'periode' => ($etat->periode_debut && $etat->periode_fin)
+                ? $etat->periode_debut->format('d/m/Y') . ' au ' . $etat->periode_fin->format('d/m/Y')
+                : null,
+        ]);
+
+        return response($pdf->output(), 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'inline; filename="etat-de-paie-' . $etat->reference . '.pdf"',
         ]);
     }
 

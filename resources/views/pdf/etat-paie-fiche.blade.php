@@ -18,11 +18,18 @@
 </head>
 <body>
     <h1>État de paiement — {{ $typeLibelle }}</h1>
-    <p class="meta">Édité le {{ now()->format('d/m/Y') }}</p>
+    <p class="meta">
+        @if (! empty($reference)) Référence {{ $reference }} · @endif
+        @if (! empty($statut)) Statut : {{ ucfirst($statut) }} · @endif
+        Édité le {{ now()->format('d/m/Y') }}
+    </p>
 
     <table class="info">
         <tr><td class="label">Objet</td><td>{{ $objet ?: '—' }}</td></tr>
         <tr><td class="label">Session</td><td>{{ $session ?: '—' }}</td></tr>
+        @if (! empty($periode))
+            <tr><td class="label">Période</td><td>{{ $periode }}</td></tr>
+        @endif
         <tr><td class="label">Centre</td><td>{{ $centre ?: 'Tous les centres' }}</td></tr>
     </table>
 
