@@ -257,16 +257,11 @@ Route::post('indemnite-surveillance/calculer-groupe', [IndemniteSurveillanceCont
 // Routes à 2 segments déclarées AVANT apiResource() pour ne pas être
 // interceptées par la route "show" (GET etat-paie-indemnites/{id})
 Route::post('etat-paie-indemnites/fiche-pdf', [EtatPaieIndemnitesController::class, 'fichePdf'])->middleware('permission:indemnites.read');
-Route::get('etat-paie-indemnites/individuels', [EtatPaieIndemnitesController::class, 'individuels'])->middleware('permission:indemnites.read');
-Route::get('etat-paie-indemnites/consolides', [EtatPaieIndemnitesController::class, 'consolides'])->middleware('permission:indemnites.read');
-Route::get('etat-paie-indemnites/export', [EtatPaieIndemnitesController::class, 'export'])->middleware('permission:indemnites.read');
-Route::get('etat-paie-indemnites/historique', [EtatPaieIndemnitesController::class, 'historique'])->middleware('permission:indemnites.read');
 
 Route::apiResource('etat-paie-indemnites', EtatPaieIndemnitesController::class)->only(['index', 'show'])->middleware('permission:indemnites.read');
-Route::apiResource('etat-paie-indemnites', EtatPaieIndemnitesController::class)->except(['index', 'show'])->middleware('permission:indemnites.manage');
+Route::apiResource('etat-paie-indemnites', EtatPaieIndemnitesController::class)->only(['store', 'destroy'])->middleware('permission:indemnites.manage');
 
 Route::get('etat-paie-indemnites/{id}/pdf', [EtatPaieIndemnitesController::class, 'pdf'])->middleware('permission:indemnites.read');
-Route::get('etat-paie-indemnites/{id}/preview', [EtatPaieIndemnitesController::class, 'preview'])->middleware('permission:indemnites.read');
 
 Route::post('etat-paie-indemnites/{id}/valider', [EtatPaieIndemnitesController::class, 'valider'])->middleware('permission:indemnites.validate');
 Route::post('etat-paie-indemnites/{id}/archiver', [EtatPaieIndemnitesController::class, 'archiver'])->middleware('permission:indemnites.validate');
