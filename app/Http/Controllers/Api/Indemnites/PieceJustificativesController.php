@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\Indemnites;
 
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\Api\Indemnites\Concerns\ApiResponseTrait;
+use App\Http\Controllers\Api\Indemnites\Concerns\RefuseDepotAvantFinExamen;
 use App\Http\Requests\Indemnites\StorePieceJustificativeRequest;
 use App\Http\Requests\Indemnites\UpdatePieceJustificativeRequest;
 use App\Http\Requests\Indemnites\DeposerPieceJustificativeRequest;
@@ -19,6 +20,7 @@ use Illuminate\Support\Facades\Storage;
 class PieceJustificativesController extends Controller
 {
     use ApiResponseTrait;
+    use RefuseDepotAvantFinExamen;
 
     public function index(Request $request)
     {
@@ -59,6 +61,10 @@ class PieceJustificativesController extends Controller
 
     public function store(StorePieceJustificativeRequest $request)
     {
+        if ($refus = $this->refusDepot($request->input('convocation_id'))) {
+            return $refus;
+        }
+
         $piece = $this->enregistrerPiece($request);
 
         return $this->success('Pièce justificative créée avec succès.', $piece, 201);
@@ -110,6 +116,10 @@ class PieceJustificativesController extends Controller
      */
     public function deposer(DeposerPieceJustificativeRequest $request)
     {
+        if ($refus = $this->refusDepot($request->input('convocation_id'))) {
+            return $refus;
+        }
+
         $piece = $this->enregistrerPiece($request);
 
         return $this->success('Pièce justificative déposée avec succès.', $piece, 201);
@@ -126,6 +136,10 @@ class PieceJustificativesController extends Controller
      */
     public function deposerLot(DeposerLotPiecesJustificativesRequest $request)
     {
+        if ($refus = $this->refusDepot($request->input('convocation_id'))) {
+            return $refus;
+        }
+
         $convocationId = (int) $request->validated('convocation_id');
         $enseignantId = (int) $request->validated('enseignant_id');
         $centreId = $request->validated('centre_id');
