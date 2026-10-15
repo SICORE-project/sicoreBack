@@ -31,6 +31,9 @@ return [
     ['nom' => 'Consulter les pièces justificatives', 'slug' => 'pieces.read', 'groupe' => 'indemnites', 'module' => 'pieces', 'action' => 'read'],
     ['nom' => 'Valider ou rejeter les pièces justificatives', 'slug' => 'pieces.validate', 'groupe' => 'indemnites', 'module' => 'pieces', 'action' => 'validate'],
 
+    // === SYSTÈME (profil Admin System) ===
+    ['nom' => 'Importer les données de base', 'slug' => 'systeme.import', 'groupe' => 'systeme', 'module' => 'import', 'action' => 'import'],
+
     // === PAIE ===
     ['nom' => 'Générer les bulletins de paie', 'slug' => 'paie.bulletins.generate', 'groupe' => 'paie', 'module' => 'bulletins', 'action' => 'generate'],
     ['nom' => 'Consulter les bulletins de paie', 'slug' => 'paie.bulletins.read', 'groupe' => 'paie', 'module' => 'bulletins', 'action' => 'read'],

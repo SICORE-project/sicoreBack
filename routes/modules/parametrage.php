@@ -16,6 +16,7 @@ use App\Http\Controllers\Api\Parametrage\PeriodePaieController;
 use App\Http\Controllers\Api\Parametrage\RubriquePaieController;
 use App\Http\Controllers\Api\Parametrage\SpecialiteController;
 use App\Http\Controllers\Api\Parametrage\SyndicatController;
+use App\Http\Controllers\Api\Systeme\ImportDonneesController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('parametrage/lieux-service', [LieuServiceController::class, 'catalogue'])
@@ -265,4 +266,11 @@ Route::prefix('specialites')->group(function () {
     Route::put('/{id}', [SpecialiteController::class, 'update'])->middleware('permission:parametrage.specialites.manage');
     Route::patch('/{id}/statut', [SpecialiteController::class, 'changeStatus'])->middleware('permission:parametrage.specialites.manage');
     Route::get('/actives', [SpecialiteController::class, 'actives'])->middleware('permission:parametrage.specialites.read');
+});
+
+// Import des données de base (profil Admin System)
+Route::prefix('systeme/import')->middleware('permission:systeme.import')->group(function () {
+    Route::get('/', [ImportDonneesController::class, 'index']);
+    Route::get('/{entite}/modele', [ImportDonneesController::class, 'modele']);
+    Route::post('/{entite}', [ImportDonneesController::class, 'traiter']);
 });
