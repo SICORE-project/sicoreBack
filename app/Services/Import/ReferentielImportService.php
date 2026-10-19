@@ -49,6 +49,8 @@ class ReferentielImportService
     public function traiter(string $entite, string $chemin, bool $ecrire): array
     {
         $definition = $this->definition($entite);
+        $this->verifierTable($definition);
+
         $requises = array_keys(array_filter($definition['colonnes'], fn (array $c) => ! empty($c['requis'])));
         $lignes = $this->lireCsv($chemin, $requises);
 
@@ -67,13 +69,21 @@ class ReferentielImportService
                 $cles[mb_strtolower((string) $cle)] = $numero;
             }
 
+            $existant = $cle !== null ? $this->trouver($definition, $cle) : null;
+
+            if (! $erreurs) {
+                foreach ($definition['uniques'] ?? [] as $colonne) {
+                    if (isset($valeurs[$colonne]) && $this->dejaPris($definition, $colonne, $valeurs[$colonne], $existant)) {
+                        $erreurs[] = "« $colonne » : « {$valeurs[$colonne]} » existe déjà sur un autre enregistrement.";
+                    }
+                }
+            }
+
             if ($erreurs) {
                 $rapport['erreurs'][] = ['ligne' => $numero, 'message' => implode(' ', $erreurs)];
 
                 continue;
             }
-
-            $existant = $this->trouver($definition, $valeurs[$definition['cle']]);
 
             if (! $existant) {
                 $rapport['crees']++;
@@ -96,6 +106,47 @@ class ReferentielImportService
         }
 
         return $rapport;
+    }
+
+    /**
+     * La base doit correspondre au schéma attendu : colonnes cibles présentes et aucune colonne
+     * obligatoire de la table laissée sans valeur (cas d'une base dont les migrations ne sont pas à jour).
+     */
+    private function verifierTable(array $definition): void
+    {
+        $table = $definition['table'];
+
+        if (! Schema::hasTable($table)) {
+            throw new InvalidArgumentException("La table « $table » n'existe pas : exécutez les migrations.");
+        }
+
+        $fournies = [];
+        foreach ($definition['colonnes'] as $nom => $regle) {
+            $cible = $regle['cible'] ?? $nom;
+            if (! Schema::hasColumn($table, $cible)) {
+                throw new InvalidArgumentException("La table « $table » n'a pas la colonne « $cible » : exécutez les migrations.");
+            }
+            $fournies[] = $cible;
+        }
+
+        foreach (array_keys($definition['defauts'] ?? []) as $colonne) {
+            $fournies[] = $colonne;
+        }
+        foreach ($definition['generer'] ?? [] as $colonne) {
+            $fournies[] = $colonne;
+        }
+
+        $manquantes = [];
+        foreach (DB::select('select COLUMN_NAME as nom, IS_NULLABLE as nullable, COLUMN_DEFAULT as defaut, EXTRA as extra, COLUMN_KEY as cle from information_schema.columns where table_schema = database() and table_name = ?', [$table]) as $colonne) {
+            $auto = str_contains((string) $colonne->extra, 'auto_increment') || str_contains((string) $colonne->extra, 'GENERATED');
+            if ($colonne->nullable === 'NO' && $colonne->defaut === null && ! $auto && ! in_array($colonne->nom, $fournies, true) && ! in_array($colonne->nom, ['created_at', 'updated_at'], true)) {
+                $manquantes[] = $colonne->nom;
+            }
+        }
+
+        if ($manquantes) {
+            throw new InvalidArgumentException("La table « $table » exige encore : ".implode(', ', $manquantes).' (base non à jour : exécutez les migrations).');
+        }
     }
 
     /** @return array<int, array<string, string>> lignes indexées par leur numéro dans le fichier */
@@ -158,7 +209,8 @@ class ReferentielImportService
             if ($brut === '') {
                 if (! empty($regle['requis'])) {
                     $erreurs[] = "« $nom » est obligatoire.";
-                } else {
+                } elseif (! array_key_exists($cible, $definition['defauts'] ?? [])) {
+                    // Cellule vide = valeur effacée, sauf pour une colonne qui a une valeur par défaut (est_actif…).
                     $valeurs[$cible] = null;
                 }
 
@@ -166,7 +218,7 @@ class ReferentielImportService
             }
 
             if (isset($regle['reference'])) {
-                $id = DB::table($regle['reference']['table'])->where($regle['reference']['colonne'], $brut)->value('id');
+                $id = $this->resoudre($regle['reference'], $brut);
                 if (! $id) {
                     $erreurs[] = "« $nom » : « $brut » n'existe pas (importez d'abord ce référentiel).";
                 } else {
@@ -184,7 +236,50 @@ class ReferentielImportService
             }
         }
 
+        foreach ($definition['colonnes'] as $nom => $regle) {
+            if (isset($regle['apres'], $valeurs[$nom], $valeurs[$regle['apres']]) && $valeurs[$nom] <= $valeurs[$regle['apres']]) {
+                $erreurs[] = "« $nom » doit être postérieure à « {$regle['apres']} ».";
+            }
+            if (isset($regle['reference']['meme'], $valeurs[$regle['cible'] ?? $nom], $valeurs[$regle['reference']['meme']])) {
+                $parent = DB::table($regle['reference']['table'])->where('id', $valeurs[$regle['cible'] ?? $nom])->value($regle['reference']['meme']);
+                if ((string) $parent !== (string) $valeurs[$regle['reference']['meme']]) {
+                    $erreurs[] = "« $nom » n'appartient pas à l'« {$this->nomDe($definition, $regle['reference']['meme'])} » indiquée.";
+                }
+            }
+        }
+
         return [$valeurs, $erreurs];
+    }
+
+    private function nomDe(array $definition, string $cible): string
+    {
+        foreach ($definition['colonnes'] as $nom => $regle) {
+            if (($regle['cible'] ?? $nom) === $cible) {
+                return $nom;
+            }
+        }
+
+        return $cible;
+    }
+
+    /** Identifiant de l'enregistrement référencé, retrouvé par l'une des colonnes indiquées. */
+    private function resoudre(array $reference, string $valeur): ?int
+    {
+        $requete = DB::table($reference['table']);
+
+        if (Schema::hasColumn($reference['table'], 'deleted_at')) {
+            $requete->whereNull('deleted_at');
+        }
+
+        $requete->where(function ($q) use ($reference, $valeur) {
+            foreach ((array) $reference['colonne'] as $colonne) {
+                $q->orWhere($colonne, $valeur);
+            }
+        });
+
+        $id = $requete->value('id');
+
+        return $id ? (int) $id : null;
     }
 
     /** @return array{0: mixed, 1: ?string} */
@@ -196,18 +291,30 @@ class ReferentielImportService
                     return [null, "« $nom » doit être un nombre entier."];
                 }
                 $n = (int) $brut;
-                if (isset($regle['min']) && $n < $regle['min'] || isset($regle['maxvaleur']) && $n > $regle['maxvaleur']) {
-                    return [null, "« $nom » doit être compris entre ".($regle['min'] ?? '…').' et '.($regle['maxvaleur'] ?? '…').'.'];
+                if ((isset($regle['min']) && $n < $regle['min']) || (isset($regle['maxvaleur']) && $n > $regle['maxvaleur'])) {
+                    return [null, isset($regle['min'], $regle['maxvaleur'])
+                        ? "« $nom » doit être compris entre {$regle['min']} et {$regle['maxvaleur']}."
+                        : "« $nom » doit être ".(isset($regle['min']) ? "supérieur ou égal à {$regle['min']}" : "inférieur ou égal à {$regle['maxvaleur']}").'.'];
                 }
 
                 return [$n, null];
             case 'decimal':
-                $propre = str_replace(',', '.', $brut);
+                $propre = str_replace([',', ' '], ['.', ''], $brut);
+                if (! is_numeric($propre)) {
+                    return [null, "« $nom » doit être un nombre."];
+                }
+                if (isset($regle['min']) && (float) $propre < $regle['min']) {
+                    return [null, "« $nom » ne peut pas être inférieur à {$regle['min']}."];
+                }
 
-                return is_numeric($propre) ? [(float) $propre, null] : [null, "« $nom » doit être un nombre."];
+                return [round((float) $propre, 2), null];
             case 'date':
                 foreach (['Y-m-d', 'd/m/Y', 'd-m-Y'] as $format) {
-                    $date = Carbon::createFromFormat($format, $brut);
+                    try {
+                        $date = Carbon::createFromFormat($format, $brut);
+                    } catch (\Throwable) {
+                        continue;
+                    }
                     if ($date && $date->format($format) === $brut) {
                         return [$date->toDateString(), null];
                     }
@@ -215,13 +322,33 @@ class ReferentielImportService
 
                 return [null, "« $nom » : date invalide (AAAA-MM-JJ ou JJ/MM/AAAA)."];
             case 'email':
-                return filter_var($brut, FILTER_VALIDATE_EMAIL) ? [$brut, null] : [null, "« $nom » : adresse e-mail invalide."];
+                if (! filter_var($brut, FILTER_VALIDATE_EMAIL)) {
+                    return [null, "« $nom » : adresse e-mail invalide."];
+                }
+                if (isset($regle['max']) && mb_strlen($brut) > $regle['max']) {
+                    return [null, "« $nom » dépasse {$regle['max']} caractères."];
+                }
+
+                return [$brut, null];
+            case 'booleen':
+                $v = mb_strtolower($brut);
+                if (in_array($v, ['1', 'oui', 'true', 'actif', 'o'], true)) {
+                    return [1, null];
+                }
+                if (in_array($v, ['0', 'non', 'false', 'inactif', 'n'], true)) {
+                    return [0, null];
+                }
+
+                return [null, "« $nom » doit valoir oui ou non."];
             default:
                 if (isset($regle['valeurs']) && ! in_array(mb_strtolower($brut), $regle['valeurs'], true)) {
                     return [null, "« $nom » doit valoir : ".implode(' ou ', $regle['valeurs']).'.'];
                 }
                 if (isset($regle['max']) && mb_strlen($brut) > $regle['max']) {
                     return [null, "« $nom » dépasse {$regle['max']} caractères."];
+                }
+                if (isset($regle['regex']) && ! preg_match($regle['regex'], $brut)) {
+                    return [null, "« $nom » : format invalide".(isset($regle['regex_message']) ? " ({$regle['regex_message']})" : '').'.'];
                 }
 
                 return [isset($regle['valeurs']) ? mb_strtolower($brut) : $brut, null];
@@ -231,6 +358,21 @@ class ReferentielImportService
     private function trouver(array $definition, mixed $cle): ?object
     {
         return DB::table($definition['table'])->where($definition['cle'], $cle)->first();
+    }
+
+    /** Une autre ligne que celle de la clé a-t-elle déjà cette valeur (colonne devant rester unique) ? */
+    private function dejaPris(array $definition, string $colonne, mixed $valeur, ?object $existant): bool
+    {
+        $requete = DB::table($definition['table'])->where($colonne, $valeur);
+
+        if (Schema::hasColumn($definition['table'], 'deleted_at')) {
+            $requete->whereNull('deleted_at');
+        }
+        if ($existant) {
+            $requete->where($definition['cle'], '!=', $existant->{$definition['cle']});
+        }
+
+        return $requete->exists();
     }
 
     private function identique(object $existant, array $valeurs): bool
@@ -255,7 +397,15 @@ class ReferentielImportService
         $maintenant = now();
 
         if ($action === 'creer') {
-            $donnees = $valeurs + ($definition['defauts'] ?? []);
+            $donnees = $valeurs;
+            foreach ($definition['defauts'] ?? [] as $colonne => $defaut) {
+                if (Schema::hasColumn($table, $colonne) && ! array_key_exists($colonne, $donnees)) {
+                    $donnees[$colonne] = $defaut;
+                }
+            }
+            foreach ($definition['generer'] ?? [] as $colonne) {
+                $donnees[$colonne] = 'ETAB'.strtoupper(bin2hex(random_bytes(8)));
+            }
             if (Schema::hasColumn($table, 'created_at')) {
                 $donnees['created_at'] = $maintenant;
             }

@@ -21,7 +21,7 @@ class ImportDonneesController extends Controller
             'colonnes' => collect($definition['colonnes'])->map(fn (array $c, string $nom) => [
                 'nom' => $nom,
                 'requis' => (bool) ($c['requis'] ?? false),
-                'type' => isset($c['reference']) ? 'référence' : ($c['type'] ?? (isset($c['valeurs']) ? implode('|', $c['valeurs']) : 'texte')),
+                'type' => $this->description($c),
             ])->values(),
         ])->values();
 
@@ -66,5 +66,36 @@ class ImportDonneesController extends Controller
         };
 
         return response()->json(['success' => $rapport['erreurs'] === [], 'message' => $message, 'data' => $rapport], $rapport['erreurs'] === [] ? 200 : 422);
+    }
+
+    /** Libellé lisible du format attendu pour une colonne. */
+    private function description(array $colonne): string
+    {
+        if (isset($colonne['reference'])) {
+            $cibles = ['regions' => 'une région existante', 'ias' => 'une IA existante', 'iefs' => 'un IEF existant', 'corps_enseignant' => 'un corps existant', 'categories' => 'une catégorie existante'];
+            $par = implode(' ou ', (array) $colonne['reference']['colonne']);
+            $texte = ($cibles[$colonne['reference']['table']] ?? 'un enregistrement existant')." ($par)";
+
+            return isset($colonne['reference']['meme']) ? $texte." de l'IA indiquée" : $texte;
+        }
+
+        $detail = match ($colonne['type'] ?? 'texte') {
+            'entier' => 'nombre entier'.(isset($colonne['min']) ? ' (≥ '.$colonne['min'].')' : ''),
+            'decimal' => 'nombre (ex. 1500 ou 1500,50)',
+            'date' => 'date (AAAA-MM-JJ ou JJ/MM/AAAA)',
+            'email' => 'adresse e-mail',
+            'booleen' => 'oui ou non',
+            default => isset($colonne['valeurs']) ? implode(' ou ', $colonne['valeurs']) : 'texte',
+        };
+
+        if (isset($colonne['max']) && ($colonne['type'] ?? 'texte') !== 'entier') {
+            $detail .= ', '.$colonne['max'].' caractères max';
+        }
+
+        if (isset($colonne['regex_message'])) {
+            $detail .= ' — '.$colonne['regex_message'];
+        }
+
+        return $detail;
     }
 }
