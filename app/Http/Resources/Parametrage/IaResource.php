@@ -20,7 +20,8 @@ class IaResource extends JsonResource
                 return [
                     'id' => $this->region->id,
                     'code' => $this->region->code,
-                    'nom' => $this->region->nom,
+                    'libelle' => $this->region->libelle,
+                    'nom' => $this->region->libelle,
                 ];
             }),
 

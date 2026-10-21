@@ -5,7 +5,7 @@ namespace Tests\Feature;
 use App\Models\PayrollPayslip;
 use App\Models\PayrollPeriod;
 use App\Services\PayrollPageService;
-use Database\Seeders\GestionPaieSeeder;
+use Tests\Fixtures\GestionPaieFixture;
 use Database\Seeders\GestionPaieTestSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -16,7 +16,7 @@ class GestionPaieTestSeederTest extends TestCase
 
     public function test_les_bulletins_de_recette_detaillent_toutes_les_lignes_de_tracabilite(): void
     {
-        $this->seed(GestionPaieSeeder::class);
+        $this->seed(GestionPaieFixture::class);
         $this->seed(GestionPaieTestSeeder::class);
         $this->seed(GestionPaieTestSeeder::class);
 
@@ -44,7 +44,7 @@ class GestionPaieTestSeederTest extends TestCase
 
     public function test_les_donnees_de_recette_couvrent_plusieurs_structures_et_la_paie_non_generee(): void
     {
-        $this->seed(GestionPaieSeeder::class);
+        $this->seed(GestionPaieFixture::class);
         $this->seed(GestionPaieTestSeeder::class);
         $this->seed(GestionPaieTestSeeder::class);
 

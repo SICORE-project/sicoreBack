@@ -3,7 +3,7 @@
 namespace App\Services;
 
 use App\Models\categories;
-use App\Models\corps_enseignants;
+use App\Models\Parametrage\StatutEnseignant;
 use App\Models\Enseignant;
 use App\Models\etablissements;
 use App\Models\ias;
@@ -261,10 +261,8 @@ class ContractTeacherImportService
     ): array {
         $teacherRole = roles::query()->firstOrCreate(['libelle' => 'Enseignant']);
         $category = categories::query()->firstOrCreate(['libelle' => 'Enseignement général']);
-        $contractCorps = corps_enseignants::query()->firstOrCreate(
-            ['libelle' => 'Professeur contractuel'],
-            ['categorie_id' => $category->id]
-        );
+        $contractStatus = StatutEnseignant::query()->whereRaw('LOWER(libelle) LIKE ?', ['%contractuel%'])->first();
+        if (!$contractStatus) throw new RuntimeException('Créez le statut enseignant Contractuel dans le paramétrage avant cet import.');
 
         $iaCache = ias::query()->get()->keyBy(fn (ias $ia): string => $this->normalizeKey($ia->libelle));
         $iefCache = iefs::query()->get()->keyBy(
@@ -338,7 +336,9 @@ class ContractTeacherImportService
                 'source_reference' => $sourceReference,
                 'imported_at' => now(),
                 'actif' => true,
-                'corps_enseignant_id' => $contractCorps->id,
+                'statut_enseignant_id' => $contractStatus->id,
+                'corps_id' => null,
+                'corps_enseignant_id' => null,
                 'etablissement_id' => $establishment->id,
             ]);
             $teacherChanged = $teacherWasCreated || $teacher->isDirty();

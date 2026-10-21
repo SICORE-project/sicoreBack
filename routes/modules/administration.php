@@ -268,6 +268,14 @@ Route::prefix('admin')->group(function () {
     */
 
     Route::prefix('users')->group(function () {
+        Route::get('/filter-options', [UserController::class, 'filterOptions'])->middleware('permission:administration.users.read');
+        Route::get('/teacher-candidates', [\App\Http\Controllers\Api\TeacherAccountController::class, 'teachers'])
+            ->middleware('permission:administration.users.create');
+        Route::post('/teacher-accounts', [\App\Http\Controllers\Api\TeacherAccountController::class, 'store'])
+            ->middleware('permission:administration.users.create');
+        Route::post('/{user}/teacher-invitation', [\App\Http\Controllers\Api\TeacherAccountController::class, 'resend'])
+            ->whereNumber('user')->middleware(['permission:administration.users.create', 'throttle:5,1']);
+
 
 
         Route::get('/', [
@@ -372,6 +380,7 @@ Route::prefix('admin')->group(function () {
             ->middleware('permission:administration.users.read');
 
         Route::prefix('personnel/enseignants')->group(function () {
+            Route::post('/import', [\App\Http\Controllers\Api\Admin\Personnel\TeacherImportController::class, 'store'])->middleware(['role:admin,super_admin,gestionnaire_ia', 'permission:enseignants.create']);
             Route::get('/', [EnseignantController::class, 'index'])
                 ->middleware('permission:enseignants.read');
             Route::post('/', [EnseignantController::class, 'store'])

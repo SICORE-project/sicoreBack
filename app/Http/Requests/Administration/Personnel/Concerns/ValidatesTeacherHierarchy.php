@@ -19,6 +19,12 @@ trait ValidatesTeacherHierarchy
             if (! $this->filled('ia_id') || ! $this->filled('ief_id')) {
                 return;
             }
+            if ($this->user() && ! app(\App\Services\Administration\OrganizationalScope::class)->allows(
+                $this->user(), (object) ['ia_id' => $this->input('ia_id'), 'ief_id' => $this->input('ief_id')]
+            )) {
+                $validator->errors()->add('ia_id', 'Vous ne pouvez gérer que les enseignants de votre périmètre.');
+                return;
+            }
             if (! DB::table('iefs')->where('id', $this->input('ief_id'))
                 ->where('ia_id', $this->input('ia_id'))->whereNull('deleted_at')->exists()) {
                 $validator->errors()->add('ief_id', 'L’IEF sélectionnée n’appartient pas à cette IA.');
