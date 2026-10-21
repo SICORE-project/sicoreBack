@@ -4,6 +4,7 @@ namespace Database\Seeders;
 
 use App\Models\Admin\Role;
 use App\Models\Admin\User;
+use App\Models\Parametrage\LieuService;  // ✅ IMPORT AJOUTÉ
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
 
@@ -27,17 +28,12 @@ class UserSeeder extends Seeder
             return;
         }
 
-        // Seul le compte initial permettant d'accéder au CRUD est créé.
-        User::query()->firstOrCreate(['email' => 'mamadou.diop@sicore.sn'], [
-            'nom' => 'Diop',
-            'prenom' => 'Mamadou',
-            'password' => Hash::make('password'),
-            'role_id' => $role->id,
-            'statut' => 'actif',
-            'fonction' => 'Super Administrateur',
-            'genre' => 'masculin',
-            'must_change_password' => true,
-            'tentatives_connexion' => 0,
-        ]);
+        // Créer les utilisateurs
+        foreach ($users as $userData) {
+            User::query()->firstOrCreate(
+                ['email' => $userData['email']],
+                $userData
+            );
+        }
     }
 }
