@@ -1114,7 +1114,7 @@ private function notGeneratedReport(?PayrollPeriod $period): array
             $this->money($teacher->salaire_base),
             $teacher->institutionFinanciere?->nom ?? 'Non renseignée',
             $this->payrollProfileReason($teacher),
-            $this->actionCell(
+            $this->actionCell( 
                 $teacher->payroll_profile_configured_at ? 'Modifier le profil' : 'Configurer',
                 'configure-teacher-payroll', [
                     'enseignant_id' => $teacher->id,
