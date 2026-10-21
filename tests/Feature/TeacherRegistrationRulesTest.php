@@ -26,7 +26,7 @@ class TeacherRegistrationRulesTest extends TestCase
             'date_naissance' => '1990-01-01', 'cni' => '1234567890123', 'telephone' => '771234567',
             'statut_enseignant_id' => 2, 'ia_id' => 1, 'ief_id' => 2,
             'situation_matrimoniale' => 'celibataire', 'nombre_enfants' => 3, 'est_actif' => true,
-            'compte_bancaire' => ['code_banque' => '00100', 'code_guichet' => '00001', 'numero_compte' => '00012345678', 'cle_rib' => '01'],
+            'compte_bancaire' => ['code_banque' => '00100', 'code_guichet' => '00001', 'numero_compte' => '000123456789', 'cle_rib' => '01'],
         ], $changes);
     }
 
@@ -106,7 +106,7 @@ class TeacherRegistrationRulesTest extends TestCase
         $this->mock(\App\Services\Administration\OrganizationalScope::class)->shouldReceive('allows')->andReturn(true);
         $this->actingAs(User::find(8));
         $header = 'matricule;nom;prenom;date_naissance;cni;telephone;statut_enseignant_id;ia_id;ief_id;situation_matrimoniale;nombre_enfants;code_banque;code_guichet;numero_compte;cle_rib';
-        $valid = '202600001/A;Diop;Awa;1990-01-01;1234567890123;771234567;2;1;2;celibataire;3;00100;00001;00012345678;01';
+        $valid = '202600001/A;Diop;Awa;1990-01-01;1234567890123;771234567;2;1;2;celibataire;3;00100;00001;000123456789;01';
         $invalid = str_replace('202600001/A', '202600002/B', $valid);
         $invalid = str_replace('1234567890123', 'bad', $invalid);
         $this->postJson('/api/admin/personnel/enseignants/import', ['csv' => UploadedFile::fake()->createWithContent('enseignants.csv', "$header\n$valid\n$invalid\n")])
@@ -115,6 +115,6 @@ class TeacherRegistrationRulesTest extends TestCase
         $this->assertDatabaseCount('payroll_audit_logs', 0);
         $this->postJson('/api/admin/personnel/enseignants/import', ['csv' => UploadedFile::fake()->createWithContent('enseignants.csv', "$header\n$valid\n")])
             ->assertCreated()->assertJsonPath('count', 1);
-        $this->assertDatabaseHas('comptes_bancaires_enseignants', ['numero_compte' => '00012345678']);
+        $this->assertDatabaseHas('comptes_bancaires_enseignants', ['numero_compte' => '000123456789']);
     }
 }
