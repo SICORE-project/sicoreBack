@@ -72,7 +72,7 @@ class ImportDonneesController extends Controller
     private function description(array $colonne): string
     {
         if (isset($colonne['reference'])) {
-            $cibles = ['regions' => 'une région existante', 'ias' => 'une IA existante', 'iefs' => 'un IEF existant', 'corps_enseignant' => 'un corps existant', 'categories' => 'une catégorie existante'];
+            $cibles = ['regions' => 'une région existante', 'departements' => 'un département existant', 'ias' => 'une IA existante', 'iefs' => 'un IEF existant', 'corps_enseignant' => 'un corps existant', 'categories' => 'une catégorie existante'];
             $par = implode(' ou ', (array) $colonne['reference']['colonne']);
             $texte = ($cibles[$colonne['reference']['table']] ?? 'un enregistrement existant')." ($par)";
 
