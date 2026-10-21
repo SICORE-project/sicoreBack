@@ -22,8 +22,20 @@
 */
 
 return [
+    'region' => [
+        'libelle' => 'Régions',
+        'table' => 'regions',
+        'cle' => 'code',
+        'defauts' => ['est_actif' => 1],
+        'colonnes' => [
+            'code' => ['requis' => true, 'max' => 10, 'exemple' => 'DK'],
+            'nom' => ['requis' => true, 'max' => 50, 'exemple' => 'Dakar'],
+            'chef_lieu' => ['max' => 50, 'exemple' => 'Dakar'],
+            'est_actif' => ['type' => 'booleen'],
+        ],
+    ],
     'ia' => [
-        'libelle' => 'IA (Inspections d\'académie)',
+        'libelle' => 'IA',
         'table' => 'ias',
         'cle' => 'code',
         'uniques' => [],
@@ -34,7 +46,7 @@ return [
         ],
     ],
     'ief' => [
-        'libelle' => 'IEF (Inspections de l\'éducation et de la formation)',
+        'libelle' => 'IEF',
         'table' => 'iefs',
         'cle' => 'code',
         'defauts' => ['est_actif' => 1],
@@ -43,7 +55,7 @@ return [
             'libelle' => ['requis' => true, 'max' => 100, 'exemple' => 'IEF de Dakar-Plateau'],
             'ia' => ['requis' => true, 'cible' => 'ia_id', 'reference' => ['table' => 'ias', 'colonne' => 'code'], 'exemple' => 'IA-DK'],
             'adresse' => ['max' => 255],
-            'telephone' => ['max' => 20, 'regex' => '/^(?:\+221|221)?(70|75|76|77|78)[0-9]{7}$/', 'regex_message' => 'numéro sénégalais (77 123 45 67)'],
+            'telephone' => ['max' => 20, 'regex' => '/^(?:\+221|221)?(70|75|76|77|78)[0-9]{7}$/', 'regex_message' => ' (77 123 45 67)'],
             'email' => ['type' => 'email', 'max' => 100],
             'responsable' => ['max' => 100],
             'est_actif' => ['type' => 'booleen'],
@@ -84,7 +96,7 @@ return [
         ],
     ],
     'banque' => [
-        'libelle' => 'Banques (instituts financiers)',
+        'libelle' => 'Banques',
         'table' => 'instituts_financieres',
         'cle' => 'libelle',
         'defauts' => ['est_actif' => 1],
@@ -161,7 +173,7 @@ return [
         ],
     ],
     'etablissement' => [
-        'libelle' => 'Établissements (lieux de service)',
+        'libelle' => 'Établissements',
         'table' => 'lieu_de_services',
         'cle' => 'libelle',
         'generer' => ['code'],

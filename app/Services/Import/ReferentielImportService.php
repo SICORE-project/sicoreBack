@@ -220,7 +220,7 @@ class ReferentielImportService
             if (isset($regle['reference'])) {
                 $id = $this->resoudre($regle['reference'], $brut);
                 if (! $id) {
-                    $erreurs[] = "« $nom » : « $brut » n'existe pas (importez d'abord ce référentiel).";
+                    $erreurs[] = "« $nom » : « $brut » n'existe pas — importez d'abord « {$this->libelleDe($regle['reference']['table'])} » (ou corrigez la valeur).";
                 } else {
                     $valeurs[$cible] = $id;
                 }
@@ -249,6 +249,18 @@ class ReferentielImportService
         }
 
         return [$valeurs, $erreurs];
+    }
+
+    /** Libellé du référentiel importable qui alimente cette table (pour guider l'ordre d'import). */
+    private function libelleDe(string $table): string
+    {
+        foreach (config('imports') as $definition) {
+            if ($definition['table'] === $table) {
+                return $definition['libelle'];
+            }
+        }
+
+        return $table;
     }
 
     private function nomDe(array $definition, string $cible): string
