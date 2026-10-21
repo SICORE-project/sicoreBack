@@ -5,6 +5,8 @@ use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\Api\Admin\RoleController;
 use App\Http\Controllers\Api\Admin\PermissionController;
 use App\Http\Controllers\Api\Admin\RolePermissionController;
+use App\Http\Controllers\Api\Admin\TypeRoleController;
+use App\Http\Controllers\Api\Admin\Personnel\EnseignantController;
 
 
 /*
@@ -15,6 +17,23 @@ use App\Http\Controllers\Api\Admin\RolePermissionController;
 
 Route::prefix('admin')->group(function () {
 
+    Route::prefix('type-roles')->group(function () {
+        Route::get('/', [TypeRoleController::class, 'index'])
+            ->middleware('permission:administration.roles.read');
+        Route::get('/all', [TypeRoleController::class, 'all'])
+            ->middleware('permission:administration.roles.read');
+        Route::post('/', [TypeRoleController::class, 'store'])
+            ->middleware('permission:administration.roles.manage');
+        Route::get('/{typeRole}', [TypeRoleController::class, 'show'])
+            ->whereNumber('typeRole')
+            ->middleware('permission:administration.roles.read');
+        Route::put('/{typeRole}', [TypeRoleController::class, 'update'])
+            ->whereNumber('typeRole')
+            ->middleware('permission:administration.roles.manage');
+        Route::delete('/{typeRole}', [TypeRoleController::class, 'destroy'])
+            ->whereNumber('typeRole')
+            ->middleware('permission:administration.roles.manage');
+    });
 
     /*
     |--------------------------------------------------------------------------
@@ -249,6 +268,14 @@ Route::prefix('admin')->group(function () {
     */
 
     Route::prefix('users')->group(function () {
+        Route::get('/filter-options', [UserController::class, 'filterOptions'])->middleware('permission:administration.users.read');
+        Route::get('/teacher-candidates', [\App\Http\Controllers\Api\TeacherAccountController::class, 'teachers'])
+            ->middleware('permission:administration.users.create');
+        Route::post('/teacher-accounts', [\App\Http\Controllers\Api\TeacherAccountController::class, 'store'])
+            ->middleware('permission:administration.users.create');
+        Route::post('/{user}/teacher-invitation', [\App\Http\Controllers\Api\TeacherAccountController::class, 'resend'])
+            ->whereNumber('user')->middleware(['permission:administration.users.create', 'throttle:5,1']);
+
 
 
         Route::get('/', [
@@ -268,6 +295,13 @@ Route::prefix('admin')->group(function () {
         Route::post('/', [
             UserController::class,
             'store'
+        ])
+        ->middleware('permission:administration.users.create');
+
+
+        Route::get('/check-email', [
+            UserController::class,
+            'checkEmail'
         ])
         ->middleware('permission:administration.users.create');
 
@@ -300,6 +334,13 @@ Route::prefix('admin')->group(function () {
         ->middleware('permission:administration.users.update');
 
 
+        Route::post('/{id}/assign-structure', [
+            UserController::class,
+            'assignStructure'
+        ])
+        ->middleware('permission:administration.users.update');
+
+
         Route::post('/{id}/toggle-status', [
             UserController::class,
             'toggleStatus'
@@ -307,5 +348,52 @@ Route::prefix('admin')->group(function () {
         ->middleware('permission:administration.users.update');
 
     });
+
+        Route::post('/users/{userId}/assign-ia/{iaId}', [UserController::class, 'assignUserToIa'])
+            ->whereNumber(['userId', 'iaId'])
+            ->middleware('permission:administration.users.update');
+
+        Route::delete('/users/{userId}/revoke-ia', [UserController::class, 'revokeUserFromIa'])
+            ->whereNumber('userId')
+            ->middleware('permission:administration.users.update');
+
+        Route::post('/users/{userId}/assign-ief/{iefId}', [UserController::class, 'assignUserToIef'])
+            ->whereNumber(['userId', 'iefId'])
+            ->middleware('permission:administration.users.update');
+
+        Route::delete('/users/{userId}/revoke-ief', [UserController::class, 'revokeUserFromIef'])
+            ->whereNumber('userId')
+            ->middleware('permission:administration.users.update');
+
+        Route::get('/users/{userId}/ief', [UserController::class, 'getUserIef'])
+            ->whereNumber('userId')
+            ->middleware('permission:administration.users.read');
+
+        Route::get('/gestionnaires/ief', [UserController::class, 'getGestionnairesIef'])
+            ->middleware('permission:administration.users.read');
+
+        Route::get('/gestionnaires/ief/available', [UserController::class, 'getAvailableGestionnairesIef'])
+            ->middleware('permission:administration.users.read');
+
+        Route::get('/ief/{iefId}/gestionnaires', [UserController::class, 'getGestionnairesByIef'])
+            ->whereNumber('iefId')
+            ->middleware('permission:administration.users.read');
+
+        Route::prefix('personnel/enseignants')->group(function () {
+            Route::post('/import', [\App\Http\Controllers\Api\Admin\Personnel\TeacherImportController::class, 'store'])->middleware(['role:admin,super_admin,gestionnaire_ia', 'permission:enseignants.create']);
+            Route::get('/', [EnseignantController::class, 'index'])
+                ->middleware('permission:enseignants.read');
+            Route::post('/', [EnseignantController::class, 'store'])
+                ->middleware('permission:enseignants.create');
+            Route::get('/{id}', [EnseignantController::class, 'show'])
+                ->whereNumber('id')
+                ->middleware('permission:enseignants.read');
+            Route::put('/{id}', [EnseignantController::class, 'update'])
+                ->whereNumber('id')
+                ->middleware('permission:enseignants.update');
+            Route::delete('/{id}', [EnseignantController::class, 'destroy'])
+                ->whereNumber('id')
+                ->middleware('permission:enseignants.delete');
+        });
 
 });

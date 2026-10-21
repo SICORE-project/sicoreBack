@@ -9,6 +9,8 @@ class StatutEnseignant extends Model
 {
     use HasFactory;
 
+    protected $table = 'statuts_enseignant';
+
     protected $fillable = [
         'code',
         'libelle',
@@ -26,7 +28,7 @@ class StatutEnseignant extends Model
     // === RELATIONS ===
     public function enseignants()
     {
-        return $this->hasMany(Enseignant::class);
+        return $this->hasMany(\App\Models\Personnel\Enseignant::class, 'statut_enseignant_id');
     }
 
     // === SCOPES ===

@@ -9,25 +9,20 @@ class Diplome extends Model
 {
     use HasFactory;
 
+    protected $table = 'diplomes';
+
     protected $fillable = [
-        'code',
         'libelle',
-        'sigle',
-        'niveau',
-        'type',
-        'duree_annees',
-        'est_actif',
+        'categorie_id',
+        'salaire_brut',
     ];
 
     protected $casts = [
-        'est_actif' => 'boolean',
-        'niveau' => 'integer',
-        'duree_annees' => 'integer',
+        'salaire_brut' => 'decimal:2',
     ];
 
-    // === RELATIONS ===
-    public function enseignants()
+    public function categorie()
     {
-        return $this->hasMany(Enseignant::class);
+        return $this->belongsTo(Categorie::class);
     }
 }

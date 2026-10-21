@@ -8,7 +8,7 @@ use Symfony\Component\HttpFoundation\Response;
 
 class PermissionMiddleware
 {
-    public function handle(Request $request, Closure $next, string $permission): Response
+    public function handle(Request $request, Closure $next, string ...$permissions): Response
     {
         $user = $request->user();
 
@@ -19,11 +19,20 @@ class PermissionMiddleware
             ], 401);
         }
 
-        if (!$user->hasPermission($permission)) {
+        // Le super administrateur dispose toujours de toutes les permissions,
+        // même si la table pivot n'a pas encore été resynchronisée.
+        if ($user->hasRole('super_admin')) {
+            return $next($request);
+        }
+
+        // Plusieurs permissions déclarées = au moins une suffit.
+        $allowed = collect($permissions)->contains(fn ($p) => $user->hasPermission($p));
+
+        if (!$allowed) {
             return response()->json([
                 'success' => false,
                 'message' => 'Vous ne disposez pas de cette permission.',
-                'required_permission' => $permission
+                'required_permission' => implode(' | ', $permissions)
             ], 403);
         }
 

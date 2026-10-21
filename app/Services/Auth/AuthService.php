@@ -2,12 +2,15 @@
 
 namespace App\Services\Auth;
 
-use App\Models\admin\User;
+use App\Mail\OtpMail;
+use App\Models\Admin\User;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Validation\ValidationException;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Carbon;
+use Symfony\Component\Mailer\Exception\TransportException;
 
 
 class AuthService
@@ -26,7 +29,8 @@ class AuthService
 
 
 
-        $user = User::with('role')
+        // ⚠️ Changement : on charge aussi les permissions du rôle
+        $user = User::with(['role.permissions', 'lieuService', 'ia'])
             ->where('email',$identifier)
             ->first();
 
@@ -42,7 +46,7 @@ class AuthService
 
             throw ValidationException::withMessages([
                 'login'=>[
-                    'Identifiants incorrects'
+                    'L’adresse e-mail ou le mot de passe est incorrect.'
                 ]
             ]);
 
@@ -53,11 +57,15 @@ class AuthService
         if(!$user->role)
         {
             return response()->json([
-                'message'=>'Aucun rôle associé à cet utilisateur'
+                'message'=>'Votre compte n’est associé à aucun rôle. Contactez l’administrateur.'
             ],403);
         }
 
 
+
+        if (mb_strtolower((string) $user->role->slug) === 'drh') {
+            return response()->json(['message' => 'Le profil DRH ne dispose pas de compte de connexion.'], 403);
+        }
 
         // Nettoyage ancien token
         $user->tokens()
@@ -71,6 +79,10 @@ class AuthService
             ->createToken('sicore-ui')
             ->plainTextToken;
 
+        UserPresence::touch($user);
+        $user->derniere_connexion = now();
+        $user->save();
+
 
 
         return response()->json([
@@ -81,12 +93,42 @@ class AuthService
 
             'token_type'=>'Bearer',
 
+            ...($user->hasRole('agent_decpc') ? [
+                'redirect_to' => '/decpc/dashboard',
+                'decpc' => app(\App\Services\Administration\DecpcDashboard::class)->context($user),
+            ] : []),
+
+            ...($user->isDrh() ? [
+                'redirect_to' => '/drh/dashboard',
+                'drh' => app(\App\Services\Administration\Personnel\DrhDashboard::class)->context($user),
+            ] : []),
+
+            ...($user->hasRole('gestionnaire_ia') ? [
+                'redirect_to' => '/dashboard',
+            ] : []),
+
             'user'=>[
+                'ia_id' => $user->ia_id,
                 'id'=>$user->id,
                 'nom'=>$user->nom,
                 'prenom'=>$user->prenom,
                 'email'=>$user->email,
-                'role'=>$user->role
+                // 'role' inclut maintenant automatiquement 'permissions'
+                // grâce au eager load with('role.permissions') ci-dessus
+                'role'=>$user->role,
+                'permissions'=>$user->permissionSlugs(),
+                'ia_id'=>$user->ia_id,
+                'ief_id'=>$user->ief_id,
+                'acces_organisationnel'=>$user->perimetre(),
+                'lieu_service'=>$user->lieuService ? [
+                    'id'=>$user->lieuService->id,
+                    'type'=>$user->lieuService->type,
+                    'libelle'=>$user->lieuService->libelle,
+                ] : null,
+                'ia'=>$user->ia ? [
+                    'id'=>$user->ia->id,
+                    'libelle'=>$user->ia->libelle,
+                ] : null,
             ]
 
         ]);
@@ -101,6 +143,7 @@ class AuthService
      */
     public function logout($request)
     {
+        UserPresence::forget($request->user());
 
         $request
             ->user()
@@ -119,30 +162,8 @@ class AuthService
 
 
     /**
-     * Préparation Forgot Password
+     * Préparation Forgot Password (flux "token" existant, conservé tel quel)
      */
-    // public function forgotPassword(array $data)
-    // {
-
-    //     $user = User::where(
-    //         'email',
-    //         $data['email']
-    //     )->first();
-
-
-    //     if(!$user)
-    //     {
-    //         return response()->json([
-    //             'message'=>'Utilisateur introuvable'
-    //         ],404);
-    //     }
-
-
-    //     return response()->json([
-    //         'message'=>'Demande de réinitialisation prise en compte'
-    //     ]);
-
-    // }
     public function forgotPassword(array $data)
     {
 
@@ -182,7 +203,7 @@ class AuthService
                 /*
                 Pour le MVP on stocke temporairement
                 le token en clair.
-                
+
                 En production on utilisera Hash::make()
                 */
 
@@ -206,7 +227,7 @@ class AuthService
     }
 
     /**
-     * Réinitialisation du mot de passe
+     * Réinitialisation du mot de passe (flux "token" existant, conservé tel quel)
      */
     public function resetPassword(array $data)
     {
@@ -272,11 +293,194 @@ class AuthService
 
         // Invalider les anciennes connexions
         $user->tokens()->delete();
+        UserPresence::forget($user);
 
 
         // Retour de la réponse
         return response()->json([
             'message'=>'Mot de passe réinitialisé avec succès'
+        ]);
+
+    }
+
+
+    /**
+     * Envoi d'un code OTP par email pour réinitialisation du mot de passe
+     */
+    public function sendOtp(array $data)
+    {
+
+        $user = User::where('email', $data['email'])->first();
+
+        if (!$user)
+        {
+            throw ValidationException::withMessages([
+                'email' => ['Aucun compte associé à cet email']
+            ]);
+        }
+
+        // Génération d'un OTP à 6 chiffres
+        $otp = (string) random_int(100000, 999999);
+
+        // Suppression de toute demande précédente pour cet email
+        DB::table('password_reset_otps')
+            ->where('email', $user->email)
+            ->delete();
+
+        DB::table('password_reset_otps')->insert([
+            'email'       => $user->email,
+            'otp'         => Hash::make($otp),
+            'reset_token' => null,
+            'expires_at'  => Carbon::now()->addMinutes(10),
+            'verified_at' => null,
+            'created_at'  => Carbon::now(),
+        ]);
+
+        try {
+            Mail::to($user->email)->send(new OtpMail($otp, $user));
+        } catch (TransportException $e) {
+            // Evite de garder un OTP actif si l'email n'a pas pu etre envoye.
+            DB::table('password_reset_otps')
+                ->where('email', $user->email)
+                ->delete();
+
+            if (config('app.debug')) {
+                return response()->json([
+                    'message' => 'Echec de l\'envoi du code de verification (SMTP Gmail).',
+                    'detail' => $e->getMessage(),
+                    'step' => 'send-otp',
+                ], 500);
+            }
+
+            return response()->json([
+                'message' => 'Echec de l\'envoi du code de verification. Verifiez la configuration email Gmail.',
+                'step' => 'send-otp',
+            ], 500);
+        }
+
+        return response()->json([
+            'message' => 'Code de verification envoye avec succes. Verifiez votre boite email.',
+            'step' => 'send-otp'
+        ]);
+
+    }
+
+
+    /**
+     * Vérification du code OTP - renvoie un reset_token de courte durée
+     */
+    public function verifyOtp(array $data)
+    {
+
+        $record = DB::table('password_reset_otps')
+            ->where('email', $data['email'])
+            ->first();
+
+        if (!$record)
+        {
+            throw ValidationException::withMessages([
+                'otp' => ['Aucun code de vérification n’a été demandé pour cette adresse e-mail. Veuillez demander un nouveau code.']
+            ]);
+        }
+
+        if (Carbon::parse($record->expires_at)->isPast())
+        {
+            DB::table('password_reset_otps')
+                ->where('email', $data['email'])
+                ->delete();
+
+            throw ValidationException::withMessages([
+                'otp' => ['Le code de vérification a expiré. Veuillez demander un nouveau code.']
+            ]);
+        }
+
+        if (!Hash::check($data['otp'], $record->otp))
+        {
+            throw ValidationException::withMessages([
+                'otp' => ['Le code de vérification saisi est incorrect. Vérifiez votre e-mail ou demandez un nouveau code.']
+            ]);
+        }
+
+        // OTP valide : on délivre un reset_token de courte durée
+        $resetToken = Str::random(64);
+
+        DB::table('password_reset_otps')
+            ->where('email', $data['email'])
+            ->update([
+                'reset_token' => Hash::make($resetToken),
+                'verified_at' => Carbon::now(),
+                'expires_at'  => Carbon::now()->addMinutes(15),
+            ]);
+
+        return response()->json([
+            'message'     => 'Code OTP verifie avec succes. Utilisez le reset_token pour modifier le mot de passe.',
+            'step'        => 'verify-otp',
+            'reset_token' => $resetToken
+        ]);
+
+    }
+
+
+    /**
+     * Réinitialisation du mot de passe via reset_token issu de verifyOtp
+     */
+    public function resetPasswordWithOtp(array $data)
+    {
+
+        $record = DB::table('password_reset_otps')
+            ->where('email', $data['email'])
+            ->first();
+
+        if (!$record || !$record->verified_at)
+        {
+            throw ValidationException::withMessages([
+                'reset_token' => ['Verification OTP requise avant la modification du mot de passe.']
+            ]);
+        }
+
+        if (Carbon::parse($record->expires_at)->isPast())
+        {
+            DB::table('password_reset_otps')
+                ->where('email', $data['email'])
+                ->delete();
+
+            throw ValidationException::withMessages([
+                'reset_token' => ['Session de reinitialisation expiree. Recommencez depuis send-otp.']
+            ]);
+        }
+
+        if (!Hash::check($data['reset_token'], $record->reset_token))
+        {
+            throw ValidationException::withMessages([
+                'reset_token' => ['Reset token invalide. Refaites la verification OTP.']
+            ]);
+        }
+
+        $user = User::where('email', $data['email'])->first();
+
+        if (!$user)
+        {
+            return response()->json([
+                'message' => 'Utilisateur introuvable pour la modification du mot de passe.',
+                'step' => 'reset-password-otp'
+            ], 404);
+        }
+
+        $user->password = Hash::make($data['password']);
+        $user->password_changed_at = now();
+        $user->save();
+
+        DB::table('password_reset_otps')
+            ->where('email', $data['email'])
+            ->delete();
+
+        // Invalider les anciennes connexions
+        $user->tokens()->delete();
+        UserPresence::forget($user);
+
+        return response()->json([
+            'message' => 'Mot de passe modifie avec succes. Vous pouvez maintenant vous connecter.',
+            'step' => 'reset-password-otp'
         ]);
 
     }

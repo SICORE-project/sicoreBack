@@ -1,0 +1,119 @@
+<?php
+
+namespace App\Http\Controllers\Api\Admin\Personnel;
+
+use App\Http\Controllers\Controller;
+use App\Http\Requests\Administration\Personnel\StoreEnseignantRequest;
+use App\Http\Requests\Administration\Personnel\UpdateEnseignantRequest;
+use App\Http\Resources\Personnel\EnseignantResource;
+use App\Services\Administration\Personnel\EnseignantService;
+use Illuminate\Http\Request;
+
+class EnseignantController extends Controller
+{
+    public function __construct(
+        private EnseignantService $enseignantService
+    ) {
+    }
+
+    /**
+     * Liste des enseignants.
+     */
+    public function index(Request $request)
+    {
+        $filters = $request->validate([
+            'search' => ['nullable', 'string', 'max:100'],
+            'statut_enseignant_id' => ['nullable', 'integer', 'min:1'],
+            'prenom' => ['nullable', 'string', 'max:50'],
+            'nom' => ['nullable', 'string', 'max:50'],
+            'corps_id' => ['nullable', 'integer', 'min:1'],
+            'diplome_id' => ['nullable', 'integer', 'min:1'],
+            'ia_id' => ['nullable', 'integer', 'min:1'],
+            'ief_id' => ['nullable', 'integer', 'min:1'],
+        ]);
+        $perPage = (int) $request->input('per_page', 20);
+
+        $perPage = min(max($perPage, 1), 100);
+
+        $enseignants = $this->enseignantService
+            ->paginate($perPage, $filters, $request->user());
+
+        return EnseignantResource::collection($enseignants)
+            ->additional([
+                'success' => true,
+                'message' => 'Liste des enseignants récupérée avec succès.',
+            ]);
+    }
+
+    /**
+     * Enregistrer un nouvel enseignant.
+     */
+    public function store(StoreEnseignantRequest $request)
+    {
+        $data = $request->validated();
+        $this->assertInPerimetre($request->user(), $data);
+
+        $enseignant = $this->enseignantService->create(
+            $data,
+            $request->user()?->id
+        );
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Enseignant enregistré avec succès.',
+            'data' => new EnseignantResource($enseignant),
+        ], 201);
+    }
+
+    /**
+     * Afficher un enseignant.
+     */
+    public function show(int $id)
+    {
+        $enseignant = $this->enseignantService->find($id);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Dossier enseignant récupéré avec succès.',
+            'data' => new EnseignantResource($enseignant),
+        ]);
+    }
+
+    public function update(UpdateEnseignantRequest $request, int $id)
+    {
+        $data = $request->validated();
+        $this->assertInPerimetre($request->user(), $data);
+
+        $enseignant = $this->enseignantService->update(
+            $this->enseignantService->find($id),
+            $data,
+            $request->user()?->id
+        );
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Enseignant modifié avec succès.',
+            'data' => new EnseignantResource($enseignant),
+        ]);
+    }
+
+    public function destroy(int $id)
+    {
+        $this->enseignantService->delete($this->enseignantService->find($id));
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Enseignant supprimé avec succès.',
+        ]);
+    }
+
+    /** Un gestionnaire IA/IEF ne peut affecter un enseignant qu'à son propre périmètre. */
+    private function assertInPerimetre($user, array $data): void
+    {
+        foreach ($user?->perimetre() ?? [] as $column => $value) {
+            if (array_key_exists($column, $data) && (int) $data[$column] !== (int) $value) {
+                abort(403, 'Cet enseignant est hors de votre périmètre.');
+            }
+        }
+    }
+}

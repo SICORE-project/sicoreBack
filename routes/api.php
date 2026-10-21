@@ -1,21 +1,66 @@
 <?php
 
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\DiplomeController;
+
+use App\Http\Controllers\ConvocationsController;
+use App\Http\Controllers\EtatPaieIndemnitesController;
+use App\Http\Controllers\IndemnitesController;
+use App\Http\Controllers\PayrollActionController;
+use App\Http\Controllers\PayrollPageController;
+use App\Http\Controllers\PieceJustificativesController;
+use App\Http\Controllers\TypeIndemnitesController;
+use App\Http\Controllers\UserController;
+use App\Services\PayrollPageService;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/health', fn () => response()->json(['status' => 'ok']));
-
 Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:login');
 
-Route::post('/forgot-password', [AuthController::class,'forgotPassword']);
 
-Route::post('/reset-password', [AuthController::class,'resetPassword']);
-
+ // Réinitialisation de mot de passe - flux "token" existant
+    Route::post('forgot-password', [AuthController::class, 'forgotPassword']);
+    Route::post('reset-password', [AuthController::class, 'resetPassword']);
+ 
+    // Réinitialisation de mot de passe - flux OTP
+    Route::post('send-otp', [AuthController::class, 'sendOtp']);
+    Route::post('verify-otp', [AuthController::class, 'verifyOtp']);
+    Route::post('reset-password-otp', [AuthController::class, 'resetPasswordWithOtp']);
+    /*
+    Ce qui équivaut à :
+        GET    /api/diplomes            -> index
+        POST   /api/diplomes            -> store
+        GET    /api/diplomes/{diplome}  -> show
+        PUT    /api/diplomes/{diplome}  -> update
+        PATCH  /api/diplomes/{diplome}  -> update
+        DELETE /api/diplomes/{diplome}  -> destroy
+    */
 Route::middleware(['auth:sanctum'])->group(function () {
+    Route::apiResource('diplomes', DiplomeController::class)->only(['index', 'show'])
+        ->middleware('permission:parametrage.diplomes.read');
+    Route::apiResource('diplomes', DiplomeController::class)->except(['index', 'show'])
+        ->middleware('permission:parametrage.diplomes.manage');
+});
+
+Route::middleware(['auth:sanctum', \App\Http\Middleware\TrackUserPresence::class])->group(function () {
+
+    Route::get('/dashboard', \App\Http\Controllers\Api\DashboardController::class);
+Route::middleware(['auth:sanctum', \App\Http\Middleware\TeacherPersonalAccess::class, \App\Http\Middleware\IaAccess::class, \App\Http\Middleware\DecpcAccess::class])->group(function () {
+
+    Route::prefix('enseignant')->middleware('role:enseignant')->group(function () {
+        Route::get('dossier', [\App\Http\Controllers\Api\TeacherPersonalController::class, 'profile']);
+        Route::get('bulletins', [\App\Http\Controllers\Api\TeacherPersonalController::class, 'payslips']);
+        Route::get('bulletins/{id}/pdf', [\App\Http\Controllers\Api\TeacherPersonalController::class, 'pdf'])->whereNumber('id');
+    });
 
     Route::get('/me', [AuthController::class, 'me']);
 
+    Route::get('/decpc/dashboard', function (\Illuminate\Http\Request $request) {
+        return response()->json(['data' => app(\App\Services\Administration\DecpcDashboard::class)->data($request->user())]);
+    })->middleware('role:agent_decpc');
+
     Route::post('/logout', [AuthController::class, 'logout']);
+
 
     /*
     |--------------------------------------------------------------------------
@@ -24,5 +69,17 @@ Route::middleware(['auth:sanctum'])->group(function () {
     */
 
     require __DIR__.'/modules/administration.php';
+    require __DIR__.'/modules/recruitment.php';
+    require __DIR__.'/modules/ia.php';
+    require __DIR__.'/modules/parametrage.php';
+    Route::middleware(\App\Http\Middleware\DrhIndemnitesAccess::class)->group(function () {
+        require __DIR__.'/modules/indemnites.php';
+    });
+    require __DIR__.'/modules/paie.php';
 
+    Route::get('/drh/dashboard', \App\Http\Controllers\Api\DrhDashboardController::class)
+        ->middleware(['role:agent_drh,drh', 'permission:enseignants.read', \App\Http\Middleware\DrhPersonnelAccess::class]);
+    
 });
+});
+

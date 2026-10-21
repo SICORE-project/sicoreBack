@@ -11,10 +11,7 @@ class Region extends Model
 
     protected $fillable = [
         'code',
-        'nom',
-        'chef_lieu',
-        'superficie',
-        'population',
+        'libelle',
         'est_actif',
     ];
 
@@ -25,9 +22,18 @@ class Region extends Model
     ];
 
     // === RELATIONS ===
+    public function ias()
+    {
+        return $this->hasMany(Ia::class);
+    }
+
     public function departements()
     {
         return $this->hasMany(Departement::class);
+    }
+    public function communes()
+    {
+        return $this->hasMany(Commune::class);
     }
 
     public function centresFormation()

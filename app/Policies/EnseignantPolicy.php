@@ -3,7 +3,7 @@
 namespace App\Policies;
 
 use App\Models\Admin\User;
-use App\Models\Personnel\Enseignant;
+use App\Models\Parametrage\Enseignant;
 
 class EnseignantPolicy
 {

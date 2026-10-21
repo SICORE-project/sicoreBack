@@ -2,6 +2,8 @@
 
 namespace App\Models\Parametrage;
 
+use App\Models\Personnel\CompteBancaireEnseignant;
+use App\Models\Personnel\Enseignant;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
@@ -9,10 +11,12 @@ class InstitutFinancier extends Model
 {
     use HasFactory;
 
+    protected $table = 'instituts_financieres';
+
     protected $fillable = [
-        'code',
-        'nom',
+        'libelle',
         'sigle',
+        'type_institution',
         'adresse',
         'telephone',
         'email',
@@ -20,24 +24,33 @@ class InstitutFinancier extends Model
         'code_banque',
         'code_guichet',
         'iban_exemple',
-        'bic',
         'est_actif',
     ];
 
-    protected $casts = [
-        'est_actif' => 'boolean',
-    ];
+    public function scopeActif($query)
+    {
+        return $query->where('est_actif', true);
+    }
 
     // === RELATIONS ===
+
     public function lieuxPaiement()
     {
         return $this->hasMany(LieuPaiement::class);
     }
 
+    public function comptesBancairesEnseignants()
+    {
+        return $this->hasMany(
+            CompteBancaireEnseignant::class,
+            'institut_financier_id'
+        );
+    }
+
     public function enseignants()
     {
         return $this->belongsToMany(Enseignant::class, 'enseignant_institut_financier')
-                    ->withPivot('iban', 'bic', 'titulaire_compte', 'est_principal', 'est_actif')
-                    ->withTimestamps();
+            ->withPivot('iban', 'bic', 'titulaire_compte', 'est_principal', 'est_actif')
+            ->withTimestamps();
     }
 }

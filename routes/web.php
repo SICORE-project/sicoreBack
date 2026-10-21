@@ -1,7 +1,7 @@
 <?php
 
-use App\Http\Controllers\PermissionController;
-use App\Http\Controllers\RoleController;
+use App\Http\Controllers\Admin\PermissionController;
+use App\Http\Controllers\Admin\RoleController;
 use Illuminate\Support\Facades\Route;
 
 // ============================================
@@ -11,6 +11,9 @@ use Illuminate\Support\Facades\Route;
 Route::get('/', function () {
     return view('welcome');
 });
+
+Route::view('/admin/utilisateurs', 'admin.users.index')
+    ->name('admin.users.index');
 
 // ============================================
 // ROUTES AUTH (gérées par une autre équipe)

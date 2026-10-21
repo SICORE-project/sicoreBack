@@ -2,18 +2,18 @@
 
 namespace App\Models\Parametrage;
 
+use App\Models\Personnel\Enseignant;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Specialite extends Model
 {
-    use HasFactory;
+    use HasFactory, SoftDeletes;
 
     protected $fillable = [
         'code',
         'libelle',
-        'domaine',
-        'description',
         'est_actif',
     ];
 
@@ -21,9 +21,13 @@ class Specialite extends Model
         'est_actif' => 'boolean',
     ];
 
-    // === RELATIONS ===
     public function enseignants()
     {
         return $this->hasMany(Enseignant::class);
     }
+
+    public function scopeActif($query)
+{
+    return $query->where('est_actif', true);
+}
 }

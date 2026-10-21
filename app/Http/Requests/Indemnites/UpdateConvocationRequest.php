@@ -1,0 +1,40 @@
+<?php
+
+namespace App\Http\Requests\Indemnites;
+
+use Illuminate\Foundation\Http\FormRequest;
+
+class UpdateConvocationRequest extends FormRequest
+{
+    public function authorize(): bool
+    {
+        return true;
+    }
+
+    public function rules(): array
+    {
+        return [
+            'type_convocation_id' => ['nullable', 'integer', 'exists:types_convocation,id'],
+            'date_emission' => ['sometimes', 'date'],
+            'date_debut' => ['nullable', 'date', $this->has('date_emission') ? 'after_or_equal:date_emission' : 'nullable'],
+            'date_fin' => ['nullable', 'date', 'after_or_equal:date_debut'],
+            'heure_debut' => ['nullable', 'date_format:H:i'],
+            'objet' => ['sometimes', 'string', 'max:255'],
+            // Session d'examen (ex: "BFEM 2026") — colonne ajoutée pour la
+            // liste DAGE du cahier des charges "Transmission des convocations".
+            'session' => ['nullable', 'string', 'max:150'],
+            'ordre_de_mission' => ['nullable', 'boolean'],
+            'lieu_affectation' => ['nullable', 'string', 'max:255'],
+            'statut' => ['nullable', 'in:brouillon,emise,envoyee,cloturee'],
+            'utilisateur_id' => ['sometimes', 'integer', 'exists:users,id'],
+        ];
+    }
+
+    public function messages(): array
+    {
+        return [
+            'date_debut.after_or_equal' => "La période de l'examen ne peut pas commencer avant la date d'émission.",
+            'date_fin.after_or_equal' => 'La fin de la période ne peut pas être antérieure à son début.',
+        ];
+    }
+}

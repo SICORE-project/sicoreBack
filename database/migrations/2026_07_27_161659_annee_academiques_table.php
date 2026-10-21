@@ -13,7 +13,7 @@ return new class extends Migration
             $table->string('libelle', 20)->unique();
             $table->date('date_debut');
             $table->date('date_fin');
-            $table->boolean('en cours', 10)->default(false);
+            $table->boolean('est_active')->default(false);
             $table->boolean('est_cloturee')->default(false);
             $table->date('date_cloture')->nullable();
             $table->text('observations')->nullable();
