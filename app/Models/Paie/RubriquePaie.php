@@ -17,7 +17,7 @@ class RubriquePaie extends Model
         'libelle',
         'type',
         'periodicite',
-        'description',
+        'montant',
     ];
 
     protected $casts = [
