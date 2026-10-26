@@ -29,7 +29,8 @@ class StoreRubriquePaieRequest extends FormRequest
             'libelle' => ['required', 'string', 'max:100'],
             'type' => ['required', Rule::in(['gain', 'retenue'])],
             'periodicite' => ['required', Rule::in(['mensuelle', 'ponctuelle', 'annuelle'])],
-            'description' => ['nullable', 'string', 'max:1000'],
+           'montant' => ['nullable', 'numeric', 'min:0'], // <-- Remplace description
+            // Ajoute les autres champs si tu les gères dans l'API (est_actif, taux_defaut, etc.)
         ];
     }
 }

@@ -29,7 +29,7 @@ class RubriquePaieController extends Controller
                 $query->where(function ($query) use ($term): void {
                     $query->whereRaw('LOWER(code) LIKE ?', [$term])
                         ->orWhereRaw('LOWER(libelle) LIKE ?', [$term])
-                        ->orWhereRaw('LOWER(description) LIKE ?', [$term]);
+                        ->orWhereRaw('CAST(montant AS CHAR) LIKE ?', [$term]); // Remplacé description par montant
                 });
             })
             ->when($filters['type'] ?? null, fn ($query, string $type) => $query->where('type', $type))
