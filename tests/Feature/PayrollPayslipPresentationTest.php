@@ -83,6 +83,21 @@ class PayrollPayslipPresentationTest extends TestCase
         $this->assertSame('Libellé du calcul', $result['lines'][0]['label']);
     }
 
+    public function test_pdf_code_and_wording_are_used_without_overriding_crud_configuration(): void
+    {
+        $service = app(PayrollPayslipPresentationService::class);
+        $result = $service->present($this->payslip('SALAIRE_BASE'));
+        $this->assertSame('10', $result['lines'][0]['display_code']);
+        $this->assertSame('SALAIRE DE BASE', $result['lines'][0]['label']);
+        DB::table('rubrique_paies')->insert([
+            'code' => '10', 'libelle' => 'Libellé décidé dans Paramétrage', 'est_afficher_bulletin' => true,
+        ]);
+        $result = $service->present($this->payslip('SALAIRE_BASE'));
+        $this->assertSame('Libellé décidé dans Paramétrage', $result['lines'][0]['label']);
+        DB::table('rubrique_paies')->where('code', '10')->update(['est_afficher_bulletin' => false]);
+        $this->assertSame([], $service->present($this->payslip('SALAIRE_BASE'))['lines']);
+    }
+
     private function payslip(string $code = 'PRIME_TEST'): PayrollPayslip
     {
         $payslip = new PayrollPayslip([

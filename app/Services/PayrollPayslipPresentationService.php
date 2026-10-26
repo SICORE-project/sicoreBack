@@ -12,18 +12,20 @@ class PayrollPayslipPresentationService
     /** Capture display settings only; amounts, categories and calculation sources stay untouched. */
     public function snapshot(array $lines): array
     {
+        $codes = collect($lines)->pluck('code')->flatMap(fn ($code) => [$code, $this->reference($code)[0] ?? $code])->unique()->all();
         $rubrics = Schema::hasTable('rubrique_paies')
-            ? DB::table('rubrique_paies')->whereIn('code', array_column($lines, 'code'))
+            ? DB::table('rubrique_paies')->whereIn('code', $codes)
                 ->get(['id', 'code', 'libelle', 'est_afficher_bulletin'])->keyBy('code')
             : collect();
 
         $settings = [];
         foreach ($lines as $line) {
-            $rubric = $rubrics->get($line['code']);
+            $reference = $this->reference($line['code']);
+            $rubric = $rubrics->get($line['code']) ?? $rubrics->get($reference[0] ?? $line['code']);
             $settings[$line['code']] = [
                 'rubric_id' => $rubric?->id,
                 'label' => $rubric && trim((string) $rubric->libelle) !== ''
-                    ? $rubric->libelle : $line['label'],
+                    ? $rubric->libelle : ($reference[1] ?? $line['label']),
                 'visible' => $rubric ? (bool) $rubric->est_afficher_bulletin : true,
             ];
         }
@@ -51,14 +53,20 @@ class PayrollPayslipPresentationService
 
             return [
                 'code' => $line->code,
-                'label' => $setting['label'] ?? $line->label,
+                'display_code' => $this->reference($line->code)[0] ?? $line->code,
+                'label' => ($setting['rubric_id'] ?? null) !== null
+                    ? ($setting['label'] ?? $line->label)
+                    : ($this->reference($line->code)[1] ?? $setting['label'] ?? $line->label),
                 'category' => $line->category,
                 'amount' => $line->amount,
                 'source' => $line->source,
                 'is_augmentation' => $line->source === 'salary_increase',
                 'rubric_id' => $setting['rubric_id'] ?? null,
             ];
-        })->filter()->values()->all();
+        })->filter()->sortBy(function (array $line): float {
+            $position = array_search($line['display_code'], array_column(config('payroll_bulletin', []), 0), true);
+            return $position !== false ? (float) $position : ($line['category'] === 'earning' ? 11.5 : 100.0);
+        })->values()->all();
 
         return [
             'lines' => $lines,
@@ -68,5 +76,11 @@ class PayrollPayslipPresentationService
                 'hidden_line_count' => $hidden,
             ],
         ];
+    }
+
+    private function reference(string $code): ?array
+    {
+        $map = config('payroll_bulletin', []);
+        return $map[$code] ?? collect($map)->first(fn ($item) => $item[0] === $code);
     }
 }

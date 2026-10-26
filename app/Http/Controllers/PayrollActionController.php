@@ -33,13 +33,13 @@ class PayrollActionController extends Controller
         $data = $request->validated();
         $actor = $request->user();
         $resource = match ($action) {
+            'generate-payslips' => app(\App\Services\PayrollGenerationService::class)->generate($data, $actor, $request, $idempotencyKey),
             'configure-teacher-payroll' => $this->actions->configureTeacherPayroll(
                 $data,
                 $actor,
                 $request,
                 $idempotencyKey
             ),
-            'create-period' => $this->actions->createPeriod($data, $actor, $request, $idempotencyKey),
             'save-attendance' => $this->actions->saveAttendance($data, $actor, $request, $idempotencyKey),
             'add-element' => $this->actions->addElement($data, $actor, $request, $idempotencyKey),
             'apply-tabaski-advance' => $this->actions->applyCollectiveTabaski(
@@ -96,14 +96,14 @@ class PayrollActionController extends Controller
             'message' => $this->message($action),
             'data' => $resource,
             'operation_id' => $idempotencyKey,
-        ], $action === 'create-period' ? 201 : 200);
+        ], 200);
     }
 
     private function message(string $action): string
     {
         return match ($action) {
+            'generate-payslips' => 'Les bulletins de la sélection ont été générés. Les autres enseignants sont conservés.',
             'configure-teacher-payroll' => 'Le profil de paie du formateur a été configuré.',
-            'create-period' => 'La période de paie a été créée.',
             'save-attendance' => 'L’état de présence a été enregistré.',
             'add-element' => 'L’élément variable a été enregistré.',
             'apply-tabaski-advance' => 'L’avance Tabaski a été appliquée au groupe sélectionné.',
