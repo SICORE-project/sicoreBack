@@ -144,4 +144,23 @@ class IndemniteCorrectionController extends Controller
             ['creees' => $creees, 'erreurs' => $erreurs]
         );
     }
+
+    /**
+     * Même résultat que correcteursEligibles() pour plusieurs convocations en un seul appel :
+     * [convocation_id => données]. Évite un aller-retour réseau par convocation.
+     */
+    public function correcteursEligiblesLot(Request $request)
+    {
+        $resultat = [];
+
+        foreach ($this->identifiantsConvocations($request) as $id) {
+            $reponse = $this->correcteursEligibles(new Request(['convocation_id' => $id]));
+
+            if ($reponse->getStatusCode() === 200) {
+                $resultat[$id] = $reponse->getData(true)['data'] ?? null;
+            }
+        }
+
+        return $this->success('Correcteurs éligibles par convocation.', $resultat);
+    }
 }

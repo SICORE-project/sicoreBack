@@ -25,4 +25,10 @@ trait ApiResponseTrait
             'errors' => $errors,
         ], $code);
     }
+
+    /** Identifiants de convocations demandés (convocation_ids[]), uniques et valides. */
+    protected function identifiantsConvocations(\Illuminate\Http\Request $request): array
+    {
+        return array_values(array_unique(array_filter(array_map('intval', (array) $request->query('convocation_ids', [])))));
+    }
 }

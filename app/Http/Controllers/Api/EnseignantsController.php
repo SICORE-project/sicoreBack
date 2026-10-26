@@ -33,4 +33,46 @@ class EnseignantsController extends Controller
 
         return $this->success('Liste des enseignants.', $enseignants);
     }
+
+    /**
+     * Coordonnées bancaires de plusieurs enseignants (compte actif, principal en priorité ;
+     * à défaut les champs de la fiche enseignant). Sert à la génération des états de paie.
+     */
+    public function coordonneesBancaires(Request $request)
+    {
+        $ids = array_values(array_filter(array_map('intval', (array) $request->query('ids', []))));
+
+        $requete = Enseignant::query()
+            ->whereIn('id', $ids)
+            ->with(['comptesBancaires' => fn ($q) => $q->where('est_actif', true)]);
+
+        // Un utilisateur affecté à une IA ou un IEF ne voit que les enseignants de son périmètre.
+        foreach ($request->user()?->perimetre() ?? [] as $colonne => $valeur) {
+            $valeur ? $requete->where($colonne, $valeur) : $requete->whereRaw('1 = 0');
+        }
+
+        $enseignants = $requete->get();
+
+        $data = [];
+
+        foreach ($enseignants as $enseignant) {
+            $compte = $enseignant->comptesBancaires->sortByDesc('est_principal')->first();
+
+            $rib = [
+                'code_banque' => $compte?->code_banque ?: $enseignant->code_banque,
+                'code_guichet' => $compte?->code_guichet ?: $enseignant->code_guichet,
+                'numero_compte_bancaire' => $compte?->numero_compte ?: $enseignant->numero_compte_bancaire,
+                'cle_rib' => $compte?->cle_rib ?: $enseignant->cle_rib,
+            ];
+
+            // RIB complet : 24 caractères (banque 5 + guichet 5 + compte 12 + clé 2).
+            $rib['complet'] = strlen((string) $rib['code_banque']) === 5
+                && strlen((string) $rib['code_guichet']) === 5
+                && strlen((string) $rib['numero_compte_bancaire']) === 12
+                && strlen((string) $rib['cle_rib']) === 2;
+            $data[$enseignant->id] = $rib;
+        }
+
+        return $this->success('Coordonnées bancaires.', $data);
+    }
 }

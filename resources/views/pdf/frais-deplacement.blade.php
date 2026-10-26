@@ -255,7 +255,6 @@
                 <p>
                     Partant de {{ $mission->lieu_depart ?? 'Dakar' }} le
                     <span class="champ-valeur">{{ optional($mission->date_depart)->format('d/m/Y') ?? '—' }}</span>
-                    à {{ $mission->heure_depart ?? '—' }} heure
                 </p>
                 <p>Pour se rendre à <span class="champ-valeur">{{ $mission->lieu_destination ?? '—' }}</span></p>
                 <p>Suivant ordre de service N° {{ $mission->ordre_service_numero ?? '—' }}</p>

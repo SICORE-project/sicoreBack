@@ -68,6 +68,8 @@ class UserResource extends JsonResource
 
             'ia_id' => $this->ia_id,
 
+            'enseignant_id' => $this->enseignant_id,
+
             'ief_id' => $this->ief_id,
 
             'acces_organisationnel' => $this->perimetre(),

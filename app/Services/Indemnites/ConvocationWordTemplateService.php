@@ -51,12 +51,15 @@ class ConvocationWordTemplateService
         'Prénom' => 'prenom',
         'Nom' => 'nom',
         'Fonction (Correction ou Surveillant)' => 'fonction',
-        // Intitulé court des anciens modèles.
-        'Fonction' => 'fonction',
         'Catégorie de personnel (Fonctionnaire, Contractuelle, Vacataire)' => 'categorie_personnel',
         'Provenance' => 'provenance',
 
         'Téléphone' => 'telephone',
+    ];
+
+    // Intitulés courts des anciens modèles, lus à l'import mais jamais écrits dans le modèle généré.
+    private const ALIAS_ANCIENS_MODELES_MEMBRE = [
+        'Fonction' => 'fonction',
     ];
 
     private const MARQUEUR_INFOS = 'objet';
@@ -159,7 +162,7 @@ class ConvocationWordTemplateService
         }
 
         if ($tableMembre) {
-            $colonnes = $this->mapperColonnes($tableMembre, self::CHAMPS_MEMBRE);
+            $colonnes = $this->mapperColonnes($tableMembre, self::CHAMPS_MEMBRE + self::ALIAS_ANCIENS_MODELES_MEMBRE);
 
             foreach ($this->lireLignesDonnees($tableMembre, $colonnes, self::CHAMPS_MEMBRE) as $ligne) {
                 $membre = $this->resoudreMembre($ligne, $avertissements);
