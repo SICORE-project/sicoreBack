@@ -7,17 +7,22 @@ leurs migrations ne sont pas modifiés.
 
 ## Contrat entre équipes
 
-La correspondance utilise le **code exact** de la ligne calculée et de
-`rubrique_paies.code`. Par exemple, une rubrique de code `SALAIRE_BASE`
-fournit son `libelle` à la ligne calculée de même code. Aucune correspondance
-approximative sur les noms n'est effectuée.
+La correspondance utilise le code technique exact ou son code officiel défini
+dans `config/payroll_bulletin.php` à partir du PDF fourni. Par exemple,
+`SALAIRE_BASE` peut reprendre le libellé du CRUD sous le code `SALAIRE_BASE`
+ou `10`. Le code technique exact est prioritaire si les deux sont présents.
+Aucune correspondance approximative sur les noms n'est effectuée.
 
-Seuls `id`, `code`, `libelle` et `est_afficher_bulletin` sont lus.
-Le montant du catalogue, le type, la périodicité, les taux et les formules
-ne changent jamais les montants, catégories, sources ou totaux du bulletin.
-Créer une rubrique dans le catalogue ne crée donc pas une nouvelle ligne
-de paie : elle doit déjà être présente dans le résultat du calcul.
-Une rubrique non trouvée conserve le libellé calculé et reste visible.
+Pour la présentation, seuls `id`, `code`, `libelle` et `est_afficher_bulletin`
+sont lus. La vue ne recalcule jamais les montants.
+Pour le calcul PC/VAC, les quatre retenues IMPR, TRIMF, IPM et CHECKOFF_UES
+reprennent désormais leur `montant` mensuel depuis le CRUD des rubriques,
+selon leur applicabilité PC/VAC. Voir `paie-retenues-rubriques.md`.
+Les autres montants, taux et formules conservent leur fonctionnement existant.
+Créer une rubrique quelconque dans le catalogue ne crée pas automatiquement
+une nouvelle ligne de paie.
+Une rubrique non trouvée utilise le libellé du PDF si elle est connue dans la
+table de présentation ; sinon elle conserve le libellé calculé. Elle reste visible.
 Le statut actif du catalogue ne supprime pas une ligne déjà calculée.
 
 Les nouveaux calculs enregistrent les réglages dans
@@ -77,4 +82,4 @@ est respectée ; son éventuelle exposition dans le formulaire Paramétrage rel�
 de l'équipe responsable de ce module.
 
 Pour une revue limitée à ce sujet, exclure les fichiers d'installation locale
-préexistants (`.env` du frontend, `LocalSetupSeeder` du backend).
+préexistants (`.env` du frontend). Aucun fichier PDF personnel n'est ajouté au dépôt.
