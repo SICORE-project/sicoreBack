@@ -24,6 +24,15 @@ Le bouton « Générer des bulletins » ouvre un formulaire commun :
 Choisir l'année académique et le mois configurés dans Paramétrage. Le salaire
 du diplôme administratif est repris sans inventer une catégorie salariale.
 Le dossier enseignant n'est pas réenregistré et aucun second profil n'est créé.
+La première ligne d'un bulletin généré depuis ce dossier est « SALAIRE BRUT » :
+elle reprend intégralement `diplomes.salaire_brut`, avec la source `diploma_salary`.
+La rubrique SALAIRE_BASE/10 ne peut ni modifier ni masquer cette ligne.
+Les augmentations historiques ne sont pas décomposées ou ajoutées à nouveau
+à ce salaire de diplôme. Les autres gains et retenues du moteur restent appliqués.
+Le code technique SALAIRE_BASE est conservé pour la compatibilité des rapports.
+Les bulletins historiques restent figés : utiliser une génération/recalcul
+autorisé pour adopter cette présentation et ce salaire, sans écraser les
+périodes validées, clôturées ou les bulletins payés.
 Les anciens profils de paie restent compatibles lorsqu'aucun diplôme
 administratif n'est associé. Un dossier incomplet ou une rubrique sans montant
 bloque la sélection avec un message explicite et sans génération partielle.
