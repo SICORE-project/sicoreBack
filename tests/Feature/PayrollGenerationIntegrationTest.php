@@ -83,6 +83,17 @@ class PayrollGenerationIntegrationTest extends TestCase
         $this->assertSame('LICENCE', $slip->profile_snapshot['diploma_label']);
         $this->assertSame('Contractuelle', $slip->profile_snapshot['category_label']);
         $this->assertSame('12500.00', $slip->lines->firstWhere('code', 'IMPR')->amount);
+        $this->assertSame('145000.00', $slip->lines->firstWhere('code', 'SALAIRE_BASE')->amount);
+        $this->assertSame('diploma_salary', $slip->lines->firstWhere('code', 'SALAIRE_BASE')->source);
+        $this->assertSame(0, $slip->lines->where('source', 'salary_increase')->count());
+        DB::table('rubrique_paies')->insert([
+            'code' => 'SALAIRE_BASE', 'libelle' => 'Ancien salaire configuré', 'type' => 'gain',
+            'periodicite' => 'mensuelle', 'montant' => 999999, 'est_afficher_bulletin' => false,
+        ]);
+        $display = app(\App\Services\PayrollPayslipPresentationService::class)->present($slip);
+        $this->assertSame('SALAIRE BRUT', $display['lines'][0]['label']);
+        $this->assertSame('145000.00', $display['lines'][0]['amount']);
+        $this->assertSame((float) $slip->gross_amount, (float) $slip->lines->where('category', 'earning')->sum('amount'));
         $this->assertSame($before, $teacher->fresh()->toArray());
         $this->assertNull($teacher->fresh()->payroll_profile_configured_at);
     }

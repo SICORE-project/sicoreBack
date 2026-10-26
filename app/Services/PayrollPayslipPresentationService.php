@@ -20,6 +20,10 @@ class PayrollPayslipPresentationService
 
         $settings = [];
         foreach ($lines as $line) {
+            if (($line['source'] ?? null) === 'diploma_salary') {
+                $settings[$line['code']] = ['rubric_id' => null, 'label' => 'SALAIRE BRUT', 'visible' => true];
+                continue;
+            }
             $reference = $this->reference($line['code']);
             $rubric = $rubrics->get($line['code']) ?? $rubrics->get($reference[0] ?? $line['code']);
             $settings[$line['code']] = [
@@ -42,6 +46,13 @@ class PayrollPayslipPresentationService
         $hidden = 0;
         $matched = 0;
         $lines = $payslip->lines->map(function ($line) use ($settings, &$hidden, &$matched): ?array {
+            if ($line->source === 'diploma_salary') {
+                return [
+                    'code' => $line->code, 'display_code' => '10', 'label' => 'SALAIRE BRUT',
+                    'category' => $line->category, 'amount' => $line->amount,
+                    'source' => $line->source, 'is_augmentation' => false, 'rubric_id' => null,
+                ];
+            }
             $setting = $settings[$line->code] ?? [];
             if (($setting['rubric_id'] ?? null) !== null) {
                 $matched++;
@@ -67,6 +78,19 @@ class PayrollPayslipPresentationService
             $position = array_search($line['display_code'], array_column(config('payroll_bulletin', []), 0), true);
             return $position !== false ? (float) $position : ($line['category'] === 'earning' ? 11.5 : 100.0);
         })->values()->all();
+
+        // Legacy documents already store the current salary as a base plus its
+        // historical increases. Consolidate those stored amounts, never substitute
+        // a current diploma value into a historical document without recalculation.
+        $salaryLines = $payslip->lines->filter(fn ($line) => $line->code === 'SALAIRE_BASE' || $line->source === 'salary_increase');
+        if ($salaryLines->isNotEmpty() && ! $salaryLines->contains(fn ($line) => $line->source === 'diploma_salary')) {
+            $salaryCodes = $salaryLines->pluck('code')->all();
+            $lines = collect($lines)->reject(fn ($line) => in_array($line['code'], $salaryCodes, true))->prepend([
+                'code' => 'SALAIRE_BASE', 'display_code' => '10', 'label' => 'SALAIRE BRUT',
+                'category' => 'earning', 'amount' => number_format((float) $salaryLines->sum('amount'), 2, '.', ''),
+                'source' => 'stored_salary', 'is_augmentation' => false, 'rubric_id' => null,
+            ])->values()->all();
+        }
 
         return [
             'lines' => $lines,

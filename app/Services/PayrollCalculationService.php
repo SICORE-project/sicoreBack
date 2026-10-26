@@ -226,9 +226,10 @@ class PayrollCalculationService
 
         $lines = [];
         $fixedEarnings = $base;
+        $diplomaSalary = ! empty($profile['administrative_source']['diploma_id']);
 
         if ($profile['engagement_type'] === PayrollReferenceService::CONTRACTUEL) {
-            $salaryIncreases = collect(config('payroll_reference.contract_salary_increases', []));
+            $salaryIncreases = $diplomaSalary ? collect() : collect(config('payroll_reference.contract_salary_increases', []));
             $increaseTotal = round((float) $salaryIncreases->sum('amount'), 2);
             $salaryOrigin = round($base - $increaseTotal, 2);
             if ($salaryOrigin <= 0) {
@@ -239,10 +240,10 @@ class PayrollCalculationService
 
             $lines[] = [
                 'code' => 'SALAIRE_BASE',
-                'label' => 'Salaire de base avant augmentations',
+                'label' => $diplomaSalary ? 'SALAIRE BRUT' : 'Salaire de base avant augmentations',
                 'category' => 'earning',
                 'amount' => $salaryOrigin,
-                'source' => 'salary_scale',
+                'source' => $diplomaSalary ? 'diploma_salary' : 'salary_scale',
                 'sort_order' => 10,
             ];
             foreach ($salaryIncreases->values() as $index => $increase) {
@@ -280,10 +281,10 @@ class PayrollCalculationService
         } else {
             $lines[] = [
                 'code' => 'SALAIRE_BASE',
-                'label' => 'Salaire de base',
+                'label' => $diplomaSalary ? 'SALAIRE BRUT' : 'Salaire de base',
                 'category' => 'earning',
                 'amount' => $base,
-                'source' => 'salary_scale',
+                'source' => $diplomaSalary ? 'diploma_salary' : 'salary_scale',
                 'sort_order' => 10,
             ];
         }

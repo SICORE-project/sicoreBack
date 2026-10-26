@@ -86,16 +86,31 @@ class PayrollPayslipPresentationTest extends TestCase
     public function test_pdf_code_and_wording_are_used_without_overriding_crud_configuration(): void
     {
         $service = app(PayrollPayslipPresentationService::class);
-        $result = $service->present($this->payslip('SALAIRE_BASE'));
-        $this->assertSame('10', $result['lines'][0]['display_code']);
-        $this->assertSame('SALAIRE DE BASE', $result['lines'][0]['label']);
+        $result = $service->present($this->payslip('IPM'));
+        $this->assertSame('I080', $result['lines'][0]['display_code']);
+        $this->assertSame('IPM', $result['lines'][0]['label']);
         DB::table('rubrique_paies')->insert([
-            'code' => '10', 'libelle' => 'Libellé décidé dans Paramétrage', 'est_afficher_bulletin' => true,
+            'code' => 'I080', 'libelle' => 'Libellé décidé dans Paramétrage', 'est_afficher_bulletin' => true,
         ]);
-        $result = $service->present($this->payslip('SALAIRE_BASE'));
+        $result = $service->present($this->payslip('IPM'));
         $this->assertSame('Libellé décidé dans Paramétrage', $result['lines'][0]['label']);
-        DB::table('rubrique_paies')->where('code', '10')->update(['est_afficher_bulletin' => false]);
-        $this->assertSame([], $service->present($this->payslip('SALAIRE_BASE'))['lines']);
+        DB::table('rubrique_paies')->where('code', 'I080')->update(['est_afficher_bulletin' => false]);
+        $this->assertSame([], $service->present($this->payslip('IPM'))['lines']);
+    }
+
+    public function test_legacy_salary_is_consolidated_without_modifying_stored_totals_or_lines(): void
+    {
+        $payslip = $this->payslip('SALAIRE_BASE');
+        $payslip->lines->push(new PayrollPayslipLine([
+            'code' => 'AUG_JAN_2002', 'label' => 'Augmentation', 'category' => 'earning',
+            'amount' => 5000, 'source' => 'salary_increase',
+        ]));
+        $before = $payslip->toArray();
+        $result = app(PayrollPayslipPresentationService::class)->present($payslip);
+        $this->assertSame('SALAIRE BRUT', $result['lines'][0]['label']);
+        $this->assertSame('17000.00', $result['lines'][0]['amount']);
+        $this->assertCount(1, $result['lines']);
+        $this->assertSame($before, $payslip->toArray());
     }
 
     private function payslip(string $code = 'PRIME_TEST'): PayrollPayslip
