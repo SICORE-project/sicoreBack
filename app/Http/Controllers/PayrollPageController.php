@@ -4,9 +4,11 @@ namespace App\Http\Controllers;
 
 use App\Models\PayrollPayslip;
 use App\Services\PayrollPageService;
+use App\Services\PayrollPayslipPresentationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class PayrollPageController extends Controller
@@ -160,11 +162,24 @@ class PayrollPageController extends Controller
             ?? $teacher->getAttribute('corps_enseignant_id');
         $corpsLabel = $teacher->corps?->libelle
             ?? ($corpsId ? DB::table('corps_enseignant')->where('id', $corpsId)->value('libelle') : null);
-        if (!$teacher->isFonctionnaire()) $corpsLabel = null;
+        if (!$teacher->isFonctionnaire()) $corpsLabel = $teacher->statutEnseignant?->libelle;
+        // Current administrative references coexist with the older payroll relations.
+        $centre = $teacher->centre_formation_id && Schema::hasTable('centres_formation')
+            ? DB::table('centres_formation')->where('id', $teacher->centre_formation_id)->first()
+            : null;
+        $account = Schema::hasTable('comptes_bancaires_enseignants') && Schema::hasTable('instituts_financieres')
+            ? DB::table('comptes_bancaires_enseignants as compte')
+                ->leftJoin('instituts_financieres as banque', 'banque.id', '=', 'compte.institut_financier_id')
+                ->where('compte.enseignant_id', $teacher->id)->where('compte.est_actif', true)
+                ->orderByDesc('compte.est_principal')->orderBy('compte.id')
+                ->first(['compte.numero_compte', 'banque.libelle as bank_label'])
+            : null;
+        $accountNumber = $account?->numero_compte ?: $teacher->numero_compte;
         $teacherName = trim(
             ($teacher->user?->prenom ?? $teacher->prenom ?? '').' '
             .($teacher->user?->nom ?? $teacher->nom ?? '')
         );
+        $presentation = app(PayrollPayslipPresentationService::class)->present($payslip);
 
         return response()->json([
             'data' => [
@@ -183,13 +198,13 @@ class PayrollPageController extends Controller
                     'name' => $teacherName,
                     'corps' => $corpsLabel,
                     'statut_enseignant' => $teacher->statutEnseignant?->libelle,
-                    'bank' => $teacher->institutionFinanciere?->nom,
-                    'account_last_four' => $teacher->numero_compte
-                        ? mb_substr($teacher->numero_compte, -4)
+                    'bank' => $account?->bank_label ?: $teacher->institutionFinanciere?->nom,
+                    'account_last_four' => $accountNumber
+                        ? mb_substr($accountNumber, -4)
                         : null,
                     'academic_inspection' => $iaLabel,
                     'education_inspection' => $teacher->etablissement?->ief?->libelle ?? $ief?->libelle,
-                    'establishment' => $teacher->etablissement?->libelle,
+                    'establishment' => $teacher->etablissement?->libelle ?? $centre?->nom,
                 ],
                 'profile' => [
                     'engagement_type' => data_get($payslip->profile_snapshot, 'engagement_type'),
@@ -210,14 +225,8 @@ class PayrollPageController extends Controller
                 'payment_reference' => $payslip->payment_reference,
                 'paid_at' => $payslip->paid_at?->toIso8601String(),
                 'edited_on' => now()->format('d/m/Y'),
-                'lines' => $payslip->lines->map(fn ($line): array => [
-                    'code' => $line->code,
-                    'label' => $line->label,
-                    'category' => $line->category,
-                    'amount' => $line->amount,
-                    'source' => $line->source,
-                    'is_augmentation' => $line->source === 'salary_increase',
-                ])->values(),
+                'lines' => $presentation['lines'],
+                'display_settings' => $presentation['display_settings'],
             ],
         ]);
     }

@@ -31,10 +31,15 @@ return [
     ['nom' => 'Consulter les pièces justificatives', 'slug' => 'pieces.read', 'groupe' => 'indemnites', 'module' => 'pieces', 'action' => 'read'],
     ['nom' => 'Valider ou rejeter les pièces justificatives', 'slug' => 'pieces.validate', 'groupe' => 'indemnites', 'module' => 'pieces', 'action' => 'validate'],
 
+    // === SYSTÈME (profil Admin System) ===
+    ['nom' => 'Importer les données de base', 'slug' => 'systeme.import', 'groupe' => 'systeme', 'module' => 'import', 'action' => 'import'],
+
     // === PAIE ===
     ['nom' => 'Générer les bulletins de paie', 'slug' => 'paie.bulletins.generate', 'groupe' => 'paie', 'module' => 'bulletins', 'action' => 'generate'],
     ['nom' => 'Consulter les bulletins de paie', 'slug' => 'paie.bulletins.read', 'groupe' => 'paie', 'module' => 'bulletins', 'action' => 'read'],
     ['nom' => 'Valider les bulletins de paie', 'slug' => 'paie.bulletins.validate', 'groupe' => 'paie', 'module' => 'bulletins', 'action' => 'validate'],
+    ['nom' => 'Consulter mes pièces justificatives', 'slug' => 'mes_pieces.read', 'groupe' => 'espace_enseignant', 'module' => 'mes_pieces', 'action' => 'read'],
+    ['nom' => 'Déposer mes pièces justificatives', 'slug' => 'mes_pieces.deposer', 'groupe' => 'espace_enseignant', 'module' => 'mes_pieces', 'action' => 'deposer'],
     ['nom' => 'Consulter mes propres bulletins', 'slug' => 'paie.mes_bulletins.read', 'groupe' => 'paie', 'module' => 'mes_bulletins', 'action' => 'read'],
     ['nom' => 'Gérer les rubriques de paie', 'slug' => 'paie.rubriques.manage', 'groupe' => 'paie', 'module' => 'rubriques', 'action' => 'manage'],
     ['nom' => 'Consulter les rubriques de paie', 'slug' => 'paie.rubriques.read', 'groupe' => 'paie', 'module' => 'rubriques', 'action' => 'read'],

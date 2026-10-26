@@ -30,9 +30,9 @@ use Illuminate\Support\Str;
  * page Pièces justificatives — voir beneficiairesEligibles()).
  *
  * Montant : même méthodologie pour les 3 catégories de personnel — un
- * Groupe (I/II/III) donne un taux journalier, ajusté selon le trajet puis
- * multiplié par le nombre de jours de la période d'examen de la
- * convocation. Voir determinerGroupe()/calculerMontantDeplacement().
+ * Groupe (I/II/III) donne un taux par nuitée, ajusté selon le trajet puis
+ * multiplié par le nombre de nuitées de la période d'examen de la
+ * convocation (date de fin − date de début : du 16 au 20 = 4 nuitées). Voir determinerGroupe()/calculerMontantDeplacement().
  */
 class FraisDeplacementController extends Controller
 {
@@ -48,7 +48,7 @@ class FraisDeplacementController extends Controller
 
     private const SEUIL_INDICE_GROUPE_I = 2296;
 
-    private const SEUIL_INDICE_GROUPE_II = 1728;
+    private const SEUIL_INDICE_GROUPE_II = 1729;
 
     private const SEUIL_SALAIRE_ANNUEL_GROUPE_I = 24294500;
 
@@ -264,6 +264,14 @@ class FraisDeplacementController extends Controller
         // formulaire ET on la mémorise sur l'enseignant, pour ne plus avoir
         // à la ressaisir la prochaine fois.
         $statutAgent = $this->categoriePersonnelEnseignant($convocation, $enseignant) ?? $request->validated('statut_agent');
+
+        if ($statutAgent === null) {
+            return $this->error(
+                "Le type de bénéficiaire (fonctionnaire, contractuel ou vacataire) n'est pas renseigné pour cette personne. Renseignez sa catégorie de personnel dans la convocation, puis recommencez.",
+                422
+            );
+        }
+
         $indiceAgent = null;
 
         if ($statutAgent === 'fonctionnaire') {
@@ -287,12 +295,12 @@ class FraisDeplacementController extends Controller
         $provenance = $this->provenanceEnseignant($convocation, $enseignant, $request->validated('lieu_service'));
 
         $groupeInfo = $this->determinerGroupe($statutAgent, $indiceAgent, $request->validated('montant_saisi'));
-        $joursExamen = $this->nombreJoursPeriodeExamen($convocation);
+        $nuitees = $this->nombreNuiteesPeriodeExamen($convocation);
         $calculDeplacement = $this->calculerMontantDeplacement(
             $groupeInfo['taux_base'],
             $lieuAffectation,
             $provenance,
-            $joursExamen
+            $nuitees
         );
 
         $montantCalcule = $calculDeplacement['montant'];
@@ -328,7 +336,6 @@ class FraisDeplacementController extends Controller
             'declare_par' => $request->user()?->id,
             'grade_emploi' => $request->validated('grade_emploi'),
             'lieu_depart' => $request->validated('lieu_depart'),
-            'heure_depart' => $request->validated('heure_depart'),
             'lieu_destination' => $request->validated('lieu_destination'),
             'motif' => $request->validated('motif'),
             'date_depart' => $request->validated('date_depart'),
@@ -486,12 +493,12 @@ class FraisDeplacementController extends Controller
 
         if ($convocation && $convocation->date_debut && $convocation->date_fin) {
             $groupeInfo = $this->determinerGroupe($mission->statut_agent, $indiceAgent, $montantMensuel);
-            $joursExamen = $this->nombreJoursPeriodeExamen($convocation);
+            $nuitees = $this->nombreNuiteesPeriodeExamen($convocation);
             $calculDeplacement = $this->calculerMontantDeplacement(
                 $groupeInfo['taux_base'],
                 $lieuAffectation,
                 $provenance,
-                $joursExamen
+                $nuitees
             );
 
             $montantCalcule = $calculDeplacement['montant'];
@@ -501,7 +508,6 @@ class FraisDeplacementController extends Controller
         $mission->update([
             'grade_emploi' => $request->validated('grade_emploi'),
             'lieu_depart' => $request->validated('lieu_depart'),
-            'heure_depart' => $request->validated('heure_depart'),
             'lieu_destination' => $request->validated('lieu_destination'),
             'motif' => $request->validated('motif'),
             'date_depart' => $request->validated('date_depart'),
@@ -714,6 +720,11 @@ class FraisDeplacementController extends Controller
 
         if (! $mission) {
             return $this->error('Fiche de déplacement introuvable.', 404);
+        }
+
+        // Une fiche déjà validée, remboursée ou clôturée ne repasse pas à « validée ».
+        if (in_array($mission->statut, ['valide', 'rembourse', 'cloture'], true)) {
+            return $this->error('Cette fiche est déjà validée, remboursée ou clôturée.', 422);
         }
 
         $mission->update([
@@ -937,23 +948,22 @@ class FraisDeplacementController extends Controller
     }
 
     /**
-     * Nombre de jours de la période d'examen de la convocation (bornes
-     * incluses) — demande utilisatrice explicite : le calcul se base sur
-     * "le nombre de jour de la période d'examen", pas sur les dates de
-     * trajet propres à la fiche (date_depart/date_retour).
+     * Nombre de nuitées de la période d'examen de la convocation : date de fin − date de début
+     * (du 16 au 20 = 4 nuitées ; un examen d'un seul jour = 0 nuitée). Le paiement est basé
+     * sur les nuitées, pas sur les dates de trajet propres à la fiche (date_depart/date_retour).
      */
-    private function nombreJoursPeriodeExamen(ConvocationModel $convocation): int
+    private function nombreNuiteesPeriodeExamen(ConvocationModel $convocation): int
     {
         if (! $convocation->date_debut || ! $convocation->date_fin) {
             return 0;
         }
 
-        return (int) $convocation->date_debut->startOfDay()->diffInDays($convocation->date_fin->startOfDay()) + 1;
+        return (int) $convocation->date_debut->startOfDay()->diffInDays($convocation->date_fin->startOfDay());
     }
 
     /**
      * Ajuste le taux de base selon le trajet, puis multiplie par le
-     * nombre de jours : lieu d'affectation (centre où il est envoyé pour
+     * nombre de nuitées : lieu d'affectation (centre où il est envoyé pour
      * CET examen) identique à sa provenance (où il exerce habituellement,
      * ex : Dakar = Dakar) -> taux ÷ 4, il ne se déplace pas vraiment ;
      * lieux différents -> taux plein. Comparaison insensible à la
@@ -962,7 +972,7 @@ class FraisDeplacementController extends Controller
      *
      * @return array{meme_lieu: bool, taux_ajuste: float, montant: float}
      */
-    private function calculerMontantDeplacement(int $tauxBase, ?string $lieuAffectation, ?string $provenance, int $jours): array
+    private function calculerMontantDeplacement(int $tauxBase, ?string $lieuAffectation, ?string $provenance, int $nuitees): array
     {
         $normaliser = fn (?string $valeur) => Str::of((string) $valeur)->lower()->trim()->toString();
 
@@ -976,7 +986,7 @@ class FraisDeplacementController extends Controller
         return [
             'meme_lieu' => $memeLieu,
             'taux_ajuste' => $tauxAjuste,
-            'montant' => $tauxAjuste * $jours,
+            'montant' => $tauxAjuste * $nuitees,
         ];
     }
 
@@ -1061,5 +1071,24 @@ class FraisDeplacementController extends Controller
             'depose_par' => $deposeParId,
             'commentaire' => $commentaire,
         ]);
+    }
+
+    /**
+     * Même résultat que beneficiairesEligibles() pour plusieurs convocations en un seul appel :
+     * [convocation_id => données]. Évite un aller-retour réseau par convocation.
+     */
+    public function beneficiairesEligiblesLot(Request $request)
+    {
+        $resultat = [];
+
+        foreach ($this->identifiantsConvocations($request) as $id) {
+            $reponse = $this->beneficiairesEligibles(new Request(['convocation_id' => $id]));
+
+            if ($reponse->getStatusCode() === 200) {
+                $resultat[$id] = $reponse->getData(true)['data'] ?? null;
+            }
+        }
+
+        return $this->success('Bénéficiaires éligibles par convocation.', $resultat);
     }
 }

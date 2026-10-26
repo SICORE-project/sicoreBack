@@ -20,9 +20,9 @@ class StorePieceJustificativeRequest extends FormRequest
             'enseignant_id' => ['nullable', 'integer', 'exists:enseignants,id'],
             'centre_id' => ['nullable', 'integer', 'exists:convocation_centres,id'],
             'depositaire_id' => ['nullable', 'integer', 'exists:users,id'],
-            // 100 Ko max (voir demande utilisateur) — volontairement bas,
+            // 1 Mo max (2 pages scannées) — volontairement bas,
             // documents attendus deja compresses/scannes legers.
-            'document' => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:100'],
+            'document' => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:1024'],
             'document_url' => ['nullable', 'url'],
             'date_depot' => ['nullable', 'date'],
         ];

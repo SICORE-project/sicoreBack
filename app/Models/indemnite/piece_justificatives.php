@@ -17,7 +17,7 @@ class Piece_justificatives extends Model
      */
     public const TYPES = [
         'service_fait' => 'Service fait',
-        'ordre_mission' => 'Ordre de mission',
+        'ordre_mission' => 'Ordre de mission (recto-verso)',
         'rapport_mission' => 'Rapport de mission',
         'bulletin_salaire' => 'Bulletin de salaire',
         'accuse_reception' => 'Accusé de réception',

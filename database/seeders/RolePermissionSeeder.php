@@ -49,7 +49,7 @@ class RolePermissionSeeder extends Seeder
             'enseignants.read', 'enseignants.search',
         ]));
 
-        // ENSEIGNANT : uniquement ses propres bulletins
-        $set('enseignant', ['paie.mes_bulletins.read']);
+        // ENSEIGNANT : ses propres bulletins et ses propres pièces justificatives
+        $set('enseignant', ['paie.mes_bulletins.read', 'mes_pieces.read', 'mes_pieces.deposer']);
     }
 }
