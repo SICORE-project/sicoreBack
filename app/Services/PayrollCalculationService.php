@@ -120,6 +120,11 @@ class PayrollCalculationService
 
             foreach ($enseignants as $enseignant) {
                 $snapshot = $this->calculateTeacher($lockedPeriod, $enseignant);
+                $snapshot['profile'] = [
+                    ...($snapshot['profile'] ?? []),
+                    'bulletin_display' => app(PayrollPayslipPresentationService::class)
+                        ->snapshot($snapshot['lines']),
+                ];
                 $payslip = $run->payslips()->create([
                     'payroll_period_id' => $lockedPeriod->id,
                     'enseignant_id' => $enseignant->id,
