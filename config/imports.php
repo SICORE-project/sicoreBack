@@ -7,18 +7,7 @@
 | Les colonnes reprennent les règles des formulaires de création du Paramétrage (requêtes
 | Store*Request et modèles de app/Models/Parametrage) : mêmes champs obligatoires, mêmes longueurs.
 |
-| Par référentiel :
-|   table, cle      table cible et colonne servant de clé : une ligne dont la clé existe déjà met à jour
-|                   l'enregistrement, sinon elle est créée (un même fichier peut être réimporté)
-|   defauts         valeurs écrites à la création (ignorées si la colonne n'existe pas)
-|   generer         colonnes générées à la création (code d'établissement)
-|   uniques         colonnes qui ne doivent pas déjà exister sur un autre enregistrement
-|   colonnes        colonnes du fichier CSV
-|
-| Par colonne : requis, max, type (entier, decimal, date, email, booleen), valeurs (liste fermée),
-| regex + message, min / maxvaleur, exemple ; cible = colonne de la table si elle diffère du nom
-| dans le fichier ; reference = enregistrement d'un autre référentiel retrouvé par une ou plusieurs
-| colonnes ; apres = la date doit être postérieure à une autre colonne du fichier.
+| 
 */
 
 return [
@@ -31,10 +20,6 @@ return [
         'colonnes' => [
             'code' => ['requis' => true, 'max' => 10, 'exemple' => 'DK'],
             'libelle' => ['requis' => true, 'max' => 50, 'exemple' => 'Dakar'],
-            'chef_lieu' => ['max' => 50, 'exemple' => 'Dakar'],
-            'superficie' => ['type' => 'decimal', 'min' => 0],
-            'population' => ['type' => 'entier', 'min' => 0],
-            'est_actif' => ['type' => 'booleen'],
         ],
     ],
     'departement' => [
