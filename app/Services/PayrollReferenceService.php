@@ -44,11 +44,16 @@ class PayrollReferenceService
         'IMPR',
         'TRIMF',
         'CHECKOFF_UES',
+        'I061',
+        'I090',
+        'I080',
+        'I790',
     ];
 
-    /** @return array<string, float|int|string|null> */
+    /** @return array<string, mixed> */
     public function profile(Enseignant $teacher, CarbonInterface|string $date): array
     {
+        $administrative = $teacher->getAttribute('administrative_payroll');
         $engagement = mb_strtolower(trim((string) $teacher->type_engagement));
         $matricule = $teacher->matricule ?: '#'.$teacher->id;
 
@@ -57,25 +62,20 @@ class PayrollReferenceService
                 "Le type d’engagement du formateur {$matricule} n’est pas configuré."
             );
         }
-        if (! $teacher->payroll_profile_configured_at) {
+        if (! $administrative && ! $teacher->payroll_profile_configured_at) {
             throw new ConflictHttpException(
                 "Le profil de paie du formateur {$matricule} doit être configuré avant le calcul."
             );
         }
-        if ($teacher->impr_monthly_amount === null || $teacher->trimf_monthly_amount === null) {
-            throw new ConflictHttpException(
-                "Les montants IMPR et TRIMF du formateur {$matricule} doivent être validés."
-            );
-        }
 
         $diploma = $engagement === self::CONTRACTUEL
-            ? (string) $teacher->payroll_diploma_level
+            ? (string) ($administrative['diploma_level'] ?? $teacher->payroll_diploma_level)
             : 'TOUS';
         $category = $engagement === self::CONTRACTUEL
             ? (int) $teacher->payroll_category_level
             : 0;
 
-        if ($engagement === self::CONTRACTUEL && (
+        if (! $administrative && $engagement === self::CONTRACTUEL && (
             ! in_array($diploma, self::DIPLOMAS, true)
             || $category < 1
             || $category > 12
@@ -85,13 +85,13 @@ class PayrollReferenceService
             );
         }
 
-        $scale = $this->dated(PayrollSalaryScale::query(), $date)
+        $scale = $administrative ? null : $this->dated(PayrollSalaryScale::query(), $date)
             ->where('engagement_type', $engagement)
             ->where('diploma_level', $diploma)
             ->where('category_level', $category)
             ->first();
 
-        if (! $scale) {
+        if (! $administrative && ! $scale) {
             throw new ConflictHttpException(
                 "Aucune grille salariale applicable au formateur {$matricule} pour cette période."
             );
@@ -101,16 +101,15 @@ class PayrollReferenceService
             'engagement_type' => $engagement,
             'diploma_level' => $engagement === self::CONTRACTUEL ? $diploma : null,
             'diploma_label' => $engagement === self::CONTRACTUEL
-                ? (config('payroll_reference.diplomas.'.$diploma) ?? $diploma)
+                ? ($administrative['diploma_label'] ?? config('payroll_reference.diplomas.'.$diploma) ?? $diploma)
                 : null,
-            'category_level' => $engagement === self::CONTRACTUEL ? $category : null,
-            'base_salary' => (float) $scale->base_salary,
-            'salary_scale_id' => $scale->id,
-            'salary_scale_effective_from' => $scale->effective_from->toDateString(),
-            'impr' => (float) $teacher->impr_monthly_amount,
-            'trimf' => (float) $teacher->trimf_monthly_amount,
-            'ipm' => (float) $teacher->ipm_monthly_amount,
-            'checkoff' => (float) $teacher->union_checkoff_monthly_amount,
+            'category_level' => $engagement === self::CONTRACTUEL && $category > 0 ? $category : null,
+            'category_label' => $administrative['category_label'] ?? null,
+            'base_salary' => (float) ($administrative['base_salary'] ?? $scale?->base_salary),
+            'salary_scale_id' => $scale?->id,
+            'salary_scale_effective_from' => $scale?->effective_from?->toDateString(),
+            'administrative_source' => $administrative,
+            ...app(PayrollRubricAmounts::class)->resolve($engagement),
         ];
 
         if ($engagement === self::VACATAIRE) {
