@@ -45,6 +45,11 @@ class EnseignantService
 
             if (!empty($compteBancaire) && collect(Arr::except($compteBancaire, ['type_virement', 'est_principal', 'est_actif']))->filter(fn ($value) => $value !== null && $value !== '')->isNotEmpty()) {
 
+                $compteBancaire['rib'] = implode('', array_map(
+                    fn (string $field): string => (string) ($compteBancaire[$field] ?? ''),
+                    ['code_banque', 'code_guichet', 'numero_compte', 'cle_rib'],
+                ));
+
                 $compteBancaire['est_principal'] =
                     $compteBancaire['est_principal'] ?? true;
 
@@ -116,9 +121,9 @@ class EnseignantService
                 'ief',
                 'corps',
                 'statutEnseignant',
-                'categorie',
+                'categorie.corps',
                 'discipline',
-                'diplome',
+                'diplome.categorie.corps',
                 'lieuService',
                 'comptesBancaires.institutFinancier',
                 'syndicats',
@@ -134,9 +139,9 @@ class EnseignantService
             'ief',
             'corps',
             'statutEnseignant',
-            'categorie',
+            'categorie.corps',
             'discipline',
-            'diplome',
+            'diplome.categorie.corps',
             'lieuService',
             'comptesBancaires.institutFinancier',
             'syndicats',
@@ -147,6 +152,7 @@ class EnseignantService
     public function update(Enseignant $enseignant, array $data, ?int $userId = null): Enseignant
     {
         $compteBancaire = $data['compte_bancaire'] ?? null;
+        $syndicat = $data['syndicat'] ?? null;
         $data = Arr::except($data, ['compte_bancaire', 'syndicat', 'mutuelle']);
         if (!empty($data['date_recrutement'])) {
             $data['annee_recrutement'] = (int) date('Y', strtotime($data['date_recrutement']));
@@ -155,10 +161,41 @@ class EnseignantService
         $enseignant->update($data);
 
         if (! empty($compteBancaire) && collect(Arr::except($compteBancaire, ['type_virement', 'est_principal', 'est_actif']))->filter(fn ($value) => $value !== null && $value !== '')->isNotEmpty()) {
+            $compteBancaire['rib'] = implode('', array_map(
+                fn (string $field): string => (string) ($compteBancaire[$field] ?? ''),
+                ['code_banque', 'code_guichet', 'numero_compte', 'cle_rib'],
+            ));
             $compte = $enseignant->comptesBancaires()->where('est_principal', true)->first()
                 ?? $enseignant->comptesBancaires()->first();
             $values = array_merge($compteBancaire, ['est_principal' => true, 'est_actif' => true]);
             $compte ? $compte->update($values) : $enseignant->comptesBancaires()->create($values);
+        }
+
+        if (! empty($syndicat['syndicat_id'])) {
+            $syndicatId = (int) $syndicat['syndicat_id'];
+            $syndicats = $enseignant->syndicats();
+            $existing = $syndicats->where('syndicats.id', $syndicatId)->first();
+            $now = now();
+
+            $syndicats->newPivotStatement()
+                ->where('enseignant_id', $enseignant->id)
+                ->where('est_actif', true)
+                ->where('syndicat_id', '<>', $syndicatId)
+                ->update([
+                    'est_actif' => false,
+                    'date_resiliation' => $now->toDateString(),
+                    'updated_at' => $now,
+                ]);
+
+            $pivot = ['est_actif' => true, 'date_resiliation' => null];
+            if ($existing) {
+                $syndicats->updateExistingPivot($syndicatId, $pivot);
+            } else {
+                $syndicats->attach($syndicatId, [
+                    ...$pivot,
+                    'date_adhesion' => $now->toDateString(),
+                ]);
+            }
         }
 
         return $this->find($enseignant->id);
@@ -193,9 +230,9 @@ class EnseignantService
                 'ief',
                 'corps',
                 'statutEnseignant',
-                'categorie',
+                'categorie.corps',
                 'discipline',
-                'diplome',
+                'diplome.categorie.corps',
                 'lieuService',
                 'comptesBancaires.institutFinancier',
                 'syndicats',
