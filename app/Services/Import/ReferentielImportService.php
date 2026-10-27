@@ -10,8 +10,9 @@ use InvalidArgumentException;
 /**
  * Import CSV des données de base (voir config/imports.php).
  *
- * Tout ou rien : si une ligne est invalide, rien n'est écrit. Une ligne dont la clé existe déjà met à jour
- * l'enregistrement (réimport sans doublon).
+ * Import partiel : les lignes invalides sont rapportées ligne par ligne et n'empêchent pas
+ * l'écriture des lignes valides. Une ligne dont la clé existe déjà est IGNORÉE (comptée dans
+ * « ignores ») : elle n'écrase jamais l'existant et n'est pas considérée comme une erreur.
  */
 class ReferentielImportService
 {
@@ -66,7 +67,14 @@ class ReferentielImportService
     }
 
     /**
-     * @return array{total: int, crees: int, mis_a_jour: int, inchanges: int, erreurs: array<int, array{ligne: int, message: string}>, importe: bool}
+     * @return array{
+     *     total: int,
+     *     crees: int,
+     *     ignores: int,
+     *     erreurs: array<int, array{ligne: int, message: string}>,
+     *     importe: bool,
+     *     statut: 'ok'|'partiel'|'echec'
+     * }
      */
     public function traiter(string $entite, string $chemin, bool $ecrire): array
     {
@@ -76,58 +84,103 @@ class ReferentielImportService
         $requises = array_keys(array_filter($definition['colonnes'], fn (array $c) => ! empty($c['requis'])));
         $lignes = $this->lireCsv($chemin, $requises);
 
-        $rapport = ['total' => count($lignes), 'crees' => 0, 'mis_a_jour' => 0, 'inchanges' => 0, 'erreurs' => [], 'importe' => false];
+        $rapport = [
+            'total'   => count($lignes),
+            'crees'   => 0,
+            'ignores' => 0,
+            'erreurs' => [],
+            'importe' => false,
+        ];
+
         $operations = [];
         $cles = [];
+        $clesEnBase = []; // clés déjà présentes en base, préchargées par lot
+
+        // Préchargement des clés existantes pour éviter une requête par ligne.
+        $toutesLesCles = [];
+        foreach ($lignes as $ligne) {
+            if (($cle = trim((string) ($ligne[$definition['cle']] ?? ''))) !== '') {
+                $toutesLesCles[] = $cle;
+            }
+        }
+        if ($toutesLesCles) {
+            foreach (array_chunk(array_unique($toutesLesCles), 500) as $lot) {
+                foreach (DB::table($definition['table'])->whereIn($definition['cle'], $lot)->pluck($definition['cle']) as $cle) {
+                    $clesEnBase[mb_strtolower((string) $cle)] = true;
+                }
+            }
+        }
 
         foreach ($lignes as $numero => $ligne) {
             [$valeurs, $erreurs] = $this->valider($definition, $ligne);
 
             $cle = $valeurs[$definition['cle']] ?? null;
             if ($cle !== null) {
-                if (isset($cles[mb_strtolower((string) $cle)])) {
-                    $erreurs[] = "« {$definition['cle']} » en double dans le fichier (ligne {$cles[mb_strtolower((string) $cle)]}).";
+                $cleNormalisee = mb_strtolower((string) $cle);
+                if (isset($cles[$cleNormalisee])) {
+                    // Doublon interne au fichier : ignoré (pas une erreur bloquante).
+                    $rapport['ignores']++;
+                    continue;
                 }
-                $cles[mb_strtolower((string) $cle)] = $numero;
-            }
-
-            $existant = $cle !== null ? $this->trouver($definition, $cle) : null;
-
-            if (! $erreurs) {
-                foreach ($definition['uniques'] ?? [] as $colonne) {
-                    if (isset($valeurs[$colonne]) && $this->dejaPris($definition, $colonne, $valeurs[$colonne], $existant)) {
-                        $erreurs[] = "« $colonne » : « {$valeurs[$colonne]} » existe déjà sur un autre enregistrement.";
-                    }
-                }
+                $cles[$cleNormalisee] = true;
             }
 
             if ($erreurs) {
                 $rapport['erreurs'][] = ['ligne' => $numero, 'message' => implode(' ', $erreurs)];
-
                 continue;
             }
 
-            if (! $existant) {
-                $rapport['crees']++;
-                $operations[] = ['creer', $valeurs, null];
-            } elseif ($this->identique($existant, $valeurs)) {
-                $rapport['inchanges']++;
-            } else {
-                $rapport['mis_a_jour']++;
-                $operations[] = ['modifier', $valeurs, $existant];
+            // Doublon déjà présent en base : IGNORÉ , pas d'update.
+            if ($cle !== null && isset($clesEnBase[mb_strtolower((string) $cle)])) {
+                $rapport['ignores']++;
+                continue;
             }
+
+            // Contrôle des colonnes devant rester uniques.
+            $collision = false;
+            foreach ($definition['uniques'] ?? [] as $colonne) {
+                if (isset($valeurs[$colonne]) && $this->dejaPris($definition, $colonne, $valeurs[$colonne], null)) {
+                    $rapport['erreurs'][] = ['ligne' => $numero, 'message' => "« $colonne » : « {$valeurs[$colonne]} » existe déjà sur un autre enregistrement."];
+                    $collision = true;
+                    break;
+                }
+            }
+            if ($collision) {
+                continue;
+            }
+
+            $rapport['crees']++;
+            $operations[] = ['creer', $valeurs];
         }
 
-        if ($ecrire && ! $rapport['erreurs']) {
-            DB::transaction(function () use ($definition, $operations) {
-                foreach ($operations as [$action, $valeurs, $existant]) {
-                    $this->ecrire($definition, $action, $valeurs, $existant);
-                }
-            });
+        if ($ecrire && $operations && $rapport['crees'] > 0) {
+            // Transaction par ligne : une erreur inattendue n'annule pas les lignes déjà écrites.
+            foreach ($operations as [$action, $valeurs]) {
+                DB::transaction(fn () => $this->ecrire($definition, $action, $valeurs, null));
+            }
             $rapport['importe'] = true;
         }
 
+        $rapport['statut'] = $this->statut($rapport);
+
         return $rapport;
+    }
+
+    /** @return 'ok'|'partiel'|'echec' */
+    private function statut(array $rapport): string
+    {
+        if ($rapport['total'] === 0) {
+            return 'echec';
+        }
+        if ($rapport['erreurs'] === []) {
+            return 'ok';
+        }
+        // Des erreurs mais au moins une ligne créée/ignorée => partiel.
+        if ($rapport['crees'] > 0 || $rapport['ignores'] > 0) {
+            return 'partiel';
+        }
+
+        return 'echec';
     }
 
     /**
@@ -176,7 +229,7 @@ class ReferentielImportService
     {
         $contenu = (string) file_get_contents($chemin);
 
-        // Excel « Texte Unicode » enregistre en UTF-16 ; CSV UTF-8 avec ou sans BOM ; sinon Windows-1252.
+        // Excel « Texte Unicode » enregistre en UTF-16 ; CSV UTF-8  ; sinon Windows-1252.
         if (str_starts_with($contenu, "\xFF\xFE")) {
             $contenu = mb_convert_encoding(substr($contenu, 2), 'UTF-8', 'UTF-16LE');
         } elseif (str_starts_with($contenu, "\xFE\xFF")) {
