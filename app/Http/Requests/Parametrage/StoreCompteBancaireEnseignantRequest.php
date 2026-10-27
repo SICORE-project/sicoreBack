@@ -24,10 +24,8 @@ class StoreCompteBancaireEnseignantRequest extends FormRequest
                 'required',
                 'string',
                 'max:34',
-                Rule::unique('comptes_bancaires_enseignants', 'numero_compte')
-                    ->where('enseignant_id', $this->route('enseignant')),
             ],
-            'rib' => ['required', 'string', 'size:24'],
+            'rib' => ['required', 'string', 'size:24', Rule::unique('comptes_bancaires_enseignants', 'rib')],
             'est_actif' => ['required', 'boolean'],
         ];
     }
@@ -37,7 +35,7 @@ class StoreCompteBancaireEnseignantRequest extends FormRequest
         return [
             'institut_financier_id.exists' => 'La banque sélectionnée est inexistante ou inactive.',
             'rib.size' => 'Le RIB complet doit comporter exactement 24 caractères.',
-            'numero_compte.unique' => 'Ce compte bancaire est déjà associé à cet enseignant.',
+            'rib.unique' => 'Ce RIB complet est déjà associé à un autre enseignant.',
         ];
     }
 }

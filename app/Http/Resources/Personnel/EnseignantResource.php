@@ -186,28 +186,29 @@ class EnseignantResource extends JsonResource
 
             'corps' => $this->whenLoaded(
                 'corps',
-                fn () => $this->isFonctionnaire() && $this->corps
-                    ? [
-                        'id' =>
-                            $this->corps->id,
+                function () {
+                    $corps = $this->corps
+                        ?? $this->categorie?->corps
+                        ?? $this->diplome?->categorie?->corps;
 
-                        'code' =>
-                            $this->corps->code,
-
-                        'libelle' =>
-                            $this->corps->libelle,
-                    ]
-                    : null
+                    return $corps ? [
+                        'id' => $corps->id,
+                        'code' => $corps->code,
+                        'libelle' => $corps->libelle,
+                    ] : null;
+                }
             ),
 
             'categorie' => $this->whenLoaded(
                 'categorie',
-                fn () => $this->categorie
-                    ? [
-                        'id' => $this->categorie->id,
-                        'libelle' => $this->categorie->libelle,
-                    ]
-                    : null
+                function () {
+                    $categorie = $this->categorie ?? $this->diplome?->categorie;
+
+                    return $categorie ? [
+                        'id' => $categorie->id,
+                        'libelle' => $categorie->libelle,
+                    ] : null;
+                }
             ),
 
             // =====================================================
@@ -317,11 +318,23 @@ class EnseignantResource extends JsonResource
                     'code' =>
                         $syndicat->code,
 
-                    'nom' =>
-                        $syndicat->nom,
+                    'libelle' =>
+                        $syndicat->libelle,
 
-                    'sigle' =>
-                        $syndicat->sigle,
+                    'montant_check_off' =>
+                        $syndicat->montant_check_off,
+
+                    'montant_oeuvre_sociale' =>
+                        $syndicat->montant_oeuvre_sociale,
+
+                    'est_actif' =>
+                        (bool) $syndicat->est_actif,
+
+                    'created_at' =>
+                        $syndicat->created_at,
+
+                    'updated_at' =>
+                        $syndicat->updated_at,
 
                     'numero_affiliation' =>
                         $syndicat
@@ -343,7 +356,7 @@ class EnseignantResource extends JsonResource
                             ->pivot
                             ?->date_resiliation,
 
-                    'est_actif' =>
+                    'adhesion_est_active' =>
                         (bool) $syndicat
                             ->pivot
                             ?->est_actif,

@@ -17,6 +17,7 @@ class CompteBancaireEnseignant extends Model
         'code_banque',
         'code_guichet',
         'numero_compte',
+        'rib',
         'cle_rib',
         'iban',
         'bic',
