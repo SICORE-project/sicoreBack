@@ -43,7 +43,8 @@ class PayrollPageService
 
     private function periods(): Collection
     {
-        $periods = PayrollPeriod::query()->withCount([
+        $codes = app(PayrollPeriodCatalogue::class)->synchronize();
+        $periods = PayrollPeriod::query()->whereIn('code', $codes)->withCount([
             'payslips' => fn ($q) => $this->scopePayroll($q),
             'attendances' => fn ($q) => $this->scopePayroll($q),
             'elements' => fn ($q) => $this->scopePayroll($q),
@@ -163,6 +164,9 @@ class PayrollPageService
             ->get();
 
         $report = $this->report($slug, $period, $teachers, $criteria);
+        if ($periods->isEmpty()) {
+            $report['notice'] = 'Renseignez les périodes de paie dans Paramétrage (code 01 à 12, nom du mois ou AAAA-MM), puis une année académique avec ses dates. Les mois seront disponibles ici automatiquement.';
+        }
         if (in_array($slug, ['paie-avance-tabaski', 'paie-retenue-tabaski'], true)) {
             $missingReferences = collect([
                 $academicYears->isEmpty() ? 'une année académique' : null,
@@ -175,6 +179,7 @@ class PayrollPageService
             }
         }
         $rowFilters = $this->rowFilters($report['rows'], $teachers);
+        $personnelProfiles = app(PayrollTeacherProfile::class);
 
         return [
             'slug' => $slug,
@@ -221,12 +226,10 @@ class PayrollPageService
                 'ia_id' => $this->teacherIaId($teacher),
                 'ia_label' => $this->teacherIaLabel($teacher, $academicInspections),
                 'type_engagement' => $teacher->type_engagement,
+                'administrative_profile' => $personnelProfiles->describe($teacher),
+                'statut_enseignant_id' => $teacher->statut_enseignant_id,
                 'payroll_diploma_level' => $teacher->payroll_diploma_level,
                 'payroll_category_level' => $teacher->payroll_category_level,
-                'impr_monthly_amount' => $teacher->impr_monthly_amount,
-                'trimf_monthly_amount' => $teacher->trimf_monthly_amount,
-                'ipm_monthly_amount' => $teacher->ipm_monthly_amount,
-                'union_checkoff_monthly_amount' => $teacher->union_checkoff_monthly_amount,
                 'salary_base' => $teacher->salaire_base,
                 'payroll_profile_configured' => (bool) $teacher->payroll_profile_configured_at,
             ])->values(),
@@ -267,7 +270,7 @@ class PayrollPageService
             'paie-generee-ief' => $this->iefSummaryReport($period),
             'paie-fermeture-periode' => $this->closingReport(),
             'paie-edition-salaires-banque' => $this->bankSalaryReport($period),
-            'paie-bulletins' => $this->payslipReport($period),
+            'paie-bulletins' => $this->payslipReport($period, $teachers),
             'paie-effectifs-corps' => $this->workforceReport($teachers),
             'paie-non-generee' => $this->notGeneratedReport($period),
             'paie-sommes-percues' => $this->paidReport($period),
@@ -548,8 +551,7 @@ class PayrollPageService
                 (string) $item->version,
             ])->values(),
             'actions' => [
-                $this->action('Nouvelle période', 'create-period', 'primary'),
-                $this->action('Calculer la paie', 'calculate-payroll'),
+                $this->action('Générer des bulletins', 'generate-payslips'),
                 $this->action('Valider la paie', 'validate-payroll'),
             ],
             'stats' => [
@@ -763,48 +765,45 @@ class PayrollPageService
     }
 
     /** @return array<string, mixed> */
-    private function payslipReport(?PayrollPeriod $period): array
+    private function payslipReport(?PayrollPeriod $period, Collection $teachers): array
     {
         $items = $this->payslips($period);
+        $rows = $items->map(fn (PayrollPayslip $item): array => [
+            $item->reference,
+            $period?->label ?? '—',
+            $item->enseignant->matricule ?: '—',
+            $this->teacherName($item->enseignant),
+            $this->money($item->gross_amount),
+            $this->money($item->deduction_amount),
+            $this->money($item->net_amount),
+            (string) $item->version,
+            ['actions' => [[
+                'label' => 'Consulter', 'code' => 'view-payslip',
+                'payload' => ['payroll_payslip_id' => $item->id],
+            ]]],
+        ]);
+        $existingIds = $items->pluck('enseignant_id');
+        $withoutPayslip = $teachers->reject(fn (Enseignant $teacher) => $existingIds->contains($teacher->id));
+        $rows = $rows->concat($withoutPayslip->map(fn (Enseignant $teacher): array => [
+            'Non calculé', $period?->label ?? '—', $teacher->matricule ?: '—',
+            $this->teacherName($teacher), '—', '—', '—', '—', ['actions' => [[
+                'label' => 'Générer', 'code' => 'generate-payslips',
+                'payload' => ['generation_scope' => 'teacher', 'enseignant_id' => $teacher->id],
+            ]]],
+        ]))->sortBy(fn (array $row) => (string) $row[2])->values();
 
         return [
-            'columns' => ['Référence', 'Mois du bulletin', 'Matricule', 'Enseignant', 'Brut', 'Retenues', 'Net', 'Paiement', 'Version', 'Actions'],
-            'rows' => $items->map(fn (PayrollPayslip $item): array => [
-                $item->reference,
-                $period?->label ?? '—',
-                $item->enseignant->matricule ?: '—',
-                $this->teacherName($item->enseignant),
-                $this->money($item->gross_amount),
-                $this->money($item->deduction_amount),
-                $this->money($item->net_amount),
-                $this->statusCell($item->payment_status),
-                (string) $item->version,
-                [
-                    'actions' => array_values(array_filter([
-                        [
-                            'label' => 'Consulter',
-                            'code' => 'view-payslip',
-                            'payload' => ['payroll_payslip_id' => $item->id],
-                        ],
-                        $item->payment_status === 'paid' ? null : [
-                            'label' => 'Marquer payé',
-                            'code' => 'mark-paid',
-                            'payload' => [
-                                'payroll_payslip_id' => $item->id,
-                                'expected_version' => $item->version,
-                            ],
-                        ],
-                    ])),
-                ],
-            ])->values(),
-            'actions' => [$this->exportAction()],
+            'columns' => ['Référence', 'Mois du bulletin', 'Matricule', 'Enseignant', 'Brut', 'Retenues', 'Net', 'Version', 'Actions'],
+            'rows' => $rows,
+            'actions' => [$this->action('Générer des bulletins', 'generate-payslips', 'primary'), $this->exportAction()],
             'notice' => $period
                 ? sprintf(
-                    'Bulletins du mois de %s — %d bulletin(s) disponible(s).',
+                    '%s — %d bulletin(s) disponible(s), %d enseignant(s) enregistré(s) sans bulletin calculé. Les enseignants apparaissent dès leur enregistrement dans Personnel.',
                     $period->label,
-                    $items->count()
+                    $items->count(),
+                    $withoutPayslip->count()
                 )
-                : 'Aucun mois de paie n’est disponible pour les bulletins.',
+                : 'Les enseignants enregistrés dans Personnel sont affichés directement. Renseignez un mois dans Paramétrage pour consulter ses bulletins. Les montants non calculés restent vides.',
         ];
     }
 
@@ -869,13 +868,14 @@ private function notGeneratedReport(?PayrollPeriod $period): array
             $teacher->institutionFinanciere?->nom ?? 'Non renseignée',
             $this->payrollProfileReason($teacher),
             $this->actionCell(
-                $teacher->payroll_profile_configured_at ? 'Modifier le profil' : 'Configurer',
-                'configure-teacher-payroll', [
+                'Générer',
+                'generate-payslips', [
+                    'generation_scope' => 'teacher',
                     'enseignant_id' => $teacher->id,
                 ]),
         ])->values(),
         'actions' => [
-            $this->action('Configurer un formateur', 'configure-teacher-payroll', 'primary'),
+            $this->action('Générer des bulletins', 'generate-payslips', 'primary'),
             $this->exportAction(),
         ],
         'stats' => [
@@ -1084,13 +1084,15 @@ private function notGeneratedReport(?PayrollPeriod $period): array
     /** @return array<string, mixed> */
     private function mutualHealthReport(Collection $teachers): array
     {
+        $contractCount = $teachers->where('type_engagement', PayrollReferenceService::CONTRACTUEL)->count();
+        $ipm = $contractCount > 0 ? app(PayrollRubricAmounts::class)->resolve(PayrollReferenceService::CONTRACTUEL)['ipm'] : 0;
         return [
             'columns' => ['Matricule', 'Enseignant', 'Mutuelle', 'Montant IPM', 'IA', 'IEF', 'Statut'],
             'rows' => $teachers->map(fn (Enseignant $teacher): array => [
                 $teacher->matricule ?: '—',
                 $this->teacherName($teacher),
                 $teacher->mutuelle?->nom ?? 'Non renseignée',
-                $this->money($teacher->ipm_monthly_amount),
+                $this->money($teacher->type_engagement === PayrollReferenceService::CONTRACTUEL ? $ipm : 0),
                 $teacher->etablissement?->ief?->ia?->libelle ?? 'Non renseignée',
                 $teacher->etablissement?->ief?->libelle ?? 'Non renseignée',
                 $this->statusCell($teacher->mutuelle_id ? 'validated' : 'pending'),
@@ -1100,7 +1102,7 @@ private function notGeneratedReport(?PayrollPeriod $period): array
                 $this->stat('Agents', $teachers->count(), 'Effectif actif', 'EN', 'green'),
                 $this->stat('Avec mutuelle', $teachers->whereNotNull('mutuelle_id')->count(), 'Affiliations renseignées', 'OK', 'blue'),
                 $this->stat('Sans mutuelle', $teachers->whereNull('mutuelle_id')->count(), 'Information manquante', 'NG', 'yellow'),
-                $this->stat('Montant IPM', $this->money($teachers->sum('ipm_monthly_amount')), 'Total mensuel configuré', 'CS', 'red'),
+                $this->stat('Montant IPM', $this->money($contractCount * $ipm), 'Montant mensuel issu des rubriques de paie', 'CS', 'red'),
             ],
         ];
     }
@@ -1298,9 +1300,6 @@ private function notGeneratedReport(?PayrollPeriod $period): array
         if (! $teacher->payroll_profile_configured_at) {
             return 'Profil de paie à compléter';
         }
-        if ($teacher->impr_monthly_amount === null || $teacher->trimf_monthly_amount === null) {
-            return 'IMPR ou TRIMF à valider';
-        }
         if ($teacher->type_engagement === 'contractuel' && (
             ! $teacher->payroll_diploma_level
             || ! $teacher->payroll_category_level
@@ -1429,20 +1428,7 @@ private function notGeneratedReport(?PayrollPeriod $period): array
     /** @return array<int, array{value: int, label: string}> */
     private function payrollMonths(): array
     {
-        return collect([
-            1 => 'Janvier',
-            2 => 'Février',
-            3 => 'Mars',
-            4 => 'Avril',
-            5 => 'Mai',
-            6 => 'Juin',
-            7 => 'Juillet',
-            8 => 'Août',
-            9 => 'Septembre',
-            10 => 'Octobre',
-            11 => 'Novembre',
-            12 => 'Décembre',
-        ])->map(fn (string $label, int $value): array => compact('value', 'label'))->values()->all();
+        return app(PayrollPeriodCatalogue::class)->months();
     }
 
     private function teacherEstablishmentLabel(Enseignant $teacher): ?string

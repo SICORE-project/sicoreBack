@@ -18,6 +18,15 @@ class PayrollActionRequest extends FormRequest
     public function rules(): array
     {
         return match ((string) $this->route('action')) {
+            'generate-payslips' => [
+                'generation_scope' => ['required', Rule::in(['ia', 'teacher'])],
+                'ia_id' => ['nullable', 'required_if:generation_scope,ia', 'integer', 'exists:ias,id'],
+                'ief_id' => ['nullable', 'integer', Rule::exists('iefs', 'id')->where('ia_id', (int) $this->input('ia_id'))],
+                'statut_enseignant_id' => ['nullable', 'integer', 'exists:statuts_enseignant,id'],
+                'enseignant_id' => ['nullable', 'required_if:generation_scope,teacher', 'integer', $this->activeTeacherRule()],
+                'annee_academique_id' => ['required', 'integer', 'exists:annee_academiques,id'],
+                'month' => ['required', 'integer', 'between:1,12'],
+            ],
             'configure-teacher-payroll' => [
                 'ia_id' => ['required', 'integer', 'exists:ias,id'],
                 'ief_id' => [
@@ -43,16 +52,10 @@ class PayrollActionRequest extends FormRequest
                     'integer',
                     'between:1,12',
                 ],
-                'impr_monthly_amount' => ['required', 'numeric', 'min:0', 'max:999999999999.99'],
-                'trimf_monthly_amount' => ['required', 'numeric', 'min:0', 'max:999999999999.99'],
-                'ipm_monthly_amount' => ['nullable', 'numeric', 'min:0', 'max:999999999999.99'],
-                'union_checkoff_monthly_amount' => ['nullable', 'numeric', 'min:0', 'max:999999999999.99'],
-            ],
-            'create-period' => [
-                'code' => ['required', 'date_format:Y-m', 'unique:payroll_periods,code'],
-                'label' => ['required', 'string', 'max:150'],
-                'start_date' => ['required', 'date_format:Y-m-d'],
-                'end_date' => ['required', 'date_format:Y-m-d', 'after_or_equal:start_date'],
+                'impr_monthly_amount' => ['prohibited'],
+                'trimf_monthly_amount' => ['prohibited'],
+                'ipm_monthly_amount' => ['prohibited'],
+                'union_checkoff_monthly_amount' => ['prohibited'],
             ],
             'save-attendance' => [
                 'ia_id' => ['required', 'integer', 'exists:ias,id'],
@@ -134,8 +137,7 @@ class PayrollActionRequest extends FormRequest
             'enseignant_id.required' => 'Le matricule saisi n’a pas permis d’identifier un formateur.',
             'payroll_diploma_level.required_if' => 'Le diplôme de paie est obligatoire pour un professeur contractuel.',
             'payroll_category_level.required_if' => 'La catégorie de paie est obligatoire pour un professeur contractuel.',
-            'impr_monthly_amount.required' => 'Le montant IMPR validé est obligatoire.',
-            'trimf_monthly_amount.required' => 'Le montant TRIMF validé est obligatoire.',
+            'prohibited' => 'Ce montant se configure dans Paramétrage → Rubriques de paie, pas dans le profil individuel.',
             'statut_enseignant_id.required' => 'Sélectionnez le statut enseignant concerné.',
             'ia_ids.required' => 'Sélectionnez au moins une Inspection académique (IA).',
             'ia_ids.min' => 'Sélectionnez au moins une Inspection académique (IA).',
