@@ -137,6 +137,9 @@ return [
     // 20. Édition des délégations
     ['nom' => 'Éditer les délégations', 'slug' => 'paie.delegations.edit', 'groupe' => 'paie', 'module' => 'delegations', 'action' => 'edit'],
 
+    ['nom' => 'Consulter les crédits', 'slug' => 'paie.credit.read', 'groupe' => 'paie', 'module' => 'credit', 'action' => 'read'],
+    ['nom' => 'Consulter la masse salariale', 'slug' => 'paie.masse_salariale.read', 'groupe' => 'paie', 'module' => 'masse_salariale', 'action' => 'read'],
+
     // 21. Édition des engagements 
     ['nom' => 'Éditer les engagements',  'slug' => 'paie.engagements.edit',   'groupe' => 'paie', 'module' => 'engagements', 'action' => 'edit'],
     ['nom' => 'Modifier les engagements', 'slug' => 'paie.engagements.update', 'groupe' => 'paie', 'module' => 'engagements', 'action' => 'update'],
