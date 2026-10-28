@@ -2,6 +2,7 @@
 
 namespace App\Services\Import;
 
+use App\Services\Parametrage\RegionalStructureService;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -519,6 +520,10 @@ class ReferentielImportService
                 $donnees['updated_at'] = $maintenant;
             }
             DB::table($table)->insert($donnees);
+
+            if (isset($definition['structure']) && ($entite = $definition['structure']::where($definition['cle'], $valeurs[$definition['cle']])->first())) {
+                app(RegionalStructureService::class)->sync($entite);
+            }
 
             return;
         }
