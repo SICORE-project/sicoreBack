@@ -42,7 +42,7 @@ class ImportDonneesController extends Controller
         ]);
     }
 
-    /** `mode=apercu` contrôle le fichier sans rien écrire ; `mode=importer` écrit les lignes valides (doublons ignorés, erreurs signalées ligne par ligne). */
+    /** `mode=apercu` contrôle le fichier sans rien écrire ; `mode=importer` écrit les lignes valides (création, ou mise à jour si la clé existe déjà ; erreurs signalées ligne par ligne). */
     public function traiter(Request $request, string $entite)
     {
         $data = $request->validate([
@@ -63,11 +63,11 @@ class ImportDonneesController extends Controller
 
         $message = match ($rapport['statut']) {
             'ok' => $rapport['importe']
-                ? sprintf('Import terminé : %d créé(s), %d ignoré(s) (doublons).', $rapport['crees'], $rapport['ignores'])
-                : sprintf('Fichier contrôlé : %d à créer, %d doublon(s) à ignorer.', $rapport['crees'], $rapport['ignores']),
+                ? sprintf('Import terminé : %d créé(s), %d modifié(s), %d inchangé(s), %d ignoré(s).', $rapport['crees'], $rapport['modifies'], $rapport['inchanges'], $rapport['ignores'])
+                : sprintf('Fichier contrôlé : %d à créer, %d à modifier, %d inchangé(s), %d à ignorer.', $rapport['crees'], $rapport['modifies'], $rapport['inchanges'], $rapport['ignores']),
             'partiel' => $rapport['importe']
-                ? sprintf('Import partiel : %d créé(s), %d ignoré(s) (doublons), %d erreur(s) ligne(s) non importée(s).', $rapport['crees'], $rapport['ignores'], $erreurs)
-                : sprintf('Contrôle terminé : %d à créer, %d doublon(s), %d erreur(s). Corrigez les erreurs pour importer.', $rapport['crees'], $rapport['ignores'], $erreurs),
+                ? sprintf('Import partiel : %d créé(s), %d modifié(s), %d inchangé(s), %d ignoré(s), %d ligne(s) en erreur non importée(s).', $rapport['crees'], $rapport['modifies'], $rapport['inchanges'], $rapport['ignores'], $erreurs)
+                : sprintf('Contrôle terminé : %d à créer, %d à modifier, %d inchangé(s), %d ignoré(s), %d erreur(s). Corrigez les erreurs pour importer.', $rapport['crees'], $rapport['modifies'], $rapport['inchanges'], $rapport['ignores'], $erreurs),
             default => 'Aucune ligne importée : le fichier contient des erreurs.',
         };
 
