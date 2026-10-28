@@ -8,6 +8,7 @@ use App\Http\Requests\Parametrage\Ia\UpdateIaRequest;
 use App\Http\Resources\Parametrage\IaResource;
 use App\Models\Parametrage\Region;
 use App\Services\Parametrage\IaService;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 class IaController extends Controller
@@ -152,6 +153,15 @@ class IaController extends Controller
             'region_id',
         ]);
 
+        $rattaches = $this->elementsRattaches($id);
+
+        if ($rattaches !== []) {
+            return response()->json([
+                'success' => false,
+                'message' => "Impossible de supprimer l'IA « {$ia->libelle} » : ".implode(' et ', $rattaches).' rattaché(s). Supprimez-les ou rattachez-les à une autre IA avant.',
+            ], 409);
+        }
+
         // Soft delete
         $this->iaService->delete($id);
 
@@ -170,6 +180,19 @@ class IaController extends Controller
         ]);
     }
 
+    private function elementsRattaches(int $iaId): array
+    {
+        $iefs = DB::table('iefs')->where('ia_id', $iaId)->whereNull('deleted_at')->count();
+        $etablissements = DB::table('lieu_de_services')
+            ->where('ia_id', $iaId)
+            ->whereNull('deleted_at')
+            ->where(fn ($query) => $query->whereNull('type')->orWhere('type', '!=', 'IA'))
+            ->where('code', 'not like', 'ORG-%')
+            ->count();
 
-
+        return array_values(array_filter([
+            $iefs > 0 ? $iefs.' IEF' : null,
+            $etablissements > 0 ? $etablissements.' établissement'.($etablissements > 1 ? 's' : '') : null,
+        ]));
+    }
 }

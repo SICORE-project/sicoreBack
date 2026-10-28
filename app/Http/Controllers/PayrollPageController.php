@@ -14,6 +14,7 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 class PayrollPageController extends Controller
 {
     private const IA_PERMISSIONS = [
+        'paie-edition' => 'paie.edition.read',
         'paie-montants-engages-banque' => 'paie.bulletins.read',
         'paie-edition-salaires-banque' => 'paie.bulletins.read',
         'paie-elements-saisie-dashboard' => 'paie.bulletins.read',
