@@ -3,6 +3,7 @@
 namespace App\Services\Parametrage;
 
 use App\Models\Parametrage\Departement;
+use App\Support\Rattachements;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
 
@@ -280,11 +281,14 @@ class DepartementService
                 $this->findById($id);
 
 
-            if ($this->isUsed($departement)) {
+            $message = Rattachements::message("le département « {$departement->libelle} »", [
+                [Rattachements::compter('communes', 'departement_id', $departement->id), 'commune', 'communes'],
+                [Rattachements::compter('centres_formation', 'departement_id', $departement->id, true), 'centre de formation', 'centres de formation'],
+                [Rattachements::compter('ias', 'departement_id', $departement->id), 'IA', 'IA'],
+            ]);
 
-                throw new \DomainException(
-                    'Ce département ne peut pas être supprimé car il est déjà utilisé.'
-                );
+            if ($message !== null) {
+                throw new \DomainException($message);
             }
 
 

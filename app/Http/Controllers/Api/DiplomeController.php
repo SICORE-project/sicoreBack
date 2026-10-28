@@ -7,6 +7,7 @@ use App\Http\Requests\StoreDiplomeRequest;
 use App\Http\Requests\UpdateDiplomeRequest;
 use App\Http\Resources\DiplomeResource;
 use App\Models\Parametrage\Diplome;
+use App\Support\Rattachements;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -85,6 +86,14 @@ class DiplomeController extends Controller
 
     public function destroy(Diplome $diplome): JsonResponse
     {
+        $message = Rattachements::message("le diplôme « {$diplome->libelle} »", [
+            [Rattachements::compter('enseignants', 'diplome_id', $diplome->id), 'enseignant', 'enseignants'],
+        ]);
+
+        if ($message !== null) {
+            return response()->json(['message' => $message], 409);
+        }
+
         $diplome->delete();
 
         return response()->json([
