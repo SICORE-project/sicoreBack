@@ -304,7 +304,7 @@ class PayrollPageService
     private function attendanceReport(?PayrollPeriod $period): array
     {
         $items = $period
-            ? PayrollAttendance::query()
+            ? $this->scopePayroll(PayrollAttendance::query())
                 ->with('enseignant.user')
                 ->where('payroll_period_id', $period->id)
                 ->latest('updated_at')
@@ -970,7 +970,7 @@ class PayrollPageService
     /** @return array<string, mixed> */
     private function closingReport(): array
     {
-        $periods = PayrollPeriod::query()->latest('start_date')->get();
+        $periods = $this->periods();
 
         return [
             'columns' => ['Période', 'Statut', 'Effectif', 'Net total', 'Calculée le', 'Validée le', 'Clôturée le', 'Version'],
