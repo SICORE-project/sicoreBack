@@ -25,11 +25,14 @@ trait EtatSalaireReport
         $items = $this->payslips($period);
         $academicYear = $this->academicYearForPeriod($period);
         $corps = $this->referenceMap('corps_enseignant', 'libelle');
+        $categories = $this->referenceMap('categories', 'libelle');
+        $statuts = $this->referenceMap('statuts_enseignant', 'libelle');
         $ias = $this->referenceMap('ias', 'libelle');
         $iefs = $this->referenceMap('iefs', 'libelle');
         $paymentPlaces = $this->referenceMap('lieux_paiement', 'libelle');
-        $trainingCenters = $this->referenceMap('centres_formation', 'nom');
+        $trainingCenters = $this->referenceMap('lieu_de_services', 'libelle');
         $banking = $this->salaryBankingDetails($items->pluck('enseignant_id'));
+        $rubrics = $this->salaryStatementRubrics();
         $tabaskiAdvances = $period
             ? $this->scopePayroll(PayrollElement::query())
                 ->where('payroll_period_id', $period->id)
@@ -51,8 +54,8 @@ trait EtatSalaireReport
         $items = $items->filter(function (PayrollPayslip $payslip) use ($criteria, $tabaskiAdvances): bool {
             $teacher = $payslip->enseignant;
 
-            if (filled($criteria['corps_id'] ?? null)
-                && $this->teacherCorpsId($teacher) !== (int) $criteria['corps_id']) {
+            if (filled($criteria['statut_enseignant_id'] ?? null)
+                && (int) $teacher->getAttribute('statut_enseignant_id') !== (int) $criteria['statut_enseignant_id']) {
                 return false;
             }
             if (filled($criteria['ia_id'] ?? null)
@@ -68,7 +71,7 @@ trait EtatSalaireReport
                 return false;
             }
             if (filled($criteria['training_center_id'] ?? null)
-                && (int) $teacher->getAttribute('centre_formation_id') !== (int) $criteria['training_center_id']) {
+                && (int) $teacher->getAttribute('lieu_service_id') !== (int) $criteria['training_center_id']) {
                 return false;
             }
             if (filled($criteria['matricule'] ?? null)
@@ -106,6 +109,7 @@ trait EtatSalaireReport
             'gross',
             'deductions',
             'net',
+            ...$rubrics->map(fn (object $rubric): string => 'rubric_'.$rubric->id)->all(),
         ];
         $recognizedDeductionCodes = [
             'IPRES_SALARIE', 'IPM', 'IMPR', 'TRIMF', 'CHECKOFF_UES', 'CHECKOFF',
@@ -116,12 +120,14 @@ trait EtatSalaireReport
         $records = $items->map(function (PayrollPayslip $payslip, int $index) use (
             $banking,
             $corps,
+            $categories,
             $ias,
             $iefs,
             $paymentPlaces,
             $trainingCenters,
             $tabaskiAdvances,
-            $recognizedDeductionCodes
+            $recognizedDeductionCodes,
+            $rubrics
         ): array {
             $teacher = $payslip->enseignant;
             $bank = $banking->get($teacher->id, []);
@@ -140,11 +146,15 @@ trait EtatSalaireReport
                 ->whereNotIn('code', $recognizedDeductionCodes)
                 ->sum('amount');
             $profileCategory = data_get($payslip->profile_snapshot, 'category_level');
-            $corpsId = $this->teacherCorpsId($teacher);
             $iaId = $this->teacherIaId($teacher);
             $iefId = $this->teacherIefId($teacher);
 
-            return [
+            // Montant paramétré dans rubrique_paies (et non la ligne du bulletin calculé).
+            $rubricAmounts = $rubrics->mapWithKeys(fn (object $rubric): array => [
+                'rubric_'.$rubric->id => (float) ($rubric->montant ?? 0),
+            ])->all();
+
+            return $rubricAmounts + [
                 'sequence' => $index + 1,
                 'first_name' => $this->teacherFirstName($teacher),
                 'last_name' => $this->teacherLastName($teacher),
@@ -182,12 +192,18 @@ trait EtatSalaireReport
                 'cni' => $teacher->getAttribute('cni') ?: 'Non renseignée',
                 'account' => $bank['account'] ?? $this->teacherAccountNumber($teacher),
                 'parts' => $this->teacherTaxParts($teacher),
-                'category' => $profileCategory ? (string) $profileCategory : '—',
-                'corps' => $corps->get($corpsId, '—'),
+                'category' => $categories->get(
+                    (int) $teacher->getAttribute('categorie_id'),
+                    $profileCategory ? (string) $profileCategory : '—'
+                ),
+                'corps' => $corps->get(
+                    (int) ($teacher->getAttribute('corps_id') ?? $teacher->getAttribute('corps_enseignant_id')),
+                    '—'
+                ),
                 'ia' => $ias->get($iaId, 'IA non renseignée'),
                 'ief' => $iefs->get($iefId, 'IEF non renseignée'),
                 'training_center' => $trainingCenters->get(
-                    (int) $teacher->getAttribute('centre_formation_id'),
+                    (int) $teacher->getAttribute('lieu_service_id'),
                     'Non renseigné'
                 ),
                 'bank' => $bank['bank'] ?? ($teacher->getAttribute('code_banque') ?: 'Non renseignée'),
@@ -203,7 +219,7 @@ trait EtatSalaireReport
         });
 
         $withSignature = (bool) ($criteria['with_signature'] ?? false);
-        $columns = $this->salaryStatementColumns($withSignature);
+        $columns = $this->salaryStatementColumns($withSignature, $rubrics);
         $displayRows = $records->map(function (array $record) use ($columns, $amountKeys): array {
             return collect($columns)->map(function (array $column) use ($record, $amountKeys): string {
                 $key = $column['key'];
@@ -238,6 +254,7 @@ trait EtatSalaireReport
                 : 'État mensuel détaillé construit à partir des bulletins calculés et de leurs rubriques traçables.',
             'salary_statement' => [
                 'title' => 'État des salaires',
+                'heading' => $this->salaryStatementHeading($period, $criteria, $records, $ias, $statuts),
                 'period_label' => $period?->label ?? 'Période non renseignée',
                 'academic_year' => $academicYear->libelle ?? 'Non renseignée',
                 'columns' => $columns,
@@ -252,7 +269,7 @@ trait EtatSalaireReport
                 'filters' => $criteria,
                 'filter_options' => $this->salaryStatementFilterOptions(
                     $items,
-                    $corps,
+                    $statuts,
                     $ias,
                     $iefs,
                     $paymentPlaces,
@@ -268,36 +285,57 @@ trait EtatSalaireReport
         ];
     }
 
-    /** @return array<int, array{key: string, label: string, amount?: bool}> */
-    private function salaryStatementColumns(bool $withSignature): array
+    /** Ex. « ETAT DES SALAIRES OCTOBRE 2026 IA : IA DAKAR PROFESSEURS CONTRACTUELS ». */
+    private function salaryStatementHeading(
+        ?PayrollPeriod $period,
+        array $criteria,
+        Collection $records,
+        Collection $ias,
+        Collection $statuts
+    ): string {
+        $iaId = $criteria['ia_id'] ?? $this->iaScopeId;
+        $iaNames = $records->pluck('ia')->unique();
+        $ia = filled($iaId)
+            ? $ias->get((int) $iaId, 'IA non renseignée')
+            : ($iaNames->count() === 1 ? $iaNames->first() : 'TOUTES LES IA');
+
+        $statut = $statuts->get((int) ($criteria['statut_enseignant_id'] ?? 0));
+        $teachers = ($statut
+            ? ' '.(preg_match('/[sx]$/iu', $statut) ? $statut : $statut.'s')
+            : '');
+
+        return mb_strtoupper(trim(
+            'Etat des salaires '.($period?->label ?? '').' IA : '.$ia.' '.$teachers
+        ));
+    }
+
+    /**
+     * Colonnes de l'état : identité, salaire catégoriel, puis une colonne par
+     * rubrique active de rubrique_paies (gains puis retenues), puis totaux.
+     *
+     * @return array<int, array{key: string, label: string, amount?: bool}>
+     */
+    private function salaryStatementColumns(bool $withSignature, Collection $rubrics): array
     {
         $columns = [
             ['key' => 'sequence', 'label' => 'N°'],
             ['key' => 'first_name', 'label' => 'Prénoms'],
             ['key' => 'last_name', 'label' => 'Nom'],
             ['key' => 'matricule', 'label' => 'Matricule'],
+            ['key' => 'corps', 'label' => 'Corps'],
+            ['key' => 'category', 'label' => 'Catégorie'],
             ['key' => 'salary_category', 'label' => 'Sal. catég.', 'amount' => true],
-            ['key' => 'special_bonus', 'label' => 'Prime spéciale', 'amount' => true],
-            ['key' => 'taxable_amount', 'label' => 'Mt imposable', 'amount' => true],
-            ['key' => 'compensation_increase', 'label' => 'Indem. comp. + aug.', 'amount' => true],
-            ['key' => 'ipres', 'label' => 'IPRES', 'amount' => true],
-            ['key' => 'ipm', 'label' => 'IPM', 'amount' => true],
-            ['key' => 'impr', 'label' => 'IR / IMPR', 'amount' => true],
-            ['key' => 'trimf', 'label' => 'TRIMF', 'amount' => true],
-            ['key' => 'union_social', 'label' => 'Check-off / O.S', 'amount' => true],
-            ['key' => 'tabaski_advance', 'label' => 'Avance Tabaski', 'amount' => true],
-            ['key' => 'reminder', 'label' => 'Rappel', 'amount' => true],
-            ['key' => 'salary_deduction', 'label' => 'Retenue', 'amount' => true],
-            ['key' => 'reminder_deduction', 'label' => 'Retenue rappel', 'amount' => true],
-            ['key' => 'tabaski_deduction', 'label' => 'Ret. Tabaski', 'amount' => true],
-            ['key' => 'other_deductions', 'label' => 'Autres ret.', 'amount' => true],
+            ...$rubrics->map(fn (object $rubric): array => [
+                'key' => 'rubric_'.$rubric->id,
+                'label' => $rubric->libelle,
+                'amount' => true,
+            ])->all(),
             ['key' => 'gross', 'label' => 'Salaire brut', 'amount' => true],
             ['key' => 'deductions', 'label' => 'Total retenues', 'amount' => true],
             ['key' => 'net', 'label' => 'Net à payer', 'amount' => true],
             ['key' => 'cni', 'label' => 'CNI'],
             ['key' => 'account', 'label' => 'N° compte'],
             ['key' => 'parts', 'label' => 'Parts'],
-            ['key' => 'category', 'label' => 'Cat.'],
             ['key' => 'bank', 'label' => 'Banque'],
             ['key' => 'payment_place', 'label' => 'Lieu de paiement'],
             ['key' => 'payment_status_label', 'label' => 'Paiement'],
@@ -310,10 +348,24 @@ trait EtatSalaireReport
         return $columns;
     }
 
+    /** Rubriques actives à afficher sur l'état, gains d'abord. */
+    private function salaryStatementRubrics(): Collection
+    {
+        if (! Schema::hasTable('rubrique_paies')) {
+            return collect();
+        }
+
+        return DB::table('rubrique_paies')
+            ->where('est_actif', true)
+            ->orderByRaw("CASE WHEN type = 'gain' THEN 0 ELSE 1 END")
+            ->orderBy('id')
+            ->get(['id', 'code', 'libelle', 'montant']);
+    }
+
     /** @return array<string, mixed> */
     private function salaryStatementFilterOptions(
         Collection $items,
-        Collection $corps,
+        Collection $statuts,
         Collection $ias,
         Collection $iefs,
         Collection $paymentPlaces,
@@ -322,9 +374,12 @@ trait EtatSalaireReport
         $iefIa = Schema::hasTable('iefs')
             ? DB::table('iefs')->when($this->iaScopeId !== null, fn ($q) => $q->where('ia_id', $this->iaScopeId))->orderBy('libelle')->get(['id', 'ia_id', 'libelle'])
             : collect();
+        $trainingCenterScopes = Schema::hasTable('lieu_de_services')
+            ? DB::table('lieu_de_services')->whereIn('id', $trainingCenters->keys())->get(['id', 'ia_id', 'ief_id'])->keyBy('id')
+            : collect();
 
         return [
-            'corps' => $corps->map(fn (string $label, int|string $id): array => [
+            'statuts' => $statuts->map(fn (string $label, int|string $id): array => [
                 'id' => (int) $id,
                 'label' => $label,
             ])->values(),
@@ -348,6 +403,8 @@ trait EtatSalaireReport
             ])->values(),
             'training_centers' => $trainingCenters->map(fn (string $label, int|string $id): array => [
                 'id' => (int) $id,
+                'ia_id' => $trainingCenterScopes->get($id)?->ia_id,
+                'ief_id' => $trainingCenterScopes->get($id)?->ief_id,
                 'label' => $label,
             ])->values(),
         ];
@@ -421,6 +478,8 @@ trait EtatSalaireReport
         return DB::table($table)
             ->when($this->iaScopeId !== null && $table === 'ias', fn ($q) => $q->where('id', $this->iaScopeId))
             ->when($this->iaScopeId !== null && $table === 'iefs', fn ($q) => $q->where('ia_id', $this->iaScopeId))
+            ->when($table === 'lieu_de_services', fn ($q) => $q->whereNull('deleted_at')
+                ->when($this->iaScopeId !== null, fn ($q) => $q->where('ia_id', $this->iaScopeId)))
             ->orderBy($labelColumn)
             ->get(['id', $labelColumn])
             ->mapWithKeys(fn (object $row): array => [(int) $row->id => (string) $row->{$labelColumn}]);

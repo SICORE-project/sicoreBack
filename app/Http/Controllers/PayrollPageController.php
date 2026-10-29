@@ -128,7 +128,7 @@ class PayrollPageController extends Controller
         if ($slug === 'paie-etat-salaires') {
             $rules += [
                 'academic_year_id' => ['nullable', 'integer'],
-                'corps_id' => ['nullable', 'integer'],
+                'statut_enseignant_id' => ['nullable', 'integer'],
                 'ia_id' => ['nullable', 'integer'],
                 'ief_id' => ['nullable', 'integer'],
                 'matricule' => ['nullable', 'string', 'max:50'],
