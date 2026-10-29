@@ -94,7 +94,7 @@ class IaController extends Controller
         $id = $this->scope->id($request->user());
 
         return response()->json(['data' => [
-            'ia' => Ia::with('region:id,nom')->findOrFail($id)->only(['id', 'code', 'libelle', 'region_id', 'region']),
+            'ia' => Ia::with('region:id,libelle')->findOrFail($id)->only(['id', 'code', 'libelle', 'region_id', 'region']),
             'iefs' => DB::table('iefs')->where('ia_id', $id)->whereNull('deleted_at')->get(['id', 'code', 'libelle', 'ia_id']),
             'etablissements' => DB::table('lieu_de_services')->where('ia_id', $id)->whereNull('deleted_at')->where('est_actif', true)->get(['id', 'libelle', 'ief_id']),
         ]]);

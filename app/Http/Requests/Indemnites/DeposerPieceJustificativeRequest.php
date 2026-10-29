@@ -20,8 +20,8 @@ class DeposerPieceJustificativeRequest extends FormRequest
             'enseignant_id' => ['nullable', 'integer', 'exists:enseignants,id'],
             'centre_id' => ['nullable', 'integer', 'exists:convocation_centres,id'],
             'depositaire_id' => ['nullable', 'integer', 'exists:users,id'],
-            // 100 Ko max (voir demande utilisateur).
-            'document' => ['required', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:100'],
+            // 1 Mo max (2 pages scannées).
+            'document' => ['required', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:1024'],
         ];
     }
 }

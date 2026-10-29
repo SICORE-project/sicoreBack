@@ -23,6 +23,16 @@ class StoreEnseignantRequest extends FormRequest
         if ($this->has('compte_bancaire.type_virement') && ! $this->filled('compte_bancaire.type_virement')) {
             $this->merge(['compte_bancaire' => array_merge($this->input('compte_bancaire', []), ['type_virement' => 'unitaire'])]);
         }
+        $compteBancaire = $this->input('compte_bancaire');
+        if (is_array($compteBancaire)
+            && collect(['code_banque', 'code_guichet', 'numero_compte', 'cle_rib'])
+                ->every(fn (string $field): bool => isset($compteBancaire[$field]) && is_string($compteBancaire[$field]))) {
+            $compteBancaire['rib'] = implode('', array_map(
+                fn (string $field): string => $compteBancaire[$field],
+                ['code_banque', 'code_guichet', 'numero_compte', 'cle_rib'],
+            ));
+            $this->merge(['compte_bancaire' => $compteBancaire]);
+        }
         $marie = $this->boolean('est_en_couple');
         $enfants = max(0, $this->integer('nombre_enfants'));
         $conjointTravaille = $marie && $this->boolean('conjoint_travaille');
@@ -42,7 +52,9 @@ class StoreEnseignantRequest extends FormRequest
         $this->merge([
             'nombre_femmes' => $marie ? ($this->input('nombre_femmes') ?? 0) : 0,
             'conjoint_travaille' => $conjointTravaille,
-            'nombre_parts_fiscales' => min(5, max(1, 2 + ($enfants * .5) - ($conjointTravaille ? .5 : 0))),
+            'nombre_parts_fiscales' => $this->input('situation_matrimoniale') === 'celibataire'
+                ? 2
+                : min(5, max(1, 2 + ($enfants * .5) - ($conjointTravaille ? .5 : 0))),
             'salaire_brut' => $this->corpsEstVacataire() ? 150000 : ($diplome && (($categorieId && (int) $diplome->categorie_id === $categorieId) || (!$categorieId && !$this->corpsEstContractuel())) ? $diplome->salaire_brut : null),
         ]);
         $this->clearInapplicableTeacherFields();
@@ -106,6 +118,7 @@ class StoreEnseignantRequest extends FormRequest
                 'nullable',
                 'email',
                 'max:100',
+                Rule::unique('enseignants', 'email'),
             ],
 
             'adresse' => [
@@ -114,7 +127,7 @@ class StoreEnseignantRequest extends FormRequest
                 'max:255',
             ],
 
-            'cni' => ['required', 'string', 'regex:/\A[0-9]{13,15}\z/'],
+            'cni' => ['required', 'string', 'regex:/\A[0-9]{13,15}\z/', Rule::unique('enseignants', 'cni')],
             'diplome_id' => ['nullable', 'integer', 'exists:diplomes,id', function ($attribute, $value, $fail): void {
                 $diplome = Diplome::find($value);
                 if ($this->filled('categorie_id') && $diplome && (int) $diplome->categorie_id !== $this->integer('categorie_id')) {
@@ -207,7 +220,7 @@ class StoreEnseignantRequest extends FormRequest
             // =========================
 
             'compte_bancaire' => [
-                'nullable',
+                'required',
                 'array',
             ],
 
@@ -220,24 +233,35 @@ class StoreEnseignantRequest extends FormRequest
             'compte_bancaire.code_banque' => [
                 'required',
                 'string',
-                'max:5',
+                'size:5',
             ],
 
             'compte_bancaire.code_guichet' => [
                 'required',
                 'string',
-                'max:5', "regex:/\A[0-9]+\z/"],
+                'size:5',
+                "regex:/\A[0-9]+\z/",
+            ],
 
             'compte_bancaire.numero_compte' => [
                 'required',
                 'string',
-                'max:11',
-],
+                'size:12',
+            ],
+
+            'compte_bancaire.rib' => [
+                'required',
+                'string',
+                'size:24',
+                Rule::unique('comptes_bancaires_enseignants', 'rib'),
+            ],
 
             'compte_bancaire.cle_rib' => [
                 'required',
                 'string',
-                'max:2', "regex:/\A[0-9]+\z/"],
+                'size:2',
+                "regex:/\A[0-9]+\z/",
+            ],
 
             'compte_bancaire.iban' => [
                 'nullable',
@@ -357,6 +381,9 @@ class StoreEnseignantRequest extends FormRequest
             'diplome_id.exists' => 'Le diplôme sélectionné n’existe plus. Veuillez le sélectionner à nouveau.',
             'salaire_brut.min' => 'Le salaire brut ne peut pas être négatif.',
             'cni.regex' => 'Le numéro de carte d’identité doit contenir entre 13 et 15 chiffres.',
+            'cni.unique' => 'Ce numéro de carte d’identité est déjà utilisé par un autre enseignant.',
+            'email.unique' => 'Cette adresse e-mail est déjà utilisée par un autre enseignant.',
+            'compte_bancaire.rib.unique' => 'Ce RIB complet est déjà associé à un autre enseignant.',
             'matricule.required' =>
                 'Le matricule est obligatoire.',
 
@@ -408,6 +435,11 @@ class StoreEnseignantRequest extends FormRequest
             'compte_bancaire.institut_financier_id.exists' =>
                 'L’institut financier sélectionné n’existe pas.',
             
+            'compte_bancaire.code_banque.size' => 'Le code banque doit comporter exactement 5 caractères.',
+            'compte_bancaire.code_guichet.size' => 'Le code guichet doit comporter exactement 5 caractères.',
+            'compte_bancaire.numero_compte.size' => 'Le numéro de compte doit comporter exactement 12 caractères.',
+            'compte_bancaire.cle_rib.size' => 'La clé RIB doit comporter exactement 2 caractères.',
+            'compte_bancaire.required' => 'Les coordonnées bancaires (RIB complet de 24 caractères) sont obligatoires.',
             'compte_bancaire.numero_compte.max' =>
                 'Le numéro de compte ne doit pas dépasser 11 caractères.',
 

@@ -260,7 +260,7 @@ class LieuServiceController extends Controller
 
     private function regionalHierarchy(Collection $lieux): Collection
     {
-        $regions = Region::query()->get(['id', 'code', 'nom']);
+        $regions = Region::query()->get(['id', 'code', 'libelle']);
 
         return $lieux->filter(fn (LieuService $lieu) => $this->normalizedPerimetre($lieu) === 'regional')
             ->whereNotNull('ia_id')
@@ -278,7 +278,7 @@ class LieuServiceController extends Controller
                     'region' => [
                         'id' => $region?->id ?? $regionReference,
                         'code' => $region?->code ?? $regionReference,
-                        'libelle' => $region?->nom ?? $regionReference,
+                        'libelle' => $region?->libelle ?? $regionReference,
                     ],
                     'ia' => [
                         'id' => $ia?->id ?? $services->first()->ia_id,

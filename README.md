@@ -88,6 +88,15 @@ Le `.env` local fourni utilise SQLite. Le compte initial est :
 admin@sicore.sn / Sicore@2026
 ```
 
+## À faire après avoir récupéré la branche
+
+```powershell
+php artisan migrate --path=database/migrations/2026_09_29_130000_add_deleted_at_to_syndicats_table.php
+php artisan permissions:sync
+php artisan db:seed --class=RoleSeeder
+php artisan db:seed --class=RolePermissionSeeder
+```
+
 ## Gestion de la paie
 
 Le backend couvre les périodes, présences, éléments variables, calculs,

@@ -32,7 +32,7 @@ class TeacherCorpsIdentityTest extends TestCase
             'ia_id' => 1, 'ief_id' => 2, 'corps_id' => 5, 'statut_enseignant_id' => 1,
             'cni' => '1234567890123', 'telephone' => '771234567',
             'situation_matrimoniale' => 'celibataire', 'nombre_enfants' => 0,
-            'compte_bancaire' => ['code_banque' => '00100', 'code_guichet' => '00001', 'numero_compte' => '00012345678', 'cle_rib' => '01'],
+            'compte_bancaire' => ['code_banque' => '00100', 'code_guichet' => '00001', 'numero_compte' => '000123456789', 'cle_rib' => '01'],
             'est_en_couple' => false, 'statut' => 'en_activite', 'est_actif' => true,
         ], $overrides);
     }
@@ -79,8 +79,8 @@ class TeacherCorpsIdentityTest extends TestCase
             'digits in surname' => [['nom' => 'Ndiaye2'], 'nom'],
             'digits in first name' => [['prenom' => 'Awa9'], 'prenom'],
             'letters in phone' => [['telephone' => '77ABC123'], 'telephone'],
-            'letters in bank branch code' => [['compte_bancaire' => ['code_banque' => '00100', 'code_guichet' => 'A0001', 'numero_compte' => '00012345678', 'cle_rib' => '01']], 'compte_bancaire.code_guichet'],
-            'letters in RIB key' => [['compte_bancaire' => ['code_banque' => '00100', 'code_guichet' => '00001', 'numero_compte' => '00012345678', 'cle_rib' => 'AB']], 'compte_bancaire.cle_rib'],
+            'letters in bank branch code' => [['compte_bancaire' => ['code_banque' => '00100', 'code_guichet' => 'A0001', 'numero_compte' => '000123456789', 'cle_rib' => '01']], 'compte_bancaire.code_guichet'],
+            'letters in RIB key' => [['compte_bancaire' => ['code_banque' => '00100', 'code_guichet' => '00001', 'numero_compte' => '000123456789', 'cle_rib' => 'AB']], 'compte_bancaire.cle_rib'],
             'five digits' => [['matricule' => '12345'], 'matricule'],
             'seven digits' => [['matricule' => '1234567'], 'matricule'],
             'civil servant nine digits' => [['matricule' => '123456789'], 'matricule'],

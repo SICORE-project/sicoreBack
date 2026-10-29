@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Parametrage\StoreCategorieRequest;
 use App\Http\Requests\Parametrage\UpdateCategorieRequest;
 use App\Services\Parametrage\CategorieService;
+use App\Support\Rattachements;
 use Illuminate\Http\Request;
 
 class CategorieController extends Controller
@@ -82,6 +83,15 @@ class CategorieController extends Controller
             return response()->json([
                 'message' => 'Catégorie introuvable.',
             ], 404);
+        }
+
+        $message = Rattachements::message("la catégorie « {$categorie->libelle} »", [
+            [Rattachements::compter('diplomes', 'categorie_id', $categorie->id), 'diplôme', 'diplômes'],
+            [Rattachements::compter('enseignants', 'categorie_id', $categorie->id), 'enseignant', 'enseignants'],
+        ]);
+
+        if ($message !== null) {
+            return response()->json(['message' => $message], 409);
         }
 
         $this->categorieService->delete($categorie);

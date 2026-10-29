@@ -9,8 +9,13 @@ use App\Http\Requests\Indemnites\UpdateConvocationRequest;
 use App\Models\Indemnite\ConvocationCentre;
 use App\Models\Indemnite\ConvocationCentreMetier;
 use App\Models\Indemnite\Convocations as ConvocationModel;
+use App\Models\Indemnite\MissionDeplacement;
+use App\Models\Indemnite\piece_justificatives;
+use App\Models\etat_paie_indemnites;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 
 class ConvocationsController extends Controller
 {
@@ -222,8 +227,85 @@ class ConvocationsController extends Controller
             return $this->error('Convocation introuvable.', 404);
         }
 
-        $convocation->delete();
+        if ($raison = $this->raisonRefusSuppression($convocation)) {
+            return $this->error($raison, 409);
+        }
+
+        // Les pièces et les fiches de déplacement non validées disparaissent avec la convocation
+        // (centres, bénéficiaires et indemnités calculées sont supprimés par la base).
+        $fichiers = [];
+
+        DB::transaction(function () use ($convocation, &$fichiers) {
+            foreach (piece_justificatives::where('convocation_id', $convocation->id)->get() as $piece) {
+                if ($piece->chemin) {
+                    $fichiers[] = $piece->chemin;
+                }
+
+                $piece->delete();
+            }
+
+            foreach (MissionDeplacement::with('justificatifs')->where('convocation_id', $convocation->id)->get() as $mission) {
+                foreach ($mission->justificatifs as $justificatif) {
+                    if ($justificatif->chemin) {
+                        $fichiers[] = $justificatif->chemin;
+                    }
+                }
+
+                $mission->delete();
+            }
+
+            $convocation->delete();
+        });
+
+        if ($fichiers !== []) {
+            Storage::disk('public')->delete($fichiers);
+        }
 
         return $this->success('Convocation supprimée avec succès.');
+    }
+
+    /**
+     * Une convocation ne peut pas être supprimée si un paiement en dépend :
+     *  - une fiche de déplacement validée, remboursée ou clôturée ;
+     *  - un état de paie de la même session et du même objet qui contient l'un de ses participants.
+     */
+    private function raisonRefusSuppression(ConvocationModel $convocation): ?string
+    {
+        $fichesPayees = MissionDeplacement::where('convocation_id', $convocation->id)
+            ->whereIn('statut', ['valide', 'rembourse', 'cloture'])
+            ->count();
+
+        if ($fichesPayees > 0) {
+            return "Suppression impossible : {$fichesPayees} fiche(s) de déplacement validée(s) ou remboursée(s) sont liées à cette convocation.";
+        }
+
+        $participants = DB::table('convocation_enseignant')->where('convocation_id', $convocation->id)->pluck('enseignant_id')
+            ->merge(DB::table('convocation_centres')->where('convocation_id', $convocation->id)->pluck('chef_centre_id'))
+            ->merge(DB::table('convocation_centres')->where('convocation_id', $convocation->id)->pluck('president_jury_id'))
+            ->filter()
+            ->map(fn ($id) => (int) $id)
+            ->unique();
+
+        foreach (etat_paie_indemnites::all() as $etat) {
+            // Un état concerne la convocation si la session ET l'objet qu'il précise correspondent.
+            $session = $etat->session;
+            $objet = $etat->perimetre['objet'] ?? null;
+
+            $concerne = ($session || $objet)
+                && (! $session || $session === $convocation->session)
+                && (! $objet || $objet === $convocation->objet);
+
+            if (! $concerne) {
+                continue;
+            }
+
+            $dansEtat = collect($etat->details ?? [])->pluck('id')->filter()->map(fn ($id) => (int) $id);
+
+            if ($dansEtat->intersect($participants)->isNotEmpty()) {
+                return "Suppression impossible : cette convocation figure dans l'état de paie {$etat->reference}.";
+            }
+        }
+
+        return null;
     }
 }

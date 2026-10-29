@@ -30,7 +30,6 @@ class StoreFraisDeplacementRequest extends FormRequest
             // migration 2026_08_18_004500_add_feuille_deplacement_champs_...
             'grade_emploi' => ['nullable', 'string', 'max:255'],
             'lieu_depart' => ['required', 'string', 'max:255'],
-            'heure_depart' => ['nullable', 'string', 'max:10'],
             'lieu_destination' => ['required', 'string', 'max:255'],
             'motif' => ['nullable', 'string', 'max:255'],
             'date_depart' => ['required', 'date'],

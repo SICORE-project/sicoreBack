@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Parametrage\StorePeriodePaieRequest;
 use App\Http\Requests\Parametrage\UpdatePeriodePaieRequest;
 use App\Models\Paie\PeriodePaie;
+use App\Support\Rattachements;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -66,6 +67,16 @@ class PeriodePaieController extends Controller
     public function destroy(int $id): JsonResponse
     {
         $periode = PeriodePaie::query()->findOrFail($id);
+
+        $message = Rattachements::message("la période « {$periode->libelle} »", [
+            [Rattachements::compter('heures_supplementaires', 'periode_paie_id', $id), 'heure supplémentaire', 'heures supplémentaires'],
+            [Rattachements::compter('mise_a_jour_mc_ve', 'periode_paie_id', $id), 'mise à jour MC/VE', 'mises à jour MC/VE'],
+            [Rattachements::compter('mise_a_jour_pc_vac', 'periode_paie_id', $id), 'mise à jour PC/VAC', 'mises à jour PC/VAC'],
+        ]);
+
+        if ($message !== null) {
+            return response()->json(['message' => $message], 409);
+        }
 
         try {
             $periode->delete();

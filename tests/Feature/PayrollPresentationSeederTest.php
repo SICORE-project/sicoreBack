@@ -126,7 +126,7 @@ class PayrollPresentationSeederTest extends TestCase
                 $response
                     ->assertJsonPath('data.salary_statement.period_label', 'Mars 2026')
                     ->assertJsonPath('data.salary_statement.academic_year', '2025-2026')
-                    ->assertJsonPath('data.columns.4', 'Sal. catég.')
+                    ->assertJsonPath('data.columns.6', 'Sal. catég.')
                     ->assertJsonPath('data.columns.21', 'Net à payer')
                     ->assertJsonCount(20, 'data.salary_statement.rows');
             }

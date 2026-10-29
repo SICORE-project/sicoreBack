@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\Parametrage;
 
 use App\Http\Controllers\Controller;
 use App\Models\Parametrage\SpecialiteEnseignant;
+use App\Support\Rattachements;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -59,6 +60,14 @@ class SpecialiteEnseignantController extends Controller
 
     public function destroy(SpecialiteEnseignant $discipline)
     {
+        $message = Rattachements::message("la spécialité « {$discipline->libelle} »", [
+            [Rattachements::compter('enseignants', 'discipline_id', $discipline->id), 'enseignant', 'enseignants'],
+        ]);
+
+        if ($message !== null) {
+            return response()->json(['success' => false, 'message' => $message], 409);
+        }
+
         try {
             $discipline->delete();
         } catch (QueryException) {

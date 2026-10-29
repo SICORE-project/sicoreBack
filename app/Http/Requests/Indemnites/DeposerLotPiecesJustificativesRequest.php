@@ -27,12 +27,12 @@ class DeposerLotPiecesJustificativesRequest extends FormRequest
             'enseignant_id' => ['required', 'integer', 'exists:enseignants,id'],
             'centre_id' => ['nullable', 'integer', 'exists:convocation_centres,id'],
 
-            // 100 Ko max (voir demande utilisateur).
-            'service_fait' => ['required', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:100'],
-            'ordre_mission' => ['required', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:100'],
-            'rapport_mission' => ['required', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:100'],
-            'bulletin_salaire' => ['required', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:100'],
-            'accuse_reception' => ['required', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:100'],
+            // 1 Mo max (2 pages scannées).
+            'service_fait' => ['required', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:1024'],
+            'ordre_mission' => ['required', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:1024'],
+            'rapport_mission' => ['required', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:1024'],
+            'bulletin_salaire' => ['required', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:1024'],
+            'accuse_reception' => ['required', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:1024'],
         ];
     }
 }

@@ -207,6 +207,12 @@ class ContractTeacherImportService
             if (! preg_match('/^[0-9.\/-]{5,30}$/', $row['cni'])) {
                 throw new RuntimeException("CNI invalide à la ligne CSV {$line}.");
             }
+            if (DB::table('enseignants')
+                ->where('cni', $row['cni'])
+                ->where('matricule', '<>', $row['matricule'])
+                ->exists()) {
+                throw new RuntimeException("CNI déjà utilisée par un autre enseignant à la ligne CSV {$line}.");
+            }
             if (isset($seenMatricules[$row['matricule']])) {
                 throw new RuntimeException("Matricule dupliqué à la ligne CSV {$line}.");
             }
