@@ -124,7 +124,7 @@ class PayrollPayslipDisplayIntegrationTest extends TestCase
         ]);
         $response = app(PayrollPageController::class)->payslip($payslip)->getData(true)['data'];
         $base = collect($response['lines'])->firstWhere('code', 'SALAIRE_BASE');
-        $this->assertSame('Traitement paramétré', $base['label']);
+        $this->assertSame('SALAIRE BRUT', $base['label']);
         $this->assertSame('100000.00', $base['amount']);
         $this->assertSame('calculation_snapshot', $response['display_settings']['origin']);
         $this->assertSame('Centre de test Paie', $response['teacher']['establishment']);

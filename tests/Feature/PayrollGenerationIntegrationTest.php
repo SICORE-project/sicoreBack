@@ -63,6 +63,10 @@ class PayrollGenerationIntegrationTest extends TestCase
                 'code' => $code, 'libelle' => $code, 'type' => 'retenue', 'periodicite' => 'mensuelle', 'montant' => $amount,
             ]);
         }
+        foreach (config('payroll_reference.contract_salary_increases') as $increase) {
+            DB::table('rubrique_paies')->insert(['code' => $increase['code'], 'libelle' => $increase['label'],
+                'type' => 'gain', 'periodicite' => 'mensuelle', 'montant' => $increase['amount']]);
+        }
     }
 
     private function generate(array $selection)
@@ -85,7 +89,9 @@ class PayrollGenerationIntegrationTest extends TestCase
         $this->assertSame('12500.00', $slip->lines->firstWhere('code', 'IMPR')->amount);
         $this->assertSame('145000.00', $slip->lines->firstWhere('code', 'SALAIRE_BASE')->amount);
         $this->assertSame('diploma_salary', $slip->lines->firstWhere('code', 'SALAIRE_BASE')->source);
-        $this->assertSame(0, $slip->lines->where('source', 'salary_increase')->count());
+        $this->assertSame(8, $slip->lines->where('source', 'salary_increase')->count());
+        $this->assertSame(55000.0, (float) $slip->lines->where('source', 'salary_increase')->sum('amount'));
+        $this->assertSame(360000.0, (float) $slip->gross_amount);
         DB::table('rubrique_paies')->insert([
             'code' => 'SALAIRE_BASE', 'libelle' => 'Ancien salaire configuré', 'type' => 'gain',
             'periodicite' => 'mensuelle', 'montant' => 999999, 'est_afficher_bulletin' => false,

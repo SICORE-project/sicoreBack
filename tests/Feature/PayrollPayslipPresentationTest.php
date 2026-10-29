@@ -108,8 +108,8 @@ class PayrollPayslipPresentationTest extends TestCase
         $before = $payslip->toArray();
         $result = app(PayrollPayslipPresentationService::class)->present($payslip);
         $this->assertSame('SALAIRE BRUT', $result['lines'][0]['label']);
-        $this->assertSame('17000.00', $result['lines'][0]['amount']);
-        $this->assertCount(1, $result['lines']);
+        $this->assertSame('12000.00', $result['lines'][0]['amount']);
+        $this->assertCount(2, $result['lines']);
         $this->assertSame($before, $payslip->toArray());
     }
 

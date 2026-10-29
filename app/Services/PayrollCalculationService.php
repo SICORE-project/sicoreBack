@@ -229,9 +229,10 @@ class PayrollCalculationService
         $diplomaSalary = ! empty($profile['administrative_source']['diploma_id']);
 
         if ($profile['engagement_type'] === PayrollReferenceService::CONTRACTUEL) {
-            $salaryIncreases = $diplomaSalary ? collect() : collect(config('payroll_reference.contract_salary_increases', []));
+            $salaryIncreases = $diplomaSalary ? app(PayrollSalaryIncreases::class)->resolve() : collect(config('payroll_reference.contract_salary_increases', []));
             $increaseTotal = round((float) $salaryIncreases->sum('amount'), 2);
-            $salaryOrigin = round($base - $increaseTotal, 2);
+            $salaryOrigin = $diplomaSalary ? $base : round($base - $increaseTotal, 2);
+            if ($diplomaSalary) { $fixedEarnings += $increaseTotal; }
             if ($salaryOrigin <= 0) {
                 throw new ConflictHttpException(
                     'La décomposition historique des augmentations dépasse le salaire contractuel courant.'
