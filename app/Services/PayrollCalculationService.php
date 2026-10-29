@@ -15,9 +15,9 @@ class PayrollCalculationService
 {
     public function __construct(private readonly PayrollReferenceService $references) {}
 
-    public function calculate(PayrollPeriod $period, User $actor): PayrollRun
+    public function calculate(PayrollPeriod $period, User $actor, ?array $teacherIds = null): PayrollRun
     {
-        return DB::transaction(function () use ($period, $actor): PayrollRun {
+        return DB::transaction(function () use ($period, $actor, $teacherIds): PayrollRun {
             $lockedPeriod = PayrollPeriod::query()->lockForUpdate()->findOrFail($period->id);
 
             if (! in_array($lockedPeriod->status, [
@@ -27,13 +27,13 @@ class PayrollCalculationService
                 throw new ConflictHttpException('Cette période ne peut plus être recalculée.');
             }
 
-            if ($lockedPeriod->attendances()->where('status', 'draft')->exists()) {
+            if ($lockedPeriod->attendances()->when($teacherIds !== null, fn ($q) => $q->whereIn('enseignant_id', $teacherIds))->where('status', 'draft')->exists()) {
                 throw new ConflictHttpException(
                     'Tous les états de présence doivent être validés avant le calcul.'
                 );
             }
 
-            if ($lockedPeriod->elements()->where('status', 'draft')->exists()) {
+            if ($lockedPeriod->elements()->when($teacherIds !== null, fn ($q) => $q->whereIn('enseignant_id', $teacherIds))->where('status', 'draft')->exists()) {
                 throw new ConflictHttpException(
                     'Tous les éléments variables doivent être validés avant le calcul.'
                 );
@@ -49,8 +49,6 @@ class PayrollCalculationService
                 ->where(function ($query): void {
                     $query
                         ->whereNull('payroll_profile_configured_at')
-                        ->orWhereNull('impr_monthly_amount')
-                        ->orWhereNull('trimf_monthly_amount')
                         ->orWhere('salaire_base', '<=', 0)
                         ->orWhere(function ($contractQuery): void {
                             $contractQuery
@@ -67,7 +65,7 @@ class PayrollCalculationService
             }
             $incompleteStructuredProfiles = $incompleteProfilesQuery->count();
 
-            if ($incompleteStructuredProfiles > 0) {
+            if ($teacherIds === null && $incompleteStructuredProfiles > 0) {
                 throw new ConflictHttpException(sprintf(
                     '%d profil(s) contractuel(s) ou vacataire(s) sont incomplets. Corrigez-les dans « Paie non générée » avant le calcul.',
                     $incompleteStructuredProfiles
@@ -77,12 +75,22 @@ class PayrollCalculationService
             $teachersQuery = Enseignant::query()
                 ->with(['user', 'institutionFinanciere', 'corps', 'etablissement'])
                 ->where($activeColumn, true)
-                ->where('salaire_base', '>', 0)
+                ->when($teacherIds === null, fn ($q) => $q->where('salaire_base', '>', 0), fn ($q) => $q->whereIn('id', $teacherIds)->lockForUpdate())
                 ->orderBy('id');
             if (Schema::hasColumn('enseignants', 'deleted_at')) {
                 $teachersQuery->whereNull('deleted_at');
             }
             $enseignants = $teachersQuery->get();
+            if ($teacherIds !== null) {
+                if ($enseignants->count() !== count(array_unique($teacherIds))) {
+                    throw new ConflictHttpException('La sélection contient un enseignant inactif ou supprimé. Actualisez la liste.');
+                }
+                $profiles = app(PayrollTeacherProfile::class);
+                $enseignants = $enseignants->map(fn ($teacher) => $profiles->prepare($teacher));
+                if ($lockedPeriod->payslips()->whereIn('enseignant_id', $teacherIds)->where('payment_status', 'paid')->exists()) {
+                    throw new ConflictHttpException('Un bulletin sélectionné est déjà payé et ne peut pas être remplacé.');
+                }
+            }
 
             if ($enseignants->isEmpty()) {
                 throw new ConflictHttpException(
@@ -108,15 +116,7 @@ class PayrollCalculationService
                 ]
             );
 
-            $run->payslips()->delete();
-
-            $totals = [
-                'gross' => 0.0,
-                'deductions' => 0.0,
-                'employer' => 0.0,
-                'net' => 0.0,
-            ];
-            $checksums = [];
+            $run->payslips()->when($teacherIds !== null, fn ($q) => $q->whereIn('enseignant_id', $teacherIds))->delete();
 
             foreach ($enseignants as $enseignant) {
                 $snapshot = $this->calculateTeacher($lockedPeriod, $enseignant);
@@ -143,16 +143,22 @@ class PayrollCalculationService
 
                 $payslip->lines()->createMany($snapshot['lines']);
 
-                $totals['gross'] += $snapshot['gross'];
-                $totals['deductions'] += $snapshot['deductions'];
-                $totals['employer'] += $snapshot['employer'];
-                $totals['net'] += $snapshot['net'];
-                $checksums[] = $payslip->reference.':'.$snapshot['checksum'];
             }
 
-            $checksum = hash('sha256', implode('|', $checksums));
+            // A scoped generation must retain every other IA/teacher, including totals.
+            $allPayslips = $run->payslips()->with('lines')->orderBy('enseignant_id')->get();
+            $totals = [
+                'gross' => (float) $allPayslips->sum('gross_amount'),
+                'deductions' => (float) $allPayslips->sum('deduction_amount'),
+                'employer' => (float) $allPayslips->sum('employer_contribution_amount'),
+                'net' => (float) $allPayslips->sum('net_amount'),
+            ];
+            $checksum = hash('sha256', $allPayslips->map(fn ($slip) => $slip->reference.':'.hash('sha256', json_encode([
+                'profile' => $slip->profile_snapshot,
+                'lines' => $slip->lines->map(fn ($line) => $line->only(['code', 'label', 'category', 'amount', 'source', 'sort_order']))->all(),
+            ], JSON_THROW_ON_ERROR)))->implode('|'));
             $run->update([
-                'employee_count' => $enseignants->count(),
+                'employee_count' => $allPayslips->count(),
                 'total_gross' => round($totals['gross'], 2),
                 'total_deductions' => round($totals['deductions'], 2),
                 'total_employer_contributions' => round($totals['employer'], 2),
@@ -162,7 +168,7 @@ class PayrollCalculationService
 
             $lockedPeriod->update([
                 'status' => PayrollPeriod::STATUS_CALCULATED,
-                'employee_count' => $enseignants->count(),
+                'employee_count' => $allPayslips->count(),
                 'total_gross' => round($totals['gross'], 2),
                 'total_deductions' => round($totals['deductions'], 2),
                 'total_net' => round($totals['net'], 2),
@@ -220,9 +226,10 @@ class PayrollCalculationService
 
         $lines = [];
         $fixedEarnings = $base;
+        $diplomaSalary = ! empty($profile['administrative_source']['diploma_id']);
 
         if ($profile['engagement_type'] === PayrollReferenceService::CONTRACTUEL) {
-            $salaryIncreases = collect(config('payroll_reference.contract_salary_increases', []));
+            $salaryIncreases = $diplomaSalary ? collect() : collect(config('payroll_reference.contract_salary_increases', []));
             $increaseTotal = round((float) $salaryIncreases->sum('amount'), 2);
             $salaryOrigin = round($base - $increaseTotal, 2);
             if ($salaryOrigin <= 0) {
@@ -233,10 +240,10 @@ class PayrollCalculationService
 
             $lines[] = [
                 'code' => 'SALAIRE_BASE',
-                'label' => 'Salaire de base avant augmentations',
+                'label' => $diplomaSalary ? 'SALAIRE BRUT' : 'Salaire de base avant augmentations',
                 'category' => 'earning',
                 'amount' => $salaryOrigin,
-                'source' => 'salary_scale',
+                'source' => $diplomaSalary ? 'diploma_salary' : 'salary_scale',
                 'sort_order' => 10,
             ];
             foreach ($salaryIncreases->values() as $index => $increase) {
@@ -274,10 +281,10 @@ class PayrollCalculationService
         } else {
             $lines[] = [
                 'code' => 'SALAIRE_BASE',
-                'label' => 'Salaire de base',
+                'label' => $diplomaSalary ? 'SALAIRE BRUT' : 'Salaire de base',
                 'category' => 'earning',
                 'amount' => $base,
-                'source' => 'salary_scale',
+                'source' => $diplomaSalary ? 'diploma_salary' : 'salary_scale',
                 'sort_order' => 10,
             ];
         }
@@ -332,7 +339,7 @@ class PayrollCalculationService
                     'label' => $label,
                     'category' => $category,
                     'amount' => $amount,
-                    'source' => 'payroll_profile',
+                    'source' => $code === 'IPRES_SALARIE' ? 'payroll_reference' : 'payroll_rubric',
                     'sort_order' => $sort,
                 ];
             }
@@ -361,7 +368,7 @@ class PayrollCalculationService
                     'label' => $label,
                     'category' => 'deduction',
                     'amount' => $amount,
-                    'source' => 'payroll_profile',
+                    'source' => 'payroll_rubric',
                     'sort_order' => $sort,
                 ];
             }

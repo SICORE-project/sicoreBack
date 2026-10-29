@@ -7,6 +7,7 @@ use App\Http\Requests\Administration\Personnel\Concerns\ValidatesTeacherIdentity
 use App\Models\Parametrage\CorpsEnseignant;
 use App\Models\Parametrage\Diplome;
 use App\Models\Personnel\Enseignant;
+use App\Models\Personnel\CompteBancaireEnseignant;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -51,6 +52,16 @@ class UpdateEnseignantRequest extends FormRequest
         if ($this->has('compte_bancaire.type_virement') && ! $this->filled('compte_bancaire.type_virement')) {
             $this->merge(['compte_bancaire' => array_merge($this->input('compte_bancaire', []), ['type_virement' => 'unitaire'])]);
         }
+        $compteBancaire = $this->input('compte_bancaire');
+        if (is_array($compteBancaire)
+            && collect(['code_banque', 'code_guichet', 'numero_compte', 'cle_rib'])
+                ->every(fn (string $field): bool => isset($compteBancaire[$field]) && is_string($compteBancaire[$field]))) {
+            $compteBancaire['rib'] = implode('', array_map(
+                fn (string $field): string => $compteBancaire[$field],
+                ['code_banque', 'code_guichet', 'numero_compte', 'cle_rib'],
+            ));
+            $this->merge(['compte_bancaire' => $compteBancaire]);
+        }
         $marie = $this->boolean('est_en_couple');
         $enfants = max(0, $this->integer('nombre_enfants'));
         $conjointTravaille = $marie && $this->boolean('conjoint_travaille');
@@ -70,7 +81,9 @@ class UpdateEnseignantRequest extends FormRequest
         $this->merge([
             'nombre_femmes' => $marie ? ($this->input('nombre_femmes') ?? 0) : 0,
             'conjoint_travaille' => $conjointTravaille,
-            'nombre_parts_fiscales' => min(5, max(1, 2 + ($enfants * .5) - ($conjointTravaille ? .5 : 0))),
+            'nombre_parts_fiscales' => $this->input('situation_matrimoniale') === 'celibataire'
+                ? 2
+                : min(5, max(1, 2 + ($enfants * .5) - ($conjointTravaille ? .5 : 0))),
             'salaire_brut' => $this->corpsEstVacataire() ? 150000 : ($diplome && (($categorieId && (int) $diplome->categorie_id === $categorieId) || (!$categorieId && !$this->corpsEstContractuel())) ? $diplome->salaire_brut : null),
         ]);
         $this->clearInapplicableTeacherFields();
@@ -83,6 +96,23 @@ class UpdateEnseignantRequest extends FormRequest
 
     public function rules(): array
     {
+        $existingAccount = null;
+        if ($this->route('id')) {
+            $enseignant = Enseignant::query()->find($this->route('id'));
+            $existingAccount = $enseignant?->comptesBancaires()->where('est_principal', true)->first()
+                ?? $enseignant?->comptesBancaires()->first();
+        }
+
+        $unchangedLegacyAccountField = fn (string $field): bool => $existingAccount !== null
+            && (string) $this->input("compte_bancaire.{$field}", '') === (string) ($existingAccount->{$field} ?? '');
+        $ribRule = Rule::unique('comptes_bancaires_enseignants', 'rib');
+        if ($existingAccount) {
+            $ribRule->ignore($existingAccount->id);
+        }
+        $unchangedLegacyRib = $existingAccount !== null
+            && collect(['code_banque', 'code_guichet', 'numero_compte', 'cle_rib'])
+                ->every(fn (string $field): bool => (string) $this->input("compte_bancaire.{$field}", '') === (string) ($existingAccount->{$field} ?? ''));
+
         return [
             ...$this->teacherIdentityRules(true),
 
@@ -92,9 +122,9 @@ class UpdateEnseignantRequest extends FormRequest
             'lieu_naissance' => ['nullable', 'string', 'max:100'],
             'genre' => ['nullable', Rule::in(['M', 'F', 'masculin', 'feminin'])],
             'telephone' => ['sometimes', 'required', 'string', 'max:20', "regex:/\A\+?[0-9][0-9 ()-]*\z/"],
-            'email' => ['nullable', 'email', 'max:100'],
+            'email' => ['nullable', 'email', 'max:100', Rule::unique('enseignants', 'email')->ignore($this->route('id'))],
             'adresse' => ['nullable', 'string', 'max:255'],
-            'cni' => ['sometimes', 'required', 'string', 'regex:/\A[0-9]{13,15}\z/'],
+            'cni' => ['sometimes', 'required', 'string', 'regex:/\A[0-9]{13,15}\z/', Rule::unique('enseignants', 'cni')->ignore($this->route('id'))],
             'diplome_id' => ['nullable', 'integer', 'exists:diplomes,id', function ($attribute, $value, $fail): void {
                 $diplome = Diplome::find($value);
                 if ($this->filled('categorie_id') && $diplome && (int) $diplome->categorie_id !== $this->integer('categorie_id')) {
@@ -115,13 +145,26 @@ class UpdateEnseignantRequest extends FormRequest
             'compte_bancaire' => ['required', 'array'],
             'compte_bancaire.institut_financier_id' => ['nullable', 'integer', 'exists:instituts_financieres,id'],
             'compte_bancaire.code_banque' => ['required', 'string', 'size:5'],
-            'compte_bancaire.code_guichet' => ['required', 'string', 'size:5', "regex:/\A[0-9]+\z/"],
-            'compte_bancaire.numero_compte' => ['required', 'string', 'size:12'],
+            'compte_bancaire.code_guichet' => $unchangedLegacyAccountField('code_guichet')
+                ? ['required', 'string', "regex:/\A[0-9]+\z/"]
+                : ['required', 'string', 'size:5', "regex:/\A[0-9]+\z/"],
+            'compte_bancaire.numero_compte' => $unchangedLegacyAccountField('numero_compte')
+                ? ['required', 'string']
+                : ['required', 'string', 'size:12'],
+            'compte_bancaire.rib' => $unchangedLegacyRib
+                ? ['required', 'string', $ribRule]
+                : ['required', 'string', 'size:24', $ribRule],
             'compte_bancaire.cle_rib' => ['required', 'string', 'size:2', "regex:/\A[0-9]+\z/"],
             'compte_bancaire.iban' => ['nullable', 'string', 'max:34'],
             'compte_bancaire.bic' => ['nullable', 'string', 'max:11'],
             'compte_bancaire.titulaire_compte' => ['nullable', 'string', 'max:100'],
             'compte_bancaire.type_virement' => ['nullable', Rule::in(['unitaire', 'masse'])],
+            'syndicat' => ['sometimes', 'nullable', 'array'],
+            'syndicat.syndicat_id' => [
+                'nullable',
+                'integer',
+                Rule::exists('syndicats', 'id')->where(fn ($query) => $query->where('est_actif', true)),
+            ],
             'date_recrutement' => ['nullable', 'date'],
             'date_prise_service' => ['nullable', 'date'],
             'ia_id' => ['sometimes', 'required', 'integer', Rule::exists('ias', 'id')->whereNull('deleted_at')],
@@ -153,6 +196,9 @@ class UpdateEnseignantRequest extends FormRequest
             'diplome_id.exists' => 'Le diplôme sélectionné n’existe plus. Veuillez le sélectionner à nouveau.',
             'salaire_brut.min' => 'Le salaire brut ne peut pas être négatif.',
             'cni.regex' => 'Le numéro de carte d’identité doit contenir entre 13 et 15 chiffres.',
+            'cni.unique' => 'Ce numéro de carte d’identité est déjà utilisé par un autre enseignant.',
+            'email.unique' => 'Cette adresse e-mail est déjà utilisée par un autre enseignant.',
+            'compte_bancaire.rib.unique' => 'Ce RIB complet est déjà associé à un autre enseignant.',
             'matricule.required' => 'Le matricule est obligatoire.',
             'matricule.unique' => 'Ce matricule existe déjà.',
             'nom.required' => 'Le nom est obligatoire.',

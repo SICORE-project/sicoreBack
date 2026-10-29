@@ -14,6 +14,7 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 class PayrollPageController extends Controller
 {
     private const IA_PERMISSIONS = [
+        'paie-edition' => 'paie.edition.read',
         'paie-montants-engages-banque' => 'paie.bulletins.read',
         'paie-edition-salaires-banque' => 'paie.bulletins.read',
         'paie-elements-saisie-dashboard' => 'paie.bulletins.read',
@@ -37,6 +38,12 @@ class PayrollPageController extends Controller
         'paie-recap-banque' => 'paie.recap_banque.read',
         'paie-generee-ief' => 'paie.effectifs_ief.read',
         'paie-sommes-percues' => 'paie.sommes_percues.read',
+        'paie-etats-presence' => 'paie.jours_travailles.read',
+        'paie-avance-tabaski' => 'paie.avance_tabaski.read',
+        'paie-retenue-tabaski' => 'paie.retenue_tabaski.read',
+        'paie-retenues-rappel' => 'paie.retenue_rappel.read',
+        'paie-exemptions' => 'paie.exemptions.read',
+        'paie-fermeture-periode' => 'paie.cloture.read',
     ];
 
     private function page(Request $request, string $slug, array $filters): array
@@ -121,7 +128,7 @@ class PayrollPageController extends Controller
         if ($slug === 'paie-etat-salaires') {
             $rules += [
                 'academic_year_id' => ['nullable', 'integer'],
-                'corps_id' => ['nullable', 'integer'],
+                'statut_enseignant_id' => ['nullable', 'integer'],
                 'ia_id' => ['nullable', 'integer'],
                 'ief_id' => ['nullable', 'integer'],
                 'matricule' => ['nullable', 'string', 'max:50'],
@@ -196,6 +203,8 @@ class PayrollPageController extends Controller
                 'teacher' => [
                     'matricule' => $teacher->matricule,
                     'name' => $teacherName,
+                    'first_name' => $teacher->user?->prenom ?? $teacher->prenom,
+                    'last_name' => $teacher->user?->nom ?? $teacher->nom,
                     'corps' => $corpsLabel,
                     'statut_enseignant' => $teacher->statutEnseignant?->libelle,
                     'bank' => $account?->bank_label ?: $teacher->institutionFinanciere?->nom,
@@ -215,6 +224,7 @@ class PayrollPageController extends Controller
                     },
                     'diploma' => data_get($payslip->profile_snapshot, 'diploma_label'),
                     'category' => data_get($payslip->profile_snapshot, 'category_level'),
+                    'category_label' => data_get($payslip->profile_snapshot, 'category_label'),
                     'calculation_model' => data_get($payslip->profile_snapshot, 'calculation_model'),
                 ],
                 'gross_amount' => $payslip->gross_amount,
@@ -225,6 +235,7 @@ class PayrollPageController extends Controller
                 'payment_reference' => $payslip->payment_reference,
                 'paid_at' => $payslip->paid_at?->toIso8601String(),
                 'edited_on' => now()->format('d/m/Y'),
+                'edited_at' => now()->format('d/m/Y à H:i'),
                 'lines' => $presentation['lines'],
                 'display_settings' => $presentation['display_settings'],
             ],

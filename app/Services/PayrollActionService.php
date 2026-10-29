@@ -44,6 +44,8 @@ class PayrollActionService
                 ? (int) $data['payroll_category_level']
                 : null;
             $salary = $this->references->salaryFor($engagement, $diploma, $category, now());
+            // Validate the catalogue, never accept individual overrides from the form.
+            app(PayrollRubricAmounts::class)->resolve($engagement);
             $before = $teacher->toArray();
 
             $profileValues = [
@@ -51,14 +53,6 @@ class PayrollActionService
                 'payroll_diploma_level' => $diploma,
                 'payroll_category_level' => $category,
                 'salaire_base' => $salary,
-                'impr_monthly_amount' => round((float) $data['impr_monthly_amount'], 2),
-                'trimf_monthly_amount' => round((float) $data['trimf_monthly_amount'], 2),
-                'ipm_monthly_amount' => $engagement === PayrollReferenceService::CONTRACTUEL
-                    ? round((float) ($data['ipm_monthly_amount'] ?? 0), 2)
-                    : 0,
-                'union_checkoff_monthly_amount' => $engagement === PayrollReferenceService::CONTRACTUEL
-                    ? round((float) ($data['union_checkoff_monthly_amount'] ?? 0), 2)
-                    : 0,
                 'payroll_profile_configured_at' => now(),
                 'payroll_profile_configured_by' => $actor->id,
             ];
@@ -80,28 +74,6 @@ class PayrollActionService
             );
 
             return $teacher->fresh(['user', 'etablissement.ief.ia']);
-        }, 3);
-    }
-
-    public function createPeriod(array $data, User $actor, Request $request, ?string $key): PayrollPeriod
-    {
-        return DB::transaction(function () use ($data, $actor, $request, $key): PayrollPeriod {
-            $overlap = PayrollPeriod::query()
-                ->whereDate('start_date', '<=', $data['end_date'])
-                ->whereDate('end_date', '>=', $data['start_date'])
-                ->exists();
-
-            if ($overlap) {
-                throw new ConflictHttpException('Cette période chevauche une période de paie existante.');
-            }
-
-            $period = PayrollPeriod::create([
-                ...$data,
-                'status' => PayrollPeriod::STATUS_OPEN,
-            ]);
-            $this->audit->log('period.created', $period, null, $period->toArray(), $actor, $request, $key);
-
-            return $period;
         }, 3);
     }
 
@@ -612,6 +584,7 @@ class PayrollActionService
     /** @return Collection<int, PayrollPeriod> */
     private function periodsForAcademicMonths(object $academicYear, Collection $months, string $field): Collection
     {
+        $configuredCodes = app(PayrollPeriodCatalogue::class)->synchronize();
         $wanted = $months->map(fn (mixed $month): int => (int) $month)->unique()->values();
         $codesByMonth = collect();
         $cursor = CarbonImmutable::parse($academicYear->date_debut)->startOfMonth();
@@ -631,24 +604,16 @@ class PayrollActionService
         }
 
         $periodsByCode = PayrollPeriod::query()
+            ->whereIn('code', $configuredCodes)
             ->whereIn('code', $codesByMonth->values()->all())
             ->get()
             ->keyBy('code');
         $missing = $codesByMonth->values()->reject(fn (string $code): bool => $periodsByCode->has($code));
 
-        // Les périodes internes de paie sont créées à la demande, jamais par
-        // un seeder de démonstration. Une période existante fermée reste protégée.
-        foreach ($missing as $code) {
-            $month = CarbonImmutable::parse($code.'-01');
-            $periodsByCode->put($code, PayrollPeriod::query()->firstOrCreate(
-                ['code' => $code],
-                [
-                    'label' => ucfirst($month->locale('fr')->translatedFormat('F Y')),
-                    'start_date' => $month->startOfMonth()->toDateString(),
-                    'end_date' => $month->endOfMonth()->toDateString(),
-                    'status' => PayrollPeriod::STATUS_OPEN,
-                ]
-            ));
+        if ($missing->isNotEmpty()) {
+            throw ValidationException::withMessages([
+                $field => 'Renseignez ces périodes dans Paramétrage : '.$missing->implode(', ').'.',
+            ]);
         }
 
         return $wanted->map(function (int $month) use ($codesByMonth, $periodsByCode): PayrollPeriod {

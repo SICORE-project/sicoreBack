@@ -9,6 +9,7 @@ use App\Models\PayrollAttendance;
 use App\Models\PayrollElement;
 use App\Models\PayrollPayslip;
 use App\Models\PayrollPeriod;
+use App\Services\Paie\EtatSalaire\EtatSalaireReport;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -17,6 +18,8 @@ use Illuminate\Validation\ValidationException;
 
 class PayrollPageService
 {
+    use EtatSalaireReport;
+
     private ?int $iaScopeId = null;
 
     public function forIa(int $iaId): self
@@ -40,7 +43,8 @@ class PayrollPageService
 
     private function periods(): Collection
     {
-        $periods = PayrollPeriod::query()->withCount([
+        $codes = app(PayrollPeriodCatalogue::class)->synchronize();
+        $periods = PayrollPeriod::query()->whereIn('code', $codes)->withCount([
             'payslips' => fn ($q) => $this->scopePayroll($q),
             'attendances' => fn ($q) => $this->scopePayroll($q),
             'elements' => fn ($q) => $this->scopePayroll($q),
@@ -160,6 +164,9 @@ class PayrollPageService
             ->get();
 
         $report = $this->report($slug, $period, $teachers, $criteria);
+        if ($periods->isEmpty()) {
+            $report['notice'] = 'Renseignez les périodes de paie dans Paramétrage (code 01 à 12, nom du mois ou AAAA-MM), puis une année académique avec ses dates. Les mois seront disponibles ici automatiquement.';
+        }
         if (in_array($slug, ['paie-avance-tabaski', 'paie-retenue-tabaski'], true)) {
             $missingReferences = collect([
                 $academicYears->isEmpty() ? 'une année académique' : null,
@@ -172,6 +179,7 @@ class PayrollPageService
             }
         }
         $rowFilters = $this->rowFilters($report['rows'], $teachers);
+        $personnelProfiles = app(PayrollTeacherProfile::class);
 
         return [
             'slug' => $slug,
@@ -218,12 +226,10 @@ class PayrollPageService
                 'ia_id' => $this->teacherIaId($teacher),
                 'ia_label' => $this->teacherIaLabel($teacher, $academicInspections),
                 'type_engagement' => $teacher->type_engagement,
+                'administrative_profile' => $personnelProfiles->describe($teacher),
+                'statut_enseignant_id' => $teacher->statut_enseignant_id,
                 'payroll_diploma_level' => $teacher->payroll_diploma_level,
                 'payroll_category_level' => $teacher->payroll_category_level,
-                'impr_monthly_amount' => $teacher->impr_monthly_amount,
-                'trimf_monthly_amount' => $teacher->trimf_monthly_amount,
-                'ipm_monthly_amount' => $teacher->ipm_monthly_amount,
-                'union_checkoff_monthly_amount' => $teacher->union_checkoff_monthly_amount,
                 'salary_base' => $teacher->salaire_base,
                 'payroll_profile_configured' => (bool) $teacher->payroll_profile_configured_at,
             ])->values(),
@@ -264,7 +270,7 @@ class PayrollPageService
             'paie-generee-ief' => $this->iefSummaryReport($period),
             'paie-fermeture-periode' => $this->closingReport(),
             'paie-edition-salaires-banque' => $this->bankSalaryReport($period),
-            'paie-bulletins' => $this->payslipReport($period),
+            'paie-bulletins' => $this->payslipReport($period, $teachers),
             'paie-effectifs-corps' => $this->workforceReport($teachers),
             'paie-non-generee' => $this->notGeneratedReport($period),
             'paie-sommes-percues' => $this->paidReport($period),
@@ -299,7 +305,7 @@ class PayrollPageService
     private function attendanceReport(?PayrollPeriod $period): array
     {
         $items = $period
-            ? PayrollAttendance::query()
+            ? $this->scopePayroll(PayrollAttendance::query())
                 ->with('enseignant.user')
                 ->where('payroll_period_id', $period->id)
                 ->latest('updated_at')
@@ -545,8 +551,7 @@ class PayrollPageService
                 (string) $item->version,
             ])->values(),
             'actions' => [
-                $this->action('Nouvelle période', 'create-period', 'primary'),
-                $this->action('Calculer la paie', 'calculate-payroll'),
+                $this->action('Générer des bulletins', 'generate-payslips'),
                 $this->action('Valider la paie', 'validate-payroll'),
             ],
             'stats' => [
@@ -648,255 +653,6 @@ class PayrollPageService
     }
 
     /** @return array<string, mixed> */
-    private function salaryReport(?PayrollPeriod $period, array $criteria = []): array
-    {
-        $items = $this->payslips($period);
-        $academicYear = $this->academicYearForPeriod($period);
-        $corps = $this->referenceMap('corps_enseignant', 'libelle');
-        $ias = $this->referenceMap('ias', 'libelle');
-        $iefs = $this->referenceMap('iefs', 'libelle');
-        $paymentPlaces = $this->referenceMap('lieux_paiement', 'libelle');
-        $trainingCenters = $this->referenceMap('centres_formation', 'nom');
-        $banking = $this->salaryBankingDetails($items->pluck('enseignant_id'));
-        $tabaskiAdvances = $period
-            ? $this->scopePayroll(PayrollElement::query())
-                ->where('payroll_period_id', $period->id)
-                ->where('code', 'TABASKI_AVANCE')
-                ->where('status', 'validated')
-                ->where('is_exempt', false)
-                ->get(['enseignant_id', 'amount'])
-                ->groupBy('enseignant_id')
-                ->map(fn (Collection $elements): float => (float) $elements->sum('amount'))
-            : collect();
-
-        if (
-            filled($criteria['academic_year_id'] ?? null)
-            && (int) ($academicYear->id ?? 0) !== (int) $criteria['academic_year_id']
-        ) {
-            $items = collect();
-        }
-
-        $items = $items->filter(function (PayrollPayslip $payslip) use ($criteria, $tabaskiAdvances): bool {
-            $teacher = $payslip->enseignant;
-
-            if (filled($criteria['corps_id'] ?? null)
-                && $this->teacherCorpsId($teacher) !== (int) $criteria['corps_id']) {
-                return false;
-            }
-            if (filled($criteria['ia_id'] ?? null)
-                && $this->teacherIaId($teacher) !== (int) $criteria['ia_id']) {
-                return false;
-            }
-            if (filled($criteria['ief_id'] ?? null)
-                && $this->teacherIefId($teacher) !== (int) $criteria['ief_id']) {
-                return false;
-            }
-            if (filled($criteria['payment_place_id'] ?? null)
-                && (int) $teacher->getAttribute('lieu_paiement_id') !== (int) $criteria['payment_place_id']) {
-                return false;
-            }
-            if (filled($criteria['training_center_id'] ?? null)
-                && (int) $teacher->getAttribute('centre_formation_id') !== (int) $criteria['training_center_id']) {
-                return false;
-            }
-            if (filled($criteria['matricule'] ?? null)
-                && ! str_contains(
-                    $this->normalizeMatricule($teacher->matricule),
-                    $this->normalizeMatricule((string) $criteria['matricule'])
-                )) {
-                return false;
-            }
-            if (($criteria['tabaski_only'] ?? false)
-                && $this->salaryLineAmount($payslip, ['TABASKI_AVANCE']) <= 0
-                && (float) $tabaskiAdvances->get($teacher->id, 0) <= 0) {
-                return false;
-            }
-
-            return true;
-        })->values();
-
-        $amountKeys = [
-            'salary_category',
-            'special_bonus',
-            'taxable_amount',
-            'compensation_increase',
-            'ipres',
-            'ipm',
-            'impr',
-            'trimf',
-            'union_social',
-            'tabaski_advance',
-            'reminder',
-            'salary_deduction',
-            'reminder_deduction',
-            'tabaski_deduction',
-            'other_deductions',
-            'gross',
-            'deductions',
-            'net',
-        ];
-        $recognizedDeductionCodes = [
-            'IPRES_SALARIE', 'IPM', 'IMPR', 'TRIMF', 'CHECKOFF_UES', 'CHECKOFF',
-            'OEUVRE_SOCIALE', 'TABASKI_RETENUE', 'RAPPEL_RETENUE', 'RETENUE_SUR_RAPPEL',
-            'RETENUE_SALAIRE', 'R94', 'ABSENCE',
-        ];
-
-        $records = $items->map(function (PayrollPayslip $payslip, int $index) use (
-            $banking,
-            $corps,
-            $ias,
-            $iefs,
-            $paymentPlaces,
-            $trainingCenters,
-            $tabaskiAdvances,
-            $recognizedDeductionCodes
-        ): array {
-            $teacher = $payslip->enseignant;
-            $bank = $banking->get($teacher->id, []);
-            $salaryCategory = $this->salaryLineAmount($payslip, ['SALAIRE_BASE'])
-                + (float) $payslip->lines->where('source', 'salary_increase')->sum('amount');
-            $tabaskiAdvance = $this->salaryLineAmount($payslip, ['TABASKI_AVANCE']);
-            if ($tabaskiAdvance <= 0) {
-                $tabaskiAdvance = (float) $tabaskiAdvances->get($teacher->id, 0);
-            }
-            $taxableAmount = (float) $payslip->lines
-                ->where('category', 'earning')
-                ->reject(fn ($line): bool => $line->code === 'TABASKI_AVANCE')
-                ->sum('amount');
-            $otherDeductions = (float) $payslip->lines
-                ->whereIn('category', ['deduction', 'contribution'])
-                ->whereNotIn('code', $recognizedDeductionCodes)
-                ->sum('amount');
-            $profileCategory = data_get($payslip->profile_snapshot, 'category_level');
-            $corpsId = $this->teacherCorpsId($teacher);
-            $iaId = $this->teacherIaId($teacher);
-            $iefId = $this->teacherIefId($teacher);
-
-            return [
-                'sequence' => $index + 1,
-                'first_name' => $this->teacherFirstName($teacher),
-                'last_name' => $this->teacherLastName($teacher),
-                'matricule' => $teacher->matricule ?: '—',
-                'salary_category' => $salaryCategory,
-                'special_bonus' => $this->salaryLineAmount($payslip, ['PRIME_SPECIALE']),
-                'taxable_amount' => $taxableAmount,
-                'compensation_increase' => $this->salaryLineAmount(
-                    $payslip,
-                    ['INDEMNITE_COMPENSATION', 'IRD', 'AUGMENTATION_IRD']
-                ),
-                'ipres' => $this->salaryLineAmount($payslip, ['IPRES_SALARIE']),
-                'ipm' => $this->salaryLineAmount($payslip, ['IPM']),
-                'impr' => $this->salaryLineAmount($payslip, ['IMPR']),
-                'trimf' => $this->salaryLineAmount($payslip, ['TRIMF']),
-                'union_social' => $this->salaryLineAmount(
-                    $payslip,
-                    ['CHECKOFF_UES', 'CHECKOFF', 'OEUVRE_SOCIALE']
-                ),
-                'tabaski_advance' => $tabaskiAdvance,
-                'reminder' => $this->salaryLineAmount($payslip, ['RAPPEL', 'RAPPEL_GAIN']),
-                'salary_deduction' => $this->salaryLineAmount(
-                    $payslip,
-                    ['RETENUE_SALAIRE', 'R94', 'ABSENCE']
-                ),
-                'reminder_deduction' => $this->salaryLineAmount(
-                    $payslip,
-                    ['RAPPEL_RETENUE', 'RETENUE_SUR_RAPPEL']
-                ),
-                'tabaski_deduction' => $this->salaryLineAmount($payslip, ['TABASKI_RETENUE']),
-                'other_deductions' => $otherDeductions,
-                'gross' => (float) $payslip->gross_amount,
-                'deductions' => (float) $payslip->deduction_amount,
-                'net' => (float) $payslip->net_amount,
-                'cni' => $teacher->getAttribute('cni') ?: 'Non renseignée',
-                'account' => $bank['account'] ?? $this->teacherAccountNumber($teacher),
-                'parts' => $this->teacherTaxParts($teacher),
-                'category' => $profileCategory ? (string) $profileCategory : '—',
-                'corps' => $corps->get($corpsId, '—'),
-                'ia' => $ias->get($iaId, 'IA non renseignée'),
-                'ief' => $iefs->get($iefId, 'IEF non renseignée'),
-                'training_center' => $trainingCenters->get(
-                    (int) $teacher->getAttribute('centre_formation_id'),
-                    'Non renseigné'
-                ),
-                'bank' => $bank['bank'] ?? ($teacher->getAttribute('code_banque') ?: 'Non renseignée'),
-                'payment_place' => $paymentPlaces->get(
-                    (int) $teacher->getAttribute('lieu_paiement_id'),
-                    'Non renseigné'
-                ),
-                'payment_status' => $payslip->payment_status,
-                'payment_status_label' => $this->statusLabel($payslip->payment_status),
-                'payment_status_variant' => data_get($this->statusCell($payslip->payment_status), 'badge'),
-                'reference' => $payslip->reference,
-            ];
-        });
-
-        $withSignature = (bool) ($criteria['with_signature'] ?? false);
-        $columns = $this->salaryStatementColumns($withSignature);
-        $displayRows = $records->map(function (array $record) use ($columns, $amountKeys): array {
-            return collect($columns)->map(function (array $column) use ($record, $amountKeys): string {
-                $key = $column['key'];
-                if ($key === 'signature') {
-                    return '';
-                }
-
-                return in_array($key, $amountKeys, true)
-                    ? $this->statementAmount($record[$key] ?? 0)
-                    : (string) ($record[$key] ?? '—');
-            })->values()->all();
-        })->values();
-        $totals = collect($amountKeys)->mapWithKeys(
-            fn (string $key): array => [$key => (float) $records->sum($key)]
-        );
-        $gross = (float) $records->sum('gross');
-        $deductions = (float) $records->sum('deductions');
-        $net = (float) $records->sum('net');
-
-        return [
-            'columns' => collect($columns)->pluck('label')->values()->all(),
-            'rows' => $displayRows,
-            'actions' => [$this->exportAction()],
-            'stats' => [
-                $this->stat('Agents édités', $records->count(), $period?->label ?? 'Aucune période', 'EN', 'green'),
-                $this->stat('Masse brute', $this->money($gross), 'Total des gains', 'BR', 'blue'),
-                $this->stat('Retenues', $this->money($deductions), 'Sociales, fiscales et diverses', 'CS', 'yellow'),
-                $this->stat('Net à payer', $this->money($net), 'État sélectionné', 'SP', 'red'),
-            ],
-            'notice' => $records->isEmpty()
-                ? 'Aucun bulletin ne correspond aux critères sélectionnés pour cette période.'
-                : 'État mensuel détaillé construit à partir des bulletins calculés et de leurs rubriques traçables.',
-            'salary_statement' => [
-                'title' => 'État des salaires',
-                'period_label' => $period?->label ?? 'Période non renseignée',
-                'academic_year' => $academicYear->libelle ?? 'Non renseignée',
-                'columns' => $columns,
-                'rows' => $records->map(function (array $record) use ($amountKeys): array {
-                    foreach ($amountKeys as $key) {
-                        $record[$key.'_display'] = $this->statementAmount($record[$key] ?? 0);
-                    }
-
-                    return $record;
-                })->values(),
-                'totals' => $totals->map(fn (float $amount): string => $this->statementAmount($amount)),
-                'filters' => $criteria,
-                'filter_options' => $this->salaryStatementFilterOptions(
-                    $items,
-                    $corps,
-                    $ias,
-                    $iefs,
-                    $paymentPlaces,
-                    $trainingCenters
-                ),
-                'with_signature' => $withSignature,
-                'service_done' => ! (bool) ($criteria['without_service_done'] ?? false),
-                'signatory' => (bool) ($criteria['dage_signatory'] ?? false)
-                    ? 'Le Directeur de l’Administration générale et de l’Équipement (DAGE)'
-                    : 'Le responsable habilité de la paie',
-                'generated_at' => now()->format('d/m/Y à H:i'),
-            ],
-        ];
-    }
-
-    /** @return array<string, mixed> */
     private function elementsDashboard(?PayrollPeriod $period): array
     {
         $items = $period ? $this->elementsForPeriod($period)->get() : collect();
@@ -966,7 +722,7 @@ class PayrollPageService
     /** @return array<string, mixed> */
     private function closingReport(): array
     {
-        $periods = PayrollPeriod::query()->latest('start_date')->get();
+        $periods = $this->periods();
 
         return [
             'columns' => ['Période', 'Statut', 'Effectif', 'Net total', 'Calculée le', 'Validée le', 'Clôturée le', 'Version'],
@@ -1009,48 +765,45 @@ class PayrollPageService
     }
 
     /** @return array<string, mixed> */
-    private function payslipReport(?PayrollPeriod $period): array
+    private function payslipReport(?PayrollPeriod $period, Collection $teachers): array
     {
         $items = $this->payslips($period);
+        $rows = $items->map(fn (PayrollPayslip $item): array => [
+            $item->reference,
+            $period?->label ?? '—',
+            $item->enseignant->matricule ?: '—',
+            $this->teacherName($item->enseignant),
+            $this->money($item->gross_amount),
+            $this->money($item->deduction_amount),
+            $this->money($item->net_amount),
+            (string) $item->version,
+            ['actions' => [[
+                'label' => 'Consulter', 'code' => 'view-payslip',
+                'payload' => ['payroll_payslip_id' => $item->id],
+            ]]],
+        ]);
+        $existingIds = $items->pluck('enseignant_id');
+        $withoutPayslip = $teachers->reject(fn (Enseignant $teacher) => $existingIds->contains($teacher->id));
+        $rows = $rows->concat($withoutPayslip->map(fn (Enseignant $teacher): array => [
+            'Non calculé', $period?->label ?? '—', $teacher->matricule ?: '—',
+            $this->teacherName($teacher), '—', '—', '—', '—', ['actions' => [[
+                'label' => 'Générer', 'code' => 'generate-payslips',
+                'payload' => ['generation_scope' => 'teacher', 'enseignant_id' => $teacher->id],
+            ]]],
+        ]))->sortBy(fn (array $row) => (string) $row[2])->values();
 
         return [
-            'columns' => ['Référence', 'Mois du bulletin', 'Matricule', 'Enseignant', 'Brut', 'Retenues', 'Net', 'Paiement', 'Version', 'Actions'],
-            'rows' => $items->map(fn (PayrollPayslip $item): array => [
-                $item->reference,
-                $period?->label ?? '—',
-                $item->enseignant->matricule ?: '—',
-                $this->teacherName($item->enseignant),
-                $this->money($item->gross_amount),
-                $this->money($item->deduction_amount),
-                $this->money($item->net_amount),
-                $this->statusCell($item->payment_status),
-                (string) $item->version,
-                [
-                    'actions' => array_values(array_filter([
-                        [
-                            'label' => 'Consulter',
-                            'code' => 'view-payslip',
-                            'payload' => ['payroll_payslip_id' => $item->id],
-                        ],
-                        $item->payment_status === 'paid' ? null : [
-                            'label' => 'Marquer payé',
-                            'code' => 'mark-paid',
-                            'payload' => [
-                                'payroll_payslip_id' => $item->id,
-                                'expected_version' => $item->version,
-                            ],
-                        ],
-                    ])),
-                ],
-            ])->values(),
-            'actions' => [$this->exportAction()],
+            'columns' => ['Référence', 'Mois du bulletin', 'Matricule', 'Enseignant', 'Brut', 'Retenues', 'Net', 'Version', 'Actions'],
+            'rows' => $rows,
+            'actions' => [$this->action('Générer des bulletins', 'generate-payslips', 'primary'), $this->exportAction()],
             'notice' => $period
                 ? sprintf(
-                    'Bulletins du mois de %s — %d bulletin(s) disponible(s).',
+                    '%s — %d bulletin(s) disponible(s), %d enseignant(s) enregistré(s) sans bulletin calculé. Les enseignants apparaissent dès leur enregistrement dans Personnel.',
                     $period->label,
-                    $items->count()
+                    $items->count(),
+                    $withoutPayslip->count()
                 )
-                : 'Aucun mois de paie n’est disponible pour les bulletins.',
+                : 'Les enseignants enregistrés dans Personnel sont affichés directement. Renseignez un mois dans Paramétrage pour consulter ses bulletins. Les montants non calculés restent vides.',
         ];
     }
 
@@ -1115,13 +868,14 @@ private function notGeneratedReport(?PayrollPeriod $period): array
             $teacher->institutionFinanciere?->nom ?? 'Non renseignée',
             $this->payrollProfileReason($teacher),
             $this->actionCell(
-                $teacher->payroll_profile_configured_at ? 'Modifier le profil' : 'Configurer',
-                'configure-teacher-payroll', [
+                'Générer',
+                'generate-payslips', [
+                    'generation_scope' => 'teacher',
                     'enseignant_id' => $teacher->id,
                 ]),
         ])->values(),
         'actions' => [
-            $this->action('Configurer un formateur', 'configure-teacher-payroll', 'primary'),
+            $this->action('Générer des bulletins', 'generate-payslips', 'primary'),
             $this->exportAction(),
         ],
         'stats' => [
@@ -1330,13 +1084,15 @@ private function notGeneratedReport(?PayrollPeriod $period): array
     /** @return array<string, mixed> */
     private function mutualHealthReport(Collection $teachers): array
     {
+        $contractCount = $teachers->where('type_engagement', PayrollReferenceService::CONTRACTUEL)->count();
+        $ipm = $contractCount > 0 ? app(PayrollRubricAmounts::class)->resolve(PayrollReferenceService::CONTRACTUEL)['ipm'] : 0;
         return [
             'columns' => ['Matricule', 'Enseignant', 'Mutuelle', 'Montant IPM', 'IA', 'IEF', 'Statut'],
             'rows' => $teachers->map(fn (Enseignant $teacher): array => [
                 $teacher->matricule ?: '—',
                 $this->teacherName($teacher),
                 $teacher->mutuelle?->nom ?? 'Non renseignée',
-                $this->money($teacher->ipm_monthly_amount),
+                $this->money($teacher->type_engagement === PayrollReferenceService::CONTRACTUEL ? $ipm : 0),
                 $teacher->etablissement?->ief?->ia?->libelle ?? 'Non renseignée',
                 $teacher->etablissement?->ief?->libelle ?? 'Non renseignée',
                 $this->statusCell($teacher->mutuelle_id ? 'validated' : 'pending'),
@@ -1346,7 +1102,7 @@ private function notGeneratedReport(?PayrollPeriod $period): array
                 $this->stat('Agents', $teachers->count(), 'Effectif actif', 'EN', 'green'),
                 $this->stat('Avec mutuelle', $teachers->whereNotNull('mutuelle_id')->count(), 'Affiliations renseignées', 'OK', 'blue'),
                 $this->stat('Sans mutuelle', $teachers->whereNull('mutuelle_id')->count(), 'Information manquante', 'NG', 'yellow'),
-                $this->stat('Montant IPM', $this->money($teachers->sum('ipm_monthly_amount')), 'Total mensuel configuré', 'CS', 'red'),
+                $this->stat('Montant IPM', $this->money($contractCount * $ipm), 'Montant mensuel issu des rubriques de paie', 'CS', 'red'),
             ],
         ];
     }
@@ -1441,208 +1197,6 @@ private function notGeneratedReport(?PayrollPeriod $period): array
             ->orderBy('reference')
             ->limit(500)
             ->get();
-    }
-
-    /** @return array<int, array{key: string, label: string, amount?: bool}> */
-    private function salaryStatementColumns(bool $withSignature): array
-    {
-        $columns = [
-            ['key' => 'sequence', 'label' => 'N°'],
-            ['key' => 'first_name', 'label' => 'Prénoms'],
-            ['key' => 'last_name', 'label' => 'Nom'],
-            ['key' => 'matricule', 'label' => 'Matricule'],
-            ['key' => 'salary_category', 'label' => 'Sal. catég.', 'amount' => true],
-            ['key' => 'special_bonus', 'label' => 'Prime spéciale', 'amount' => true],
-            ['key' => 'taxable_amount', 'label' => 'Mt imposable', 'amount' => true],
-            ['key' => 'compensation_increase', 'label' => 'Indem. comp. + aug.', 'amount' => true],
-            ['key' => 'ipres', 'label' => 'IPRES', 'amount' => true],
-            ['key' => 'ipm', 'label' => 'IPM', 'amount' => true],
-            ['key' => 'impr', 'label' => 'IR / IMPR', 'amount' => true],
-            ['key' => 'trimf', 'label' => 'TRIMF', 'amount' => true],
-            ['key' => 'union_social', 'label' => 'Check-off / O.S', 'amount' => true],
-            ['key' => 'tabaski_advance', 'label' => 'Avance Tabaski', 'amount' => true],
-            ['key' => 'reminder', 'label' => 'Rappel', 'amount' => true],
-            ['key' => 'salary_deduction', 'label' => 'Retenue', 'amount' => true],
-            ['key' => 'reminder_deduction', 'label' => 'Retenue rappel', 'amount' => true],
-            ['key' => 'tabaski_deduction', 'label' => 'Ret. Tabaski', 'amount' => true],
-            ['key' => 'other_deductions', 'label' => 'Autres ret.', 'amount' => true],
-            ['key' => 'gross', 'label' => 'Salaire brut', 'amount' => true],
-            ['key' => 'deductions', 'label' => 'Total retenues', 'amount' => true],
-            ['key' => 'net', 'label' => 'Net à payer', 'amount' => true],
-            ['key' => 'cni', 'label' => 'CNI'],
-            ['key' => 'account', 'label' => 'N° compte'],
-            ['key' => 'parts', 'label' => 'Parts'],
-            ['key' => 'category', 'label' => 'Cat.'],
-            ['key' => 'bank', 'label' => 'Banque'],
-            ['key' => 'payment_place', 'label' => 'Lieu de paiement'],
-            ['key' => 'payment_status_label', 'label' => 'Paiement'],
-        ];
-
-        if ($withSignature) {
-            $columns[] = ['key' => 'signature', 'label' => 'Émargement'];
-        }
-
-        return $columns;
-    }
-
-    /** @return array<string, mixed> */
-    private function salaryStatementFilterOptions(
-        Collection $items,
-        Collection $corps,
-        Collection $ias,
-        Collection $iefs,
-        Collection $paymentPlaces,
-        Collection $trainingCenters
-    ): array {
-        $iefIa = Schema::hasTable('iefs')
-            ? DB::table('iefs')->when($this->iaScopeId !== null, fn ($q) => $q->where('ia_id', $this->iaScopeId))->orderBy('libelle')->get(['id', 'ia_id', 'libelle'])
-            : collect();
-
-        return [
-            'corps' => $corps->map(fn (string $label, int|string $id): array => [
-                'id' => (int) $id,
-                'label' => $label,
-            ])->values(),
-            'ias' => $ias->map(fn (string $label, int|string $id): array => [
-                'id' => (int) $id,
-                'label' => $label,
-            ])->values(),
-            'iefs' => $iefIa->map(fn (object $ief): array => [
-                'id' => (int) $ief->id,
-                'ia_id' => (int) $ief->ia_id,
-                'label' => $ief->libelle,
-            ])->values(),
-            'matricules' => $items->map(fn (PayrollPayslip $payslip): array => [
-                'value' => $payslip->enseignant->matricule,
-                'label' => ($payslip->enseignant->matricule ?: 'Sans matricule')
-                    .' — '.$this->teacherName($payslip->enseignant),
-            ])->unique('value')->sortBy('value')->values(),
-            'payment_places' => $paymentPlaces->map(fn (string $label, int|string $id): array => [
-                'id' => (int) $id,
-                'label' => $label,
-            ])->values(),
-            'training_centers' => $trainingCenters->map(fn (string $label, int|string $id): array => [
-                'id' => (int) $id,
-                'label' => $label,
-            ])->values(),
-        ];
-    }
-
-    private function salaryLineAmount(PayrollPayslip $payslip, array $codes): float
-    {
-        return (float) $payslip->lines->whereIn('code', $codes)->sum('amount');
-    }
-
-    private function statementAmount(mixed $amount): string
-    {
-        return number_format((float) $amount, 0, ',', ' ');
-    }
-
-    private function teacherCorpsId(Enseignant $teacher): ?int
-    {
-        if (!$teacher->isFonctionnaire()) return null;
-        $id = $teacher->getAttribute('corps_id')
-            ?? $teacher->getAttribute('corps_enseignant_id');
-
-        return $id === null ? null : (int) $id;
-    }
-
-    private function teacherFirstName(Enseignant $teacher): string
-    {
-        return trim((string) ($teacher->user?->prenom ?? $teacher->prenom ?? '')) ?: '—';
-    }
-
-    private function teacherLastName(Enseignant $teacher): string
-    {
-        return trim((string) ($teacher->user?->nom ?? $teacher->nom ?? '')) ?: '—';
-    }
-
-    private function teacherAccountNumber(Enseignant $teacher): string
-    {
-        return (string) (
-            $teacher->getAttribute('numero_compte')
-            ?: $teacher->getAttribute('numero_compte_bancaire')
-            ?: 'Non renseigné'
-        );
-    }
-
-    private function teacherTaxParts(Enseignant $teacher): string
-    {
-        return (string) (
-            $teacher->getAttribute('nombre_parts')
-            ?: $teacher->getAttribute('nombre_parts_fiscales')
-            ?: '—'
-        );
-    }
-
-    private function academicYearForPeriod(?PayrollPeriod $period): ?object
-    {
-        if (! $period || ! Schema::hasTable('annee_academiques')) {
-            return null;
-        }
-
-        return DB::table('annee_academiques')
-            ->whereDate('date_debut', '<=', $period->start_date->toDateString())
-            ->whereDate('date_fin', '>=', $period->end_date->toDateString())
-            ->first();
-    }
-
-    private function referenceMap(string $table, string $labelColumn): Collection
-    {
-        if (! Schema::hasTable($table)) {
-            return collect();
-        }
-
-        return DB::table($table)
-            ->when($this->iaScopeId !== null && $table === 'ias', fn ($q) => $q->where('id', $this->iaScopeId))
-            ->when($this->iaScopeId !== null && $table === 'iefs', fn ($q) => $q->where('ia_id', $this->iaScopeId))
-            ->orderBy($labelColumn)
-            ->get(['id', $labelColumn])
-            ->mapWithKeys(fn (object $row): array => [(int) $row->id => (string) $row->{$labelColumn}]);
-    }
-
-    /** @return Collection<int, array{account: string, bank: string}> */
-    private function salaryBankingDetails(Collection $teacherIds): Collection
-    {
-        if (! Schema::hasTable('comptes_bancaires_enseignants')) {
-            return collect();
-        }
-
-        $ids = $teacherIds->filter()->map(fn (mixed $id): int => (int) $id)->unique()->values();
-        if ($ids->isEmpty()) {
-            return collect();
-        }
-
-        $accountsQuery = DB::table('comptes_bancaires_enseignants')->whereIn('enseignant_id', $ids);
-        if (Schema::hasColumn('comptes_bancaires_enseignants', 'est_principal')) {
-            $accountsQuery->orderByDesc('est_principal');
-        }
-        $accounts = $accountsQuery->orderBy('id')->get()->groupBy('enseignant_id')->map->first();
-        $bankTable = collect(['instituts_financieres', 'institution_financieres'])
-            ->first(fn (string $table): bool => Schema::hasTable($table));
-        $banks = collect();
-
-        if ($bankTable) {
-            $columns = Schema::getColumnListing($bankTable);
-            $labelColumn = collect(['nom', 'libelle', 'raison_sociale', 'sigle', 'code'])
-                ->first(fn (string $column): bool => in_array($column, $columns, true));
-            if ($labelColumn) {
-                $banks = DB::table($bankTable)
-                    ->get(['id', $labelColumn])
-                    ->mapWithKeys(fn (object $bank): array => [
-                        (int) $bank->id => (string) $bank->{$labelColumn},
-                    ]);
-            }
-        }
-
-        return $accounts->map(function (object $account) use ($banks): array {
-            $bankId = $account->institut_financier_id ?? $account->institution_financiere_id ?? null;
-
-            return [
-                'account' => (string) ($account->numero_compte ?: 'Non renseigné'),
-                'bank' => $banks->get((int) $bankId, $account->code_banque ?: 'Non renseignée'),
-            ];
-        });
     }
 
     /** @return array<int, array<string, mixed>> */
@@ -1745,9 +1299,6 @@ private function notGeneratedReport(?PayrollPeriod $period): array
         }
         if (! $teacher->payroll_profile_configured_at) {
             return 'Profil de paie à compléter';
-        }
-        if ($teacher->impr_monthly_amount === null || $teacher->trimf_monthly_amount === null) {
-            return 'IMPR ou TRIMF à valider';
         }
         if ($teacher->type_engagement === 'contractuel' && (
             ! $teacher->payroll_diploma_level
@@ -1877,20 +1428,7 @@ private function notGeneratedReport(?PayrollPeriod $period): array
     /** @return array<int, array{value: int, label: string}> */
     private function payrollMonths(): array
     {
-        return collect([
-            1 => 'Janvier',
-            2 => 'Février',
-            3 => 'Mars',
-            4 => 'Avril',
-            5 => 'Mai',
-            6 => 'Juin',
-            7 => 'Juillet',
-            8 => 'Août',
-            9 => 'Septembre',
-            10 => 'Octobre',
-            11 => 'Novembre',
-            12 => 'Décembre',
-        ])->map(fn (string $label, int $value): array => compact('value', 'label'))->values()->all();
+        return app(PayrollPeriodCatalogue::class)->months();
     }
 
     private function teacherEstablishmentLabel(Enseignant $teacher): ?string

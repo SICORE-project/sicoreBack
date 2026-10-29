@@ -42,7 +42,7 @@ class ImportDonneesController extends Controller
         ]);
     }
 
-    /** `mode=apercu` contrôle le fichier sans rien écrire ; `mode=importer` écrit si toutes les lignes sont valides. */
+    /** `mode=apercu` contrôle le fichier sans rien écrire ; `mode=importer` écrit les lignes valides (création, ou mise à jour si la clé existe déjà ; erreurs signalées ligne par ligne). */
     public function traiter(Request $request, string $entite)
     {
         $data = $request->validate([
@@ -59,13 +59,23 @@ class ImportDonneesController extends Controller
             return response()->json(['success' => false, 'message' => $e->getMessage()], 422);
         }
 
-        $message = match (true) {
-            $rapport['erreurs'] !== [] => 'Le fichier contient des erreurs : rien n\'a été importé.',
-            $rapport['importe'] => 'Import terminé.',
-            default => 'Fichier contrôlé : aucune erreur.',
+        $erreurs = count($rapport['erreurs']);
+
+        $message = match ($rapport['statut']) {
+            'ok' => $rapport['importe']
+                ? sprintf('Import terminé : %d créé(s), %d modifié(s), %d inchangé(s), %d ignoré(s).', $rapport['crees'], $rapport['modifies'], $rapport['inchanges'], $rapport['ignores'])
+                : sprintf('Fichier contrôlé : %d à créer, %d à modifier, %d inchangé(s), %d à ignorer.', $rapport['crees'], $rapport['modifies'], $rapport['inchanges'], $rapport['ignores']),
+            'partiel' => $rapport['importe']
+                ? sprintf('Import partiel : %d créé(s), %d modifié(s), %d inchangé(s), %d ignoré(s), %d ligne(s) en erreur non importée(s).', $rapport['crees'], $rapport['modifies'], $rapport['inchanges'], $rapport['ignores'], $erreurs)
+                : sprintf('Contrôle terminé : %d à créer, %d à modifier, %d inchangé(s), %d ignoré(s), %d erreur(s). Corrigez les erreurs pour importer.', $rapport['crees'], $rapport['modifies'], $rapport['inchanges'], $rapport['ignores'], $erreurs),
+            default => 'Aucune ligne importée : le fichier contient des erreurs.',
         };
 
-        return response()->json(['success' => $rapport['erreurs'] === [], 'message' => $message, 'data' => $rapport], $rapport['erreurs'] === [] ? 200 : 422);
+        return response()->json([
+            'success' => $rapport['statut'] !== 'echec',
+            'message' => $message,
+            'data' => $rapport,
+        ], $rapport['statut'] === 'echec' ? 422 : 200);
     }
 
     /** Libellé lisible du format attendu pour une colonne. */
