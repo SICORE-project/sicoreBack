@@ -14,6 +14,7 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 class PayrollPageController extends Controller
 {
     private const IA_PERMISSIONS = [
+        'paie-edition' => 'paie.edition.read',
         'paie-montants-engages-banque' => 'paie.bulletins.read',
         'paie-edition-salaires-banque' => 'paie.bulletins.read',
         'paie-elements-saisie-dashboard' => 'paie.bulletins.read',
@@ -37,6 +38,12 @@ class PayrollPageController extends Controller
         'paie-recap-banque' => 'paie.recap_banque.read',
         'paie-generee-ief' => 'paie.effectifs_ief.read',
         'paie-sommes-percues' => 'paie.sommes_percues.read',
+        'paie-etats-presence' => 'paie.jours_travailles.read',
+        'paie-avance-tabaski' => 'paie.avance_tabaski.read',
+        'paie-retenue-tabaski' => 'paie.retenue_tabaski.read',
+        'paie-retenues-rappel' => 'paie.retenue_rappel.read',
+        'paie-exemptions' => 'paie.exemptions.read',
+        'paie-fermeture-periode' => 'paie.cloture.read',
     ];
 
     private function page(Request $request, string $slug, array $filters): array

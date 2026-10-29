@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Parametrage\StoreSyndicatRequest;
 use App\Http\Requests\Parametrage\UpdateSyndicatRequest;
 use App\Services\Parametrage\SyndicatService;
+use App\Support\Rattachements;
 use Illuminate\Support\Facades\Log;
 
 class SyndicatController extends Controller
@@ -140,6 +141,16 @@ class SyndicatController extends Controller
 
     public function destroy(int $id)
     {
+        $syndicat = $this->syndicatService->getSyndicatById($id);
+
+        $message = Rattachements::message("le syndicat « {$syndicat->libelle} »", [
+            [Rattachements::compter('enseignant_syndicat', 'syndicat_id', $id), 'adhérent', 'adhérents'],
+        ]);
+
+        if ($message !== null) {
+            return response()->json(['message' => $message], 409);
+        }
+
         $this->syndicatService->deleteSyndicat($id);
 
         return response()->json([

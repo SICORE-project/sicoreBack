@@ -52,6 +52,7 @@ return [
         'libelle' => 'IA',
         'table' => 'ias',
         'cle' => 'code',
+        'structure' => \App\Models\Parametrage\Ia::class,
         'uniques' => [],
         'colonnes' => [
             'code' => ['requis' => true, 'max' => 50, 'exemple' => 'IA-DK'],
@@ -63,6 +64,7 @@ return [
         'libelle' => 'IEF',
         'table' => 'iefs',
         'cle' => 'code',
+        'structure' => \App\Models\Parametrage\Ief::class,
         'defauts' => ['est_actif' => 1],
         'colonnes' => [
             'code' => ['requis' => true, 'max' => 20, 'regex' => '/^[A-Z0-9\-_]+$/', 'regex_message' => 'majuscules, chiffres, tirets uniquement', 'exemple' => 'IEF-DK1'],

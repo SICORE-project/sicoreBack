@@ -2,6 +2,7 @@
 
 namespace App\Services\Import;
 
+use App\Services\Parametrage\RegionalStructureService;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -88,13 +89,15 @@ class ReferentielImportService
             'total'   => count($lignes),
             'crees'   => 0,
             'ignores' => 0,
+            'modifies' => 0,
+            'inchanges' => 0,
             'erreurs' => [],
             'importe' => false,
         ];
 
         $operations = [];
         $cles = [];
-        $clesEnBase = []; // clés déjà présentes en base, préchargées par lot
+        $existants = []; // lignes déjà présentes en base, préchargées par lot
 
         // Préchargement des clés existantes pour éviter une requête par ligne.
         $toutesLesCles = [];
@@ -105,8 +108,8 @@ class ReferentielImportService
         }
         if ($toutesLesCles) {
             foreach (array_chunk(array_unique($toutesLesCles), 500) as $lot) {
-                foreach (DB::table($definition['table'])->whereIn($definition['cle'], $lot)->pluck($definition['cle']) as $cle) {
-                    $clesEnBase[mb_strtolower((string) $cle)] = true;
+                foreach (DB::table($definition['table'])->whereIn($definition['cle'], $lot)->get() as $ligneExistante) {
+                    $existants[mb_strtolower((string) $ligneExistante->{$definition['cle']})] = $ligneExistante;
                 }
             }
         }
@@ -130,16 +133,17 @@ class ReferentielImportService
                 continue;
             }
 
-            // Doublon déjà présent en base : IGNORÉ , pas d'update.
-            if ($cle !== null && isset($clesEnBase[mb_strtolower((string) $cle)])) {
-                $rapport['ignores']++;
-                continue;
+            $existant = $cle !== null ? ($existants[mb_strtolower((string) $cle)] ?? null) : null;
+
+            if ($existant) {
+                // Une cellule vide laisse la valeur actuelle intacte.
+                $valeurs = array_filter($valeurs, fn ($valeur, $colonne) => $valeur !== null && $colonne !== $definition['cle'], ARRAY_FILTER_USE_BOTH);
             }
 
             // Contrôle des colonnes devant rester uniques.
             $collision = false;
             foreach ($definition['uniques'] ?? [] as $colonne) {
-                if (isset($valeurs[$colonne]) && $this->dejaPris($definition, $colonne, $valeurs[$colonne], null)) {
+                if (isset($valeurs[$colonne]) && $this->dejaPris($definition, $colonne, $valeurs[$colonne], $existant)) {
                     $rapport['erreurs'][] = ['ligne' => $numero, 'message' => "« $colonne » : « {$valeurs[$colonne]} » existe déjà sur un autre enregistrement."];
                     $collision = true;
                     break;
@@ -149,14 +153,28 @@ class ReferentielImportService
                 continue;
             }
 
+            if ($existant) {
+                if (($existant->deleted_at ?? null) !== null) {
+                    $rapport['crees']++;
+                    $operations[] = ['restaurer', $valeurs, $existant];
+                } elseif ($this->identique($existant, $valeurs)) {
+                    $rapport['inchanges']++;
+                } else {
+                    $rapport['modifies']++;
+                    $operations[] = ['modifier', $valeurs, $existant];
+                }
+
+                continue;
+            }
+
             $rapport['crees']++;
-            $operations[] = ['creer', $valeurs];
+            $operations[] = ['creer', $valeurs, null];
         }
 
-        if ($ecrire && $operations && $rapport['crees'] > 0) {
+        if ($ecrire && $operations) {
             // Transaction par ligne : une erreur inattendue n'annule pas les lignes déjà écrites.
-            foreach ($operations as [$action, $valeurs]) {
-                DB::transaction(fn () => $this->ecrire($definition, $action, $valeurs, null));
+            foreach ($operations as [$action, $valeurs, $existant]) {
+                DB::transaction(fn () => $this->ecrire($definition, $action, $valeurs, $existant));
             }
             $rapport['importe'] = true;
         }
@@ -176,7 +194,7 @@ class ReferentielImportService
             return 'ok';
         }
         // Des erreurs mais au moins une ligne créée/ignorée => partiel.
-        if ($rapport['crees'] > 0 || $rapport['ignores'] > 0) {
+        if ($rapport['crees'] > 0 || $rapport['ignores'] > 0 || $rapport['modifies'] > 0 || $rapport['inchanges'] > 0) {
             return 'partiel';
         }
 
@@ -484,6 +502,7 @@ class ReferentielImportService
     private function identique(object $existant, array $valeurs): bool
     {
         foreach ($valeurs as $colonne => $valeur) {
+            $valeur = is_bool($valeur) ? (int) $valeur : $valeur;
             $actuelle = $existant->$colonne ?? null;
             if ($actuelle === null && $valeur === null) {
                 continue;
@@ -520,6 +539,10 @@ class ReferentielImportService
             }
             DB::table($table)->insert($donnees);
 
+            if (isset($definition['structure']) && ($entite = $definition['structure']::where($definition['cle'], $valeurs[$definition['cle']])->first())) {
+                app(RegionalStructureService::class)->sync($entite);
+            }
+
             return;
         }
 
@@ -527,9 +550,13 @@ class ReferentielImportService
         if (Schema::hasColumn($table, 'updated_at')) {
             $donnees['updated_at'] = $maintenant;
         }
-        if (Schema::hasColumn($table, 'deleted_at')) {
+        if ($action === 'restaurer' && Schema::hasColumn($table, 'deleted_at')) {
             $donnees['deleted_at'] = null;
         }
         DB::table($table)->where($definition['cle'], $existant->{$definition['cle']})->update($donnees);
+
+        if (isset($definition['structure']) && ($entite = $definition['structure']::where($definition['cle'], $existant->{$definition['cle']})->first())) {
+            app(RegionalStructureService::class)->sync($entite);
+        }
     }
 }
