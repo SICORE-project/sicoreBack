@@ -11,28 +11,30 @@ use App\Http\Resources\Parametrage\InstitutFinancierResource;
 use App\Models\Parametrage\InstitutFinancier;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\DB;
 
 class InstitutFinancierController extends Controller
 {
     public function index(IndexInstitutFinancierRequest $request)
     {
         $validated = $request->validated();
-        $query = InstitutFinancier::query();
+        $query = InstitutFinancier::query()->with('guichets');
 
-        if (! empty($validated['search'])) {
+        if (isset($validated['search']) && $validated['search'] !== '') {
             $term = $validated['search'];
             $query->where(fn ($query) => $query
                 ->where('libelle', 'like', "%{$term}%")
-                ->orWhere('sigle', 'like', "%{$term}%"));
+                ->orWhere('sigle', 'like', "%{$term}%")
+                ->orWhere('code_banque', 'like', "%{$term}%"));
         }
 
-        if (! empty($validated['type_institution'])) {
-            $query->where('type_institution', $validated['type_institution']);
-        }
+        // if (! empty($validated['type_institution'])) {
+        //     $query->where('type_institution', $validated['type_institution']);
+        // }
 
-        if (array_key_exists('est_actif', $validated)) {
-            $query->where('est_actif', $request->boolean('est_actif'));
-        }
+        // if (array_key_exists('est_actif', $validated)) {
+        //     $query->where('est_actif', $request->boolean('est_actif'));
+        // }
 
         $institutions = $query->orderByDesc('created_at')
             ->orderByDesc('id')
@@ -45,11 +47,31 @@ class InstitutFinancierController extends Controller
         ]);
     }
 
+    // public function store(StoreInstitutFinancierRequest $request)
+    // {
+    //     $institution = InstitutFinancier::create($request->validated());
+
+    //     return (new InstitutFinancierResource($institution))
+    //         ->additional([
+    //             'success' => true,
+    //             'message' => 'Banque créée avec succès.',
+    //         ])
+    //         ->response()
+    //         ->setStatusCode(201);
+    // }
     public function store(StoreInstitutFinancierRequest $request)
     {
-        $institution = InstitutFinancier::create($request->validated());
+        $institution = DB::transaction(function () use ($request) {
+            $data = $request->validated();
+            $guichets = $data['guichets'] ?? [];
+            unset($data['guichets']);
+            $institution = InstitutFinancier::create($data);
+            $institution->guichets()->createMany($guichets);
 
-        return (new InstitutFinancierResource($institution))
+            return $institution;
+        });
+
+        return (new InstitutFinancierResource($institution->load('guichets')))
             ->additional([
                 'success' => true,
                 'message' => 'Banque créée avec succès.',
@@ -58,33 +80,53 @@ class InstitutFinancierController extends Controller
             ->setStatusCode(201);
     }
 
+    // public function update(UpdateInstitutFinancierRequest $request, InstitutFinancier $institution)
+    // {
+    //     $institution->update($request->validated());
+
+    //     return (new InstitutFinancierResource($institution->refresh()))
+    //         ->additional([
+    //             'success' => true,
+    //             'message' => 'Banque modifiée avec succès.',
+    //         ]);
+    // }
     public function update(UpdateInstitutFinancierRequest $request, InstitutFinancier $institution)
     {
-        $institution->update($request->validated());
+        DB::transaction(function () use ($request, $institution) {
+            $data = $request->validated();
+            $guichets = $data['guichets'] ?? [];
+            unset($data['guichets']);
+            $institution->update($data);
 
-        return (new InstitutFinancierResource($institution->refresh()))
+            if ($request->has('guichets')) {
+                $institution->guichets()->delete();
+                $institution->guichets()->createMany($guichets);
+            }
+        });
+
+        return (new InstitutFinancierResource($institution->refresh()->load('guichets')))
             ->additional([
                 'success' => true,
                 'message' => 'Banque modifiée avec succès.',
             ]);
     }
 
-    public function updateStatut(UpdateStatutInstitutFinancierRequest $request, InstitutFinancier $institution)
-    {
-        $institution->update([
-            'est_actif' => $request->validated('est_actif'),
-        ]);
+    // public function updateStatut(UpdateStatutInstitutFinancierRequest $request, InstitutFinancier $institution)
+    // {
+    //     $institution->update([
+    //         'est_actif' => $request->validated('est_actif'),
+    //     ]);
 
-        $message = $institution->est_actif
-            ? 'Banque activée avec succès.'
-            : 'Banque désactivée avec succès.';
+    //     $message = $institution->est_actif
+    //         ? 'Banque activée avec succès.'
+    //         : 'Banque désactivée avec succès.';
 
-        return (new InstitutFinancierResource($institution->refresh()))
-            ->additional([
-                'success' => true,
-                'message' => $message,
-            ]);
-    }
+    //     return (new InstitutFinancierResource($institution->refresh()))
+    //         ->additional([
+    //             'success' => true,
+    //             'message' => $message,
+    //         ]);
+    // }
 
     public function destroy(InstitutFinancier $institution): JsonResponse
     {
