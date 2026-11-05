@@ -14,23 +14,24 @@ class StoreInstitutFinancierRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'libelle' => ['required', 'string', 'max:150'],
-            'sigle' => ['nullable', 'string', 'max:30'],
-            'type_institution' => ['required', 'string', 'max:50'],
-            'adresse' => ['nullable', 'string', 'max:255'],
-            'telephone' => ['nullable', 'string', 'max:20'],
-            'email' => ['nullable', 'email:rfc', 'max:100'],
-            'code_banque' => ['nullable', 'string', 'max:5'],
-            'code_guichet' => ['nullable', 'string', 'max:5'],
-            'iban_exemple' => ['nullable', 'string', 'max:34'],
-            'est_actif' => ['sometimes', 'boolean'],
+            'libelle'     => ['required', 'string', 'max:150'],
+            'sigle'       => ['nullable', 'string', 'max:30'],
+            'code_banque' => ['nullable', 'string', 'max:10', 'unique:instituts_financieres,code_banque'],
+            
+            // Validation des guichets
+            'guichets'           => ['nullable', 'array'],
+            'guichets.*.code'    => ['required', 'string', 'max:10', 'distinct'],
+            'guichets.*.libelle' => ['required', 'string', 'max:255'],
         ];
     }
 
     public function messages(): array
     {
         return [
-            'email.email' => 'L’adresse email doit être valide.',
+            'code_banque.unique'       => 'Ce code banque est déjà utilisé par une autre institution.',
+            'guichets.*.code.distinct' => 'Les codes des guichets doivent être différents les uns des autres.',
+            'guichets.*.code.required' => 'Le code du guichet est obligatoire.',
+            'guichets.*.libelle.required' => 'Le libellé du guichet est obligatoire.',
         ];
     }
 }
