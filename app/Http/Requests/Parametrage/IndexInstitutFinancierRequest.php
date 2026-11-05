@@ -15,8 +15,8 @@ class IndexInstitutFinancierRequest extends FormRequest
     {
         return [
             'search' => ['nullable', 'string', 'max:100'],
-            'type_institution' => ['nullable', 'string', 'max:50'],
-            'est_actif' => ['nullable', 'boolean'],
+            // 'type_institution' => ['nullable', 'string', 'max:50'],
+            // 'est_actif' => ['nullable', 'boolean'],
             'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],
         ];
     }

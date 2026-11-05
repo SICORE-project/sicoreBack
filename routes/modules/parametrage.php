@@ -261,8 +261,15 @@ Route::prefix('parametrage/institutions-financieres')->group(function (): void {
 | Gestion du référentiel des gains et retenues utilisés dans la paie.
 */
 Route::prefix('rubriques-paie')->group(function () {
+
+    Route::get('/statuts-enseignant', [RubriquePaieController::class, 'getStatuts'])
+    ->withoutMiddleware([\Illuminate\Auth\Middleware\Authenticate::class]);
+    
+Route::get('/', [RubriquePaieController::class, 'index'])->middleware('permission:paie.rubriques.read');
+    //Route::get('/statuts-enseignant', [RubriquePaieController::class, 'getStatuts']);
     Route::get('/', [RubriquePaieController::class, 'index'])->middleware('permission:paie.rubriques.read');
-    Route::post('/', [RubriquePaieController::class, 'store'])->middleware('permission:paie.rubriques.manage');
+    //Route::post('/', [RubriquePaieController::class, 'store'])->middleware('permission:paie.rubriques.manage');
+    Route::post('/', [RubriquePaieController::class, 'store']);
     Route::get('/{id}', [RubriquePaieController::class, 'show'])->whereNumber('id')->middleware('permission:paie.rubriques.read');
     Route::match(['put', 'patch'], '/{id}', [RubriquePaieController::class, 'update'])->whereNumber('id')->middleware('permission:paie.rubriques.manage');
     Route::delete('/{id}', [RubriquePaieController::class, 'destroy'])->whereNumber('id')->middleware('permission:paie.rubriques.manage');
@@ -331,9 +338,12 @@ Route::prefix('systeme/import')->middleware('permission:systeme.import')->group(
 
 Route::prefix('statuts-enseignant')->group(function () {
     $controller = \App\Http\Controllers\Api\Parametrage\StatutEnseignantController::class;
+    Route::get('/', [$controller, 'index'])->middleware('permission:enseignants.create,paie.rubriques.read'); // <-- Ajouté
     Route::get('/', [$controller, 'index'])->middleware('permission:enseignants.create');
     Route::get('/{id}', [$controller, 'show'])->whereNumber('id')->middleware('permission:enseignants.create');
     Route::post('/', [$controller, 'store'])->middleware('role:admin,super_admin');
     Route::put('/{id}', [$controller, 'update'])->whereNumber('id')->middleware('role:admin,super_admin');
     Route::delete('/{id}', [$controller, 'destroy'])->whereNumber('id')->middleware('role:admin,super_admin');
 });
+
+

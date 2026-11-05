@@ -14,7 +14,7 @@ class UpdateStatutInstitutFinancierRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'est_actif' => ['required', 'boolean'],
+           // 'est_actif' => ['required', 'boolean'],
         ];
     }
 }

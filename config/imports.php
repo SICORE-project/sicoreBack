@@ -92,7 +92,7 @@ return [
         'libelle' => 'Catégories',
         'table' => 'categories',
         'cle' => 'libelle',
-        'defauts' => ['est_actif' => 1],
+        'defauts' => ['est_actif' => 1, 'ordre' => 0],
         'colonnes' => [
             'libelle' => ['requis' => true, 'max' => 255, 'exemple' => 'Catégorie A1'],
             'corps' => ['requis' => true, 'cible' => 'corps_id', 'reference' => ['table' => 'corps_enseignant', 'colonne' => 'code'], 'exemple' => 'PROF'],
@@ -104,7 +104,7 @@ return [
     'diplome' => [
         'libelle' => 'Diplômes',
         'table' => 'diplomes',
-        'cle' => 'libelle',
+        'cle' => 'code',
         'colonnes' => [
             'libelle' => ['requis' => true, 'max' => 100, 'exemple' => 'Licence professionnelle'],
             'categorie' => ['requis' => true, 'cible' => 'categorie_id', 'reference' => ['table' => 'categories', 'colonne' => 'libelle'], 'exemple' => 'Catégorie A1'],

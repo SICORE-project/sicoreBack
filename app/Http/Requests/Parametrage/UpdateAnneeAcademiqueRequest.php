@@ -20,10 +20,6 @@ class UpdateAnneeAcademiqueRequest extends FormRequest
             $data['libelle'] = is_string($this->libelle) ? trim($this->libelle) : $this->libelle;
         }
 
-        if ($this->has('observations')) {
-            $data['observations'] = is_string($this->observations) ? trim($this->observations) : $this->observations;
-        }
-
         $this->merge($data);
     }
 
@@ -52,12 +48,6 @@ class UpdateAnneeAcademiqueRequest extends FormRequest
                 'required',
                 'date',
                 'after:date_debut',
-            ],
-
-            'observations' => [
-                'nullable',
-                'string',
-                'max:1000',
             ],
         ];
     }

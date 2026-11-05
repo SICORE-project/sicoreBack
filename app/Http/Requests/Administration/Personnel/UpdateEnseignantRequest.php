@@ -62,6 +62,7 @@ class UpdateEnseignantRequest extends FormRequest
             ));
             $this->merge(['compte_bancaire' => $compteBancaire]);
         }
+        $this->prepareTeacherCorps();
         $marie = $this->boolean('est_en_couple');
         $enfants = max(0, $this->integer('nombre_enfants'));
         $conjointTravaille = $marie && $this->boolean('conjoint_travaille');
@@ -81,9 +82,7 @@ class UpdateEnseignantRequest extends FormRequest
         $this->merge([
             'nombre_femmes' => $marie ? ($this->input('nombre_femmes') ?? 0) : 0,
             'conjoint_travaille' => $conjointTravaille,
-            'nombre_parts_fiscales' => $this->input('situation_matrimoniale') === 'celibataire'
-                ? 2
-                : min(5, max(1, 2 + ($enfants * .5) - ($conjointTravaille ? .5 : 0))),
+            'nombre_parts_fiscales' => min(5, ($this->input('situation_matrimoniale') === 'celibataire' ? 1 : 2) + ($enfants * .5)),
             'salaire_brut' => $this->corpsEstVacataire() ? 150000 : ($diplome && (($categorieId && (int) $diplome->categorie_id === $categorieId) || (!$categorieId && !$this->corpsEstContractuel())) ? $diplome->salaire_brut : null),
         ]);
         $this->clearInapplicableTeacherFields();
@@ -135,7 +134,7 @@ class UpdateEnseignantRequest extends FormRequest
             'salaire_brut' => ['nullable', 'numeric', 'min:0'],
             'annee_recrutement' => ['nullable', 'integer', 'min:1900', 'max:'.now()->year],
             'situation_matrimoniale' => [Rule::requiredIf(fn () => ! $this->teacherIsFonctionnaire()), 'nullable', Rule::in(['celibataire', 'marie', 'veuf', 'divorce'])],
-            'date_fin_contrat' => ['nullable', 'date', 'after_or_equal:date_recrutement'],
+            'date_fin_contrat' => [Rule::requiredIf(fn () => $this->corpsEstContractuel()), 'nullable', 'date', 'after_or_equal:date_recrutement'],
             'est_en_couple' => ['nullable', 'boolean'],
             'nombre_enfants' => [Rule::requiredIf(fn () => ! $this->teacherIsFonctionnaire()), 'nullable', 'integer', 'min:0'],
             'nombre_femmes' => ['nullable', 'integer', 'min:0'],
@@ -169,8 +168,8 @@ class UpdateEnseignantRequest extends FormRequest
             'date_prise_service' => ['nullable', 'date'],
             'ia_id' => ['sometimes', 'required', 'integer', Rule::exists('ias', 'id')->whereNull('deleted_at')],
             'ief_id' => ['sometimes', 'required', 'integer', Rule::exists('iefs', 'id')->whereNull('deleted_at')],
-            'corps_id' => [Rule::requiredIf(fn () => $this->teacherIsFonctionnaire()), 'nullable', 'integer', 'exists:corps_enseignant,id'],
-            'categorie_id' => ['nullable', 'integer', Rule::exists('categories', 'id')->where(fn ($query) => $query->where('corps_id', $this->integer('corps_id')))],
+            'corps_id' => $this->teacherCorpsRules(),
+            'categorie_id' => [Rule::requiredIf(fn () => $this->corpsEstContractuel()), 'nullable', 'integer', Rule::exists('categories', 'id')->where(fn ($query) => $query->where('corps_id', $this->integer('corps_id')))],
             'discipline_id' => ['nullable', 'integer', 'exists:disciplines,id'],
             'statut_enseignant_id' => ['required', 'integer', 'exists:statuts_enseignant,id'],
             'statut' => ['nullable', Rule::in(['en_activite', 'retraite', 'suspension_provisoire', 'abandon', 'decede', 'integre', 'radie', 'cessation_paiement'])],
@@ -210,7 +209,7 @@ class UpdateEnseignantRequest extends FormRequest
             'ief_id.exists' => 'L’IEF sélectionnée n’existe pas.',
             'corps_id.exists' => 'Le corps sélectionné n’existe pas.',
             'categorie_id.exists' => 'La catégorie sélectionnée n’appartient pas au corps choisi.',
-            'categorie_id.required' => 'La catégorie est obligatoire pour le corps Contractuel.',
+            'categorie_id.required' => 'La catégorie est obligatoire pour un enseignant contractuel du corps PC.',
             'discipline_id.exists' => 'La spécialité sélectionnée n’existe pas.',
             'statut.in' => 'Le statut sélectionné est invalide.',
         ];
