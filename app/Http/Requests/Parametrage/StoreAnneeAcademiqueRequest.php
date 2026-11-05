@@ -15,7 +15,6 @@ class StoreAnneeAcademiqueRequest extends FormRequest
     {
         $this->merge([
             'libelle' => is_string($this->libelle) ? trim($this->libelle) : $this->libelle,
-            'observations' => is_string($this->observations) ? trim($this->observations) : $this->observations,
         ]);
     }
 
@@ -38,12 +37,6 @@ class StoreAnneeAcademiqueRequest extends FormRequest
                 'required',
                 'date',
                 'after:date_debut',
-            ],
-
-            'observations' => [
-                'nullable',
-                'string',
-                'max:1000',
             ],
         ];
     }

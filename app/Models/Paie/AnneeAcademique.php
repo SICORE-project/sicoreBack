@@ -18,7 +18,6 @@ class AnneeAcademique extends Model
         'est_active',
         'est_cloturee',
         'date_cloture',
-        'observations',
     ];
 
     protected $casts = [
@@ -28,9 +27,4 @@ class AnneeAcademique extends Model
         'est_active' => 'boolean',
         'est_cloturee' => 'boolean',
     ];
-
-    public function periodesPaie()
-    {
-        return $this->hasMany(PeriodePaie::class, 'annee_academique_id');
-    }
 }
