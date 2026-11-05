@@ -82,9 +82,7 @@ class UpdateEnseignantRequest extends FormRequest
         $this->merge([
             'nombre_femmes' => $marie ? ($this->input('nombre_femmes') ?? 0) : 0,
             'conjoint_travaille' => $conjointTravaille,
-            'nombre_parts_fiscales' => $this->input('situation_matrimoniale') === 'celibataire'
-                ? 2
-                : min(5, max(1, 2 + ($enfants * .5) - ($conjointTravaille ? .5 : 0))),
+            'nombre_parts_fiscales' => min(5, ($this->input('situation_matrimoniale') === 'celibataire' ? 1 : 2) + ($enfants * .5)),
             'salaire_brut' => $this->corpsEstVacataire() ? 150000 : ($diplome && (($categorieId && (int) $diplome->categorie_id === $categorieId) || (!$categorieId && !$this->corpsEstContractuel())) ? $diplome->salaire_brut : null),
         ]);
         $this->clearInapplicableTeacherFields();

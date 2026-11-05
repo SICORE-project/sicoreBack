@@ -30,11 +30,11 @@ class TeacherRegistrationRulesTest extends TestCase
         ], $changes);
     }
 
-    public function test_single_parent_keeps_children_and_has_same_part_calculation_as_married(): void
+    public function test_single_parent_keeps_children_and_adds_them_to_one_base_part(): void
     {
         $this->postJson('/api/admin/personnel/enseignants', $this->payload())
             ->assertCreated()->assertJsonPath('data.nombre_enfants', 3)
-            ->assertJsonPath('data.nombre_parts_fiscales', 3.5)->assertJsonPath('data.nombre_femmes', 0);
+            ->assertJsonPath('data.nombre_parts_fiscales', 2.5)->assertJsonPath('data.nombre_femmes', 0);
     }
 
     public function test_all_required_identity_and_bank_fields_are_validated(): void
