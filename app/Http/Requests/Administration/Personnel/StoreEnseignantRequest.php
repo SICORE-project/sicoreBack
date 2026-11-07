@@ -15,6 +15,9 @@ class StoreEnseignantRequest extends FormRequest
 
     protected function prepareForValidation(): void
     {
+        if ($this->has('compte_bancaire')) {
+            $this->merge(['compte_bancaire' => \App\Support\TeacherRib::prepare($this->input('compte_bancaire'))]);
+        }
         $this->prepareTeacherIdentity();
         $this->prepareTeacherSituation();
         if ($this->has('nombre_femmes') && ! $this->filled('nombre_femmes')) {
@@ -227,24 +230,9 @@ class StoreEnseignantRequest extends FormRequest
                 'exists:instituts_financieres,id',
             ],
 
-            'compte_bancaire.code_banque' => [
-                'required',
-                'string',
-                'size:5',
-            ],
-
-            'compte_bancaire.code_guichet' => [
-                'required',
-                'string',
-                'size:5',
-                "regex:/\A[0-9]+\z/",
-            ],
-
-            'compte_bancaire.numero_compte' => [
-                'required',
-                'string',
-                'size:12',
-            ],
+            'compte_bancaire.code_banque' => ['required', 'string', 'size:5', 'regex:/\ASN[0-9]{3}\z/'],
+            'compte_bancaire.code_guichet' => ['required', 'string', 'size:5', 'regex:/\A[0-9]{5}\z/'],
+            'compte_bancaire.numero_compte' => ['required', 'string', 'size:12', 'regex:/\A[0-9]{12}\z/'],
 
             'compte_bancaire.rib' => [
                 'required',

@@ -17,6 +17,9 @@ class UpdateEnseignantRequest extends FormRequest
 
     protected function prepareForValidation(): void
     {
+        if ($this->has('compte_bancaire')) {
+            $this->merge(['compte_bancaire' => \App\Support\TeacherRib::prepare($this->input('compte_bancaire'))]);
+        }
         if ($this->route('id')) {
             $teacher = Enseignant::query()->find($this->route('id'));
             if ($teacher) {
@@ -102,16 +105,10 @@ class UpdateEnseignantRequest extends FormRequest
                 ?? $enseignant?->comptesBancaires()->first();
         }
 
-        $unchangedLegacyAccountField = fn (string $field): bool => $existingAccount !== null
-            && (string) $this->input("compte_bancaire.{$field}", '') === (string) ($existingAccount->{$field} ?? '');
         $ribRule = Rule::unique('comptes_bancaires_enseignants', 'rib');
         if ($existingAccount) {
             $ribRule->ignore($existingAccount->id);
         }
-        $unchangedLegacyRib = $existingAccount !== null
-            && collect(['code_banque', 'code_guichet', 'numero_compte', 'cle_rib'])
-                ->every(fn (string $field): bool => (string) $this->input("compte_bancaire.{$field}", '') === (string) ($existingAccount->{$field} ?? ''));
-
         return [
             ...$this->teacherIdentityRules(true),
 
@@ -143,16 +140,10 @@ class UpdateEnseignantRequest extends FormRequest
             'observations' => ['nullable', 'string'],
             'compte_bancaire' => ['required', 'array'],
             'compte_bancaire.institut_financier_id' => ['nullable', 'integer', 'exists:instituts_financieres,id'],
-            'compte_bancaire.code_banque' => ['required', 'string', 'size:5'],
-            'compte_bancaire.code_guichet' => $unchangedLegacyAccountField('code_guichet')
-                ? ['required', 'string', "regex:/\A[0-9]+\z/"]
-                : ['required', 'string', 'size:5', "regex:/\A[0-9]+\z/"],
-            'compte_bancaire.numero_compte' => $unchangedLegacyAccountField('numero_compte')
-                ? ['required', 'string']
-                : ['required', 'string', 'size:12'],
-            'compte_bancaire.rib' => $unchangedLegacyRib
-                ? ['required', 'string', $ribRule]
-                : ['required', 'string', 'size:24', $ribRule],
+            'compte_bancaire.code_banque' => ['required', 'string', 'size:5', 'regex:/\ASN[0-9]{3}\z/'],
+            'compte_bancaire.code_guichet' => ['required', 'string', 'size:5', 'regex:/\A[0-9]{5}\z/'],
+            'compte_bancaire.numero_compte' => ['required', 'string', 'size:12', 'regex:/\A[0-9]{12}\z/'],
+            'compte_bancaire.rib' => ['required', 'string', 'size:24', $ribRule],
             'compte_bancaire.cle_rib' => ['required', 'string', 'size:2', "regex:/\A[0-9]+\z/"],
             'compte_bancaire.iban' => ['nullable', 'string', 'max:34'],
             'compte_bancaire.bic' => ['nullable', 'string', 'max:11'],
