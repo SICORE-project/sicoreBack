@@ -137,7 +137,6 @@ class UpdateEnseignantRequest extends FormRequest
             'nombre_femmes' => ['nullable', 'integer', 'min:0'],
             'nombre_parts_fiscales' => ['required', 'numeric', 'min:1', 'max:5'],
             'conjoint_travaille' => ['nullable', 'boolean'],
-            'observations' => ['nullable', 'string'],
             'compte_bancaire' => ['required', 'array'],
             'compte_bancaire.institut_financier_id' => ['nullable', 'integer', 'exists:instituts_financieres,id'],
             'compte_bancaire.code_banque' => ['required', 'string', 'size:5', 'regex:/\ASN[0-9]{3}\z/'],

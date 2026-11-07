@@ -147,7 +147,6 @@ class StoreEnseignantRequest extends FormRequest
             'nombre_femmes' => ['nullable', 'integer', 'min:0'],
             'nombre_parts_fiscales' => ['required', 'numeric', 'min:1', 'max:5'],
             'conjoint_travaille' => ['nullable', 'boolean'],
-            'observations' => ['nullable', 'string'],
 
             // =========================
             // ADMINISTRATION
