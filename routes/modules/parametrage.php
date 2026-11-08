@@ -82,6 +82,9 @@ Route::prefix('communes')->group(function () {
 Route::get('parametrage/lieux-service', [LieuServiceController::class, 'catalogue'])
     ->middleware('permission:parametrage.lieux_service.read');
 
+Route::post('parametrage/directions', [LieuServiceController::class, 'storeDirection'])
+    ->middleware(['role:super_admin', 'permission:parametrage.lieux_service.manage']);
+
 Route::post('parametrage/lieux-service', [LieuServiceController::class, 'store'])
     ->middleware('permission:parametrage.lieux_service.manage');
 
