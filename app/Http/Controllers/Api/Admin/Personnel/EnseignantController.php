@@ -27,7 +27,8 @@ class EnseignantController extends Controller
             'id' => ['nullable', 'integer', 'min:1'],
         ]);
         $permission = empty($data['id']) ? 'enseignants.create' : 'enseignants.update';
-        abort_unless($request->user()->hasRole('super_admin') || $request->user()->hasPermission($permission), 403);
+        abort_unless($request->user()->hasRole('super_admin') || $request->user()->hasPermission($permission)
+            || ($request->user()->hasRole('gestionnaire_ia') && empty($data['id'])), 403);
         if (! empty($data['id'])) {
             $teacher = $this->enseignantService->find($data['id']);
             $this->assertInPerimetre($request->user(), $teacher->toArray());
@@ -44,6 +45,10 @@ class EnseignantController extends Controller
             ['value' => $data['value']], ['value' => [$rule]]
         )->fails();
 
+        if (! $exists && \Illuminate\Support\Facades\Schema::hasTable('teacher_submissions')) {
+            $exists = \App\Models\Personnel\TeacherSubmission::query()->where('status', 'pending')
+                ->where($data['field'] === 'indice' ? 'payload->indice' : $data['field'], $data['value'])->exists();
+        }
         return response()->json(['available' => ! $exists, 'message' => $exists ? $messages[$data['field']] : '']);
     }
 

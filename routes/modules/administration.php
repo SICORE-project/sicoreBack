@@ -380,6 +380,9 @@ Route::prefix('admin')->group(function () {
             ->middleware('permission:administration.users.read');
 
         Route::prefix('personnel/enseignants')->group(function () {
+            Route::get('/submissions', [\App\Http\Controllers\Api\TeacherSubmissionController::class, 'index'])->middleware('role:super_admin');
+            Route::post('/submissions/{id}/approve', [\App\Http\Controllers\Api\TeacherSubmissionController::class, 'approve'])->whereNumber('id')->middleware('role:super_admin');
+
             Route::post('/check-identity', [EnseignantController::class, 'checkIdentity'])->middleware(['permission:enseignants.read', 'throttle:120,1']);
             Route::post('/import', [\App\Http\Controllers\Api\Admin\Personnel\TeacherImportController::class, 'store'])->middleware(['role:admin,super_admin,gestionnaire_ia', 'permission:enseignants.create']);
             Route::get('/', [EnseignantController::class, 'index'])
