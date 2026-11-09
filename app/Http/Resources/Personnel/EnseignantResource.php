@@ -115,7 +115,6 @@ class EnseignantResource extends JsonResource
             'nombre_femmes' => (int) $this->nombre_femmes,
             'nombre_parts_fiscales' => (float) $this->nombre_parts_fiscales,
             'conjoint_travaille' => (bool) $this->conjoint_travaille,
-            'observations' => $this->observations,
 
             'diplome' => $this->whenLoaded('diplome', fn () => $this->diplome ? [
                 'id' => $this->diplome->id,

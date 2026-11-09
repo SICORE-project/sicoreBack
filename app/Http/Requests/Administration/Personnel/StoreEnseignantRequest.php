@@ -15,6 +15,9 @@ class StoreEnseignantRequest extends FormRequest
 
     protected function prepareForValidation(): void
     {
+        if ($this->has('compte_bancaire')) {
+            $this->merge(['compte_bancaire' => \App\Support\TeacherRib::prepare($this->input('compte_bancaire'))]);
+        }
         $this->prepareTeacherIdentity();
         $this->prepareTeacherSituation();
         if ($this->has('nombre_femmes') && ! $this->filled('nombre_femmes')) {
@@ -138,13 +141,12 @@ class StoreEnseignantRequest extends FormRequest
             'salaire_brut' => ['nullable', 'numeric', 'min:0'],
             'annee_recrutement' => ['nullable', 'integer', 'min:1900', 'max:'.now()->year],
             'situation_matrimoniale' => [Rule::requiredIf(fn () => ! $this->teacherIsFonctionnaire()), 'nullable', Rule::in(['celibataire', 'marie', 'veuf', 'divorce'])],
-            'date_fin_contrat' => [Rule::requiredIf(fn () => $this->corpsEstContractuel()), 'nullable', 'date', 'after_or_equal:date_recrutement'],
+            'date_fin_contrat' => ['nullable', 'date', 'after_or_equal:date_recrutement'],
             'est_en_couple' => ['nullable', 'boolean'],
             'nombre_enfants' => [Rule::requiredIf(fn () => ! $this->teacherIsFonctionnaire()), 'nullable', 'integer', 'min:0'],
             'nombre_femmes' => ['nullable', 'integer', 'min:0'],
             'nombre_parts_fiscales' => ['required', 'numeric', 'min:1', 'max:5'],
             'conjoint_travaille' => ['nullable', 'boolean'],
-            'observations' => ['nullable', 'string'],
 
             // =========================
             // ADMINISTRATION
@@ -227,24 +229,9 @@ class StoreEnseignantRequest extends FormRequest
                 'exists:instituts_financieres,id',
             ],
 
-            'compte_bancaire.code_banque' => [
-                'required',
-                'string',
-                'size:5',
-            ],
-
-            'compte_bancaire.code_guichet' => [
-                'required',
-                'string',
-                'size:5',
-                "regex:/\A[0-9]+\z/",
-            ],
-
-            'compte_bancaire.numero_compte' => [
-                'required',
-                'string',
-                'size:12',
-            ],
+            'compte_bancaire.code_banque' => ['required', 'string', 'size:5', 'regex:/\ASN[0-9]{3}\z/'],
+            'compte_bancaire.code_guichet' => ['required', 'string', 'size:5', 'regex:/\A[0-9]{5}\z/'],
+            'compte_bancaire.numero_compte' => ['required', 'string', 'size:12', 'regex:/\A[0-9]{12}\z/'],
 
             'compte_bancaire.rib' => [
                 'required',
@@ -373,7 +360,6 @@ class StoreEnseignantRequest extends FormRequest
             'nombre_femmes.min' => 'Le nombre de femmes ne peut pas être négatif.',
             'nombre_enfants.integer' => 'Le nombre d’enfants doit être un nombre entier.',
             'nombre_enfants.min' => 'Le nombre d’enfants ne peut pas être négatif.',
-            'date_fin_contrat.required' => 'La date de fin du contrat est obligatoire pour un enseignant contractuel.',
             'date_fin_contrat.after_or_equal' => 'La fin du contrat doit être postérieure ou égale à la date de recrutement.',
             'diplome_id.exists' => 'Le diplôme sélectionné n’existe plus. Veuillez le sélectionner à nouveau.',
             'salaire_brut.min' => 'Le salaire brut ne peut pas être négatif.',

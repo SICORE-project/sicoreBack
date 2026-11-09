@@ -70,7 +70,7 @@ class TeacherContractValidationTest extends TestCase
         ]);
     }
 
-    public function test_contractual_teachers_require_category_and_contract_end_date_on_creation_and_update(): void
+    public function test_contractual_teachers_require_category_but_contract_end_date_is_optional_on_creation_and_update(): void
     {
         foreach ([StoreEnseignantRequest::class, UpdateEnseignantRequest::class] as $class) {
             foreach ([[], ['categorie_id' => null, 'date_fin_contrat' => null], ['categorie_id' => '', 'date_fin_contrat' => '']] as $fields) {
@@ -78,7 +78,21 @@ class TeacherContractValidationTest extends TestCase
 
                 $this->assertFalse($validator->passes());
                 $this->assertSame('La catégorie est obligatoire pour le corps Contractuel.', $validator->errors()->first('categorie_id'));
-                $this->assertSame('La date de fin du contrat est obligatoire pour un enseignant contractuel.', $validator->errors()->first('date_fin_contrat'));
+                $this->assertFalse($validator->errors()->has('date_fin_contrat'));
+            }
+        }
+    }
+
+    public function test_contractual_teachers_can_be_saved_without_a_contract_end_date(): void
+    {
+        foreach ([StoreEnseignantRequest::class, UpdateEnseignantRequest::class] as $class) {
+            foreach ([[], ['date_fin_contrat' => null], ['date_fin_contrat' => '']] as $fields) {
+                $validator = $this->validateContract($class::create('/', 'POST', [
+                    'corps_id' => 1, 'categorie_id' => 1, 'diplome_id' => 1,
+                    'date_recrutement' => '2025-01-01',
+                ] + $fields));
+
+                $this->assertTrue($validator->passes(), $validator->errors()->toJson());
             }
         }
     }
@@ -157,7 +171,7 @@ class TeacherContractValidationTest extends TestCase
 
         $this->assertFalse($validator->passes());
         $this->assertTrue($validator->errors()->has('categorie_id'));
-        $this->assertTrue($validator->errors()->has('date_fin_contrat'));
+        $this->assertFalse($validator->errors()->has('date_fin_contrat'));
     }
 
     public function test_changing_corps_without_a_category_clears_the_previous_contractual_category(): void
