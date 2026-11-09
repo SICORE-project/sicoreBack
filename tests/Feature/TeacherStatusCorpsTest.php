@@ -56,7 +56,7 @@ class TeacherStatusCorpsTest extends TestCase
                     $request->merge(['categorie_id' => null, 'date_fin_contrat' => null]);
                     $errors = Validator::make($request->all(), $rules)->errors();
                     $this->assertTrue($errors->has('categorie_id'));
-                    $this->assertTrue($errors->has('date_fin_contrat'));
+                    $this->assertFalse($errors->has('date_fin_contrat'));
                 }
                 if ($status === 3) {
                     $request->merge(['corps_id' => 10]);

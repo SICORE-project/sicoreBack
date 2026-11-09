@@ -14,6 +14,10 @@ Route::prefix('ia')->middleware('role:gestionnaire_ia')->group(function () {
 
     Route::get('dashboard', [IaController::class, 'dashboard']);
 
+    Route::get('teacher-options', [\App\Http\Controllers\Api\TeacherSubmissionController::class, 'options'])->middleware('permission:enseignants.read');
+    Route::get('teacher-submissions', [\App\Http\Controllers\Api\TeacherSubmissionController::class, 'index'])->middleware('permission:enseignants.read');
+    Route::post('teacher-submissions', [\App\Http\Controllers\Api\TeacherSubmissionController::class, 'store'])->middleware('permission:enseignants.read');
+    Route::post('enseignants/check-identity', [\App\Http\Controllers\Api\Admin\Personnel\EnseignantController::class, 'checkIdentity'])->middleware('permission:enseignants.read');
     Route::get('enseignants', [IaController::class, 'teachers'])
         ->middleware('permission:enseignants.read');
     Route::get('enseignants/{id}', [IaController::class, 'teacher'])
