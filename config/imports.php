@@ -185,7 +185,7 @@ return [
             'libelle' => ['requis' => true, 'max' => 100, 'exemple' => 'Indemnité de responsabilité'],
             'type' => ['requis' => true, 'valeurs' => ['gain', 'retenue'], 'exemple' => 'gain'],
             'periodicite' => ['requis' => true, 'valeurs' => ['mensuelle', 'ponctuelle', 'annuelle'], 'exemple' => 'mensuelle'],
-            'description' => ['max' => 1000],
+            'montant' => ['type' => 'decimal', 'min' => 0],
         ],
     ],
     'etablissement' => [
