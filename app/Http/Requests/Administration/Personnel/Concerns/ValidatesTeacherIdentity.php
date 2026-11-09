@@ -77,7 +77,7 @@ trait ValidatesTeacherIdentity
     {
         if ($this->teacherIsFonctionnaire()) {
             $this->merge(array_fill_keys([ 'salaire_brut', 'date_recrutement',
-                'annee_recrutement', 'generation', 'diplome_id', 'categorie_id', 'date_fin_contrat', 'observations'], null));
+                'annee_recrutement', 'generation', 'diplome_id', 'categorie_id', 'date_fin_contrat'], null));
             $this->merge(['statut' => 'en_activite']);
             $this->merge(['situation_matrimoniale' => null, 'est_en_couple' => false,
                 'nombre_enfants' => 0, 'nombre_femmes' => 0, 'conjoint_travaille' => false,

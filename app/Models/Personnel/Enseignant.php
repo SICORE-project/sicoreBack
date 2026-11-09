@@ -102,7 +102,6 @@ class Enseignant extends Model
 
         'annee_recrutement',
         'generation',
-        'observations',
 
         'created_by',
         'updated_by',

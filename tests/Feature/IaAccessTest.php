@@ -405,4 +405,9 @@ class IaAccessTest extends TestCase
         }
         $this->getJson('/api/ia/paie?view=unknown')->assertUnprocessable();
     }
+    public function test_teacher_submission_cannot_cross_ia_or_bypass_dage_approval(): void
+    {
+        $this->postJson('/api/ia/teacher-submissions', ['ia_id' => 2])->assertForbidden();
+        $this->postJson('/api/admin/personnel/enseignants/submissions/1/approve', [])->assertForbidden();
+    }
 }
