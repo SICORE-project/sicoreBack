@@ -164,7 +164,6 @@ return [
             'libelle' => ['requis' => true, 'max' => 100, 'exemple' => '2026-2027'],
             'date_debut' => ['requis' => true, 'type' => 'date', 'exemple' => '2026-10-01'],
             'date_fin' => ['requis' => true, 'type' => 'date', 'apres' => 'date_debut', 'exemple' => '2027-07-31'],
-            'observations' => ['max' => 1000],
         ],
     ],
     'periode_paie' => [
