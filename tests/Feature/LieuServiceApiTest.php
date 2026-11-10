@@ -102,6 +102,69 @@ class LieuServiceApiTest extends TestCase
         ]);
     }
 
+    public function test_catalogue_excludes_ia_and_ief_before_pagination_without_deleting_them(): void
+    {
+        foreach (['IA', 'IEF', ' ia ', 'ief'] as $index => $type) {
+            DB::table('lieu_de_services')->insert([
+                'code' => 'ORG-'.$index, 'libelle' => 'Structure administrative '.$index,
+                'type' => $type, 'ia_id' => 1, 'ief_id' => 1,
+                'est_actif' => true, 'created_at' => now(), 'updated_at' => now(),
+            ]);
+        }
+        DB::table('lieu_de_services')->insert([
+            'code' => 'LEGACY', 'libelle' => 'Établissement sans type', 'type' => null,
+            'ia_id' => 1, 'ief_id' => 1, 'est_actif' => true,
+        ]);
+        $this->getJson('/api/parametrage/lieux-service?per_page=1')
+            ->assertOk()->assertJsonPath('meta.total', 3)->assertJsonPath('meta.last_page', 3);
+        $this->getJson('/api/parametrage/lieux-service?search=Structure')
+            ->assertOk()->assertJsonCount(0, 'data')->assertJsonPath('meta.total', 0);
+        $this->assertDatabaseCount('lieu_de_services', 7);
+    }
+
+    public function test_form_created_establishments_with_ief_type_remain_visible(): void
+    {
+        DB::table('lieu_de_services')->insert([
+            ['code' => 'ETABA96A40C0A3BE8B35', 'libelle' => 'CFP Sebikhotane', 'type' => 'IEF', 'ia_id' => 1, 'ief_id' => 1],
+            ['code' => 'ORG-IEF-1', 'libelle' => 'IEF Dakar', 'type' => 'IEF', 'ia_id' => 1, 'ief_id' => 1],
+            ['code' => 'ORG-IA-1', 'libelle' => 'IA Dakar', 'type' => 'IA', 'ia_id' => 1, 'ief_id' => null],
+        ]);
+        $this->getJson('/api/parametrage/lieux-service?search=CFP')
+            ->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.libelle', 'CFP Sebikhotane');
+        $this->getJson('/api/parametrage/lieux-service?per_page=1')
+            ->assertOk()->assertJsonPath('meta.total', 3)->assertJsonPath('meta.last_page', 3);
+        $this->getJson('/api/parametrage/lieux-service?search=Dakar')
+            ->assertOk()->assertJsonCount(0, 'data');
+    }
+
+    public function test_duplicate_establishment_label_in_same_ief_is_rejected(): void
+    {
+        foreach (['École Plateau', 'ecole plateau', '  ECOLE   PLATEAU  '] as $label) {
+            $this->postJson('/api/parametrage/lieux-service', [
+                'libelle' => $label, 'ia_id' => 1, 'ief_id' => 1,
+            ])->assertUnprocessable()->assertJsonValidationErrors('libelle');
+        }
+        $this->assertDatabaseCount('lieu_de_services', 2);
+    }
+
+    public function test_update_ignores_own_label_but_rejects_another_establishment_label(): void
+    {
+        $this->putJson('/api/parametrage/lieux-service/1', [
+            'libelle' => 'École Plateau', 'ia_id' => 1, 'ief_id' => 1, 'telephone' => '771234567',
+        ])->assertOk();
+        $this->putJson('/api/parametrage/lieux-service/2', [
+            'libelle' => 'ecole plateau', 'ia_id' => 1, 'ief_id' => 1,
+        ])->assertUnprocessable()->assertJsonValidationErrors('libelle');
+    }
+
+    public function test_same_label_is_allowed_in_a_different_ief(): void
+    {
+        DB::table('iefs')->insert(['id' => 2, 'code' => 'IEF-TH', 'libelle' => 'IEF Thiès', 'ia_id' => 2]);
+        $this->postJson('/api/parametrage/lieux-service', [
+            'libelle' => 'École Plateau', 'ia_id' => 2, 'ief_id' => 2,
+        ])->assertCreated();
+    }
+
     public function test_liste_les_lieux_avec_leurs_relations_et_la_coherence(): void
     {
         $this->getJson('/api/parametrage/lieux-service?search=Plateau')
