@@ -19,6 +19,39 @@ class EnseignantController extends Controller
     /**
      * Liste des enseignants.
      */
+    public function checkIdentity(Request $request)
+    {
+        $data = $request->validate([
+            'field' => ['required', 'in:cni,matricule,indice,email'],
+            'value' => ['required', 'string', 'max:100'],
+            'id' => ['nullable', 'integer', 'min:1'],
+        ]);
+        $permission = empty($data['id']) ? 'enseignants.create' : 'enseignants.update';
+        abort_unless($request->user()->hasRole('super_admin') || $request->user()->hasPermission($permission)
+            || ($request->user()->hasRole('gestionnaire_ia') && empty($data['id'])), 403);
+        if (! empty($data['id'])) {
+            $teacher = $this->enseignantService->find($data['id']);
+            $this->assertInPerimetre($request->user(), $teacher->toArray());
+        }
+        $messages = [
+            'cni' => 'Ce numéro de carte d’identité est déjà utilisé par un autre enseignant.',
+            'matricule' => 'Ce matricule est déjà utilisé par un autre enseignant.',
+            'indice' => 'Cet indice est déjà attribué à un autre enseignant.',
+            'email' => 'Cette adresse e-mail est déjà utilisée par un autre enseignant.',
+        ];
+        $rule = \Illuminate\Validation\Rule::unique('enseignants', $data['field']);
+        if (! empty($data['id'])) $rule->ignore($data['id']);
+        $exists = \Illuminate\Support\Facades\Validator::make(
+            ['value' => $data['value']], ['value' => [$rule]]
+        )->fails();
+
+        if (! $exists && \Illuminate\Support\Facades\Schema::hasTable('teacher_submissions')) {
+            $exists = \App\Models\Personnel\TeacherSubmission::query()->where('status', 'pending')
+                ->where($data['field'] === 'indice' ? 'payload->indice' : $data['field'], $data['value'])->exists();
+        }
+        return response()->json(['available' => ! $exists, 'message' => $exists ? $messages[$data['field']] : '']);
+    }
+
     public function index(Request $request)
     {
         $filters = $request->validate([
