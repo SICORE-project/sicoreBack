@@ -9,6 +9,8 @@ use App\Models\PayrollPeriod;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Str;
+
 
 /**
  * État mensuel des salaires (slug paie-etat-salaires).
@@ -32,7 +34,9 @@ trait EtatSalaireReport
         $paymentPlaces = $this->referenceMap('lieux_paiement', 'libelle');
         $trainingCenters = $this->referenceMap('lieu_de_services', 'libelle');
         $banking = $this->salaryBankingDetails($items->pluck('enseignant_id'));
-        $rubrics = $this->salaryStatementRubrics();
+        $rubrics = $this->salaryStatementRubrics(
+            filled($criteria['statut_enseignant_id'] ?? null) ? (int) $criteria['statut_enseignant_id'] : null
+        );
         $tabaskiAdvances = $period
             ? $this->scopePayroll(PayrollElement::query())
                 ->where('payroll_period_id', $period->id)
@@ -121,6 +125,7 @@ trait EtatSalaireReport
             $banking,
             $corps,
             $categories,
+            $statuts,
             $ias,
             $iefs,
             $paymentPlaces,
@@ -149,9 +154,12 @@ trait EtatSalaireReport
             $iaId = $this->teacherIaId($teacher);
             $iefId = $this->teacherIefId($teacher);
 
-            // Montant paramétré dans rubrique_paies (et non la ligne du bulletin calculé).
+            // Montant paramétré dans rubrique_paies, seulement si la rubrique concerne le statut de l'agent.
+            $teacherStatutId = (int) $teacher->getAttribute('statut_enseignant_id');
             $rubricAmounts = $rubrics->mapWithKeys(fn (object $rubric): array => [
-                'rubric_'.$rubric->id => (float) ($rubric->montant ?? 0),
+                'rubric_'.$rubric->id => (int) $rubric->statut_enseignant_id === $teacherStatutId
+                    ? (float) ($rubric->montant ?? 0)
+                    : 0.0,
             ])->all();
 
             return $rubricAmounts + [
@@ -200,6 +208,7 @@ trait EtatSalaireReport
                     (int) ($teacher->getAttribute('corps_id') ?? $teacher->getAttribute('corps_enseignant_id')),
                     '—'
                 ),
+                'statut' => $statuts->get((int) $teacher->getAttribute('statut_enseignant_id'), '—'),
                 'ia' => $ias->get($iaId, 'IA non renseignée'),
                 'ief' => $iefs->get($iefId, 'IEF non renseignée'),
                 'training_center' => $trainingCenters->get(
@@ -324,6 +333,7 @@ trait EtatSalaireReport
             ['key' => 'matricule', 'label' => 'Matricule'],
             ['key' => 'corps', 'label' => 'Corps'],
             ['key' => 'category', 'label' => 'Catégorie'],
+            ['key' => 'statut', 'label' => 'Statut'],
             ['key' => 'salary_category', 'label' => 'Sal. catég.', 'amount' => true],
             ...$rubrics->map(fn (object $rubric): array => [
                 'key' => 'rubric_'.$rubric->id,
@@ -348,8 +358,11 @@ trait EtatSalaireReport
         return $columns;
     }
 
-    /** Rubriques actives à afficher sur l'état, gains d'abord. */
-    private function salaryStatementRubrics(): Collection
+    /**
+     * Rubriques actives à afficher sur l'état, gains d'abord.
+     * Seules les rubriques rattachées à un statut sont affichées ; avec un statut choisi, seulement les siennes.
+     */
+    private function salaryStatementRubrics(?int $statutId = null): Collection
     {
         if (! Schema::hasTable('rubrique_paies')) {
             return collect();
@@ -357,9 +370,11 @@ trait EtatSalaireReport
 
         return DB::table('rubrique_paies')
             ->where('est_actif', true)
+            ->whereNotNull('statut_enseignant_id')
+            ->when($statutId, fn ($query) => $query->where('statut_enseignant_id', $statutId))
             ->orderByRaw("CASE WHEN type = 'gain' THEN 0 ELSE 1 END")
             ->orderBy('id')
-            ->get(['id', 'code', 'libelle', 'montant']);
+            ->get(['id', 'code', 'libelle', 'montant', 'statut_enseignant_id']);
     }
 
     /** @return array<string, mixed> */
@@ -379,10 +394,16 @@ trait EtatSalaireReport
             : collect();
 
         return [
-            'statuts' => $statuts->map(fn (string $label, int|string $id): array => [
-                'id' => (int) $id,
-                'label' => $label,
-            ])->values(),
+                        // Le menu ne propose que les non-fonctionnaires : contractuels et vacataires.
+            'statuts' => DB::table('statuts_enseignant')
+                ->orderBy('libelle')
+                ->get(['id', 'code', 'libelle'])
+                ->reject(fn (object $statut): bool => $this->isFonctionnaireStatus($statut->libelle, $statut->code))
+                ->map(fn (object $statut): array => [
+                    'id' => (int) $statut->id,
+                    'label' => $statut->libelle,
+                ])->values(),
+
             'ias' => $ias->map(fn (string $label, int|string $id): array => [
                 'id' => (int) $id,
                 'label' => $label,
@@ -409,6 +430,22 @@ trait EtatSalaireReport
             ])->values(),
         ];
     }
+    /**
+     * Vrai si le statut désigne des fonctionnaires, quelle que soit l'écriture :
+     * majuscules, accents, pluriel, espaces, ponctuation, faute ou abréviation.
+     */
+    private function isFonctionnaireStatus(?string $libelle, ?string $code = null): bool
+    {
+        foreach ([$libelle, $code] as $text) {
+            $normalized = preg_replace('/[^a-z]/', '', strtolower(Str::ascii((string) $text)));
+            if (str_starts_with($normalized, 'fonc')) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
 
     private function salaryLineAmount(PayrollPayslip $payslip, array $codes): float
     {
