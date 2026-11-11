@@ -16,27 +16,32 @@ class InstitutFinancier extends Model
     protected $fillable = [
         'libelle',
         'sigle',
-        'type_institution',
-        'adresse',
-        'telephone',
-        'email',
-        'site_web',
+        //'type_institution',
+        // 'adresse',
+        // 'telephone',
+        // 'email',
+        // 'site_web',
         'code_banque',
-        'code_guichet',
-        'iban_exemple',
-        'est_actif',
+        // 'code_guichet',
+        // 'iban_exemple',
+        // 'est_actif',
     ];
 
-    public function scopeActif($query)
-    {
-        return $query->where('est_actif', true);
-    }
+    // public function scopeActif($query)
+    // {
+    //     return $query->where('est_actif', true);
+    // }
 
     // === RELATIONS ===
 
     public function lieuxPaiement()
     {
         return $this->hasMany(LieuPaiement::class);
+    }
+
+    public function guichets()
+    {
+        return $this->hasMany(Guichet::class);
     }
 
     public function comptesBancairesEnseignants()
@@ -49,8 +54,10 @@ class InstitutFinancier extends Model
 
     public function enseignants()
     {
-        return $this->belongsToMany(Enseignant::class, 'enseignant_institut_financier')
-            ->withPivot('iban', 'bic', 'titulaire_compte', 'est_principal', 'est_actif')
-            ->withTimestamps();
+        return $this->belongsToMany(Enseignant::class);
+        
+        // 'enseignant_institut_financier')
+        //     ->withPivot('iban', 'bic', 'titulaire_compte', 'est_principal', 'est_actif')
+        //     ->withTimestamps();
     }
 }

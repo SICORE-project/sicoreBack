@@ -92,7 +92,7 @@ return [
         'libelle' => 'Catégories',
         'table' => 'categories',
         'cle' => 'libelle',
-        'defauts' => ['est_actif' => 1],
+        'defauts' => ['est_actif' => 1, 'ordre' => 0],
         'colonnes' => [
             'libelle' => ['requis' => true, 'max' => 255, 'exemple' => 'Catégorie A1'],
             'corps' => ['requis' => true, 'cible' => 'corps_id', 'reference' => ['table' => 'corps_enseignant', 'colonne' => 'code'], 'exemple' => 'PROF'],
@@ -104,7 +104,7 @@ return [
     'diplome' => [
         'libelle' => 'Diplômes',
         'table' => 'diplomes',
-        'cle' => 'libelle',
+        'cle' => 'code',
         'colonnes' => [
             'libelle' => ['requis' => true, 'max' => 100, 'exemple' => 'Licence professionnelle'],
             'categorie' => ['requis' => true, 'cible' => 'categorie_id', 'reference' => ['table' => 'categories', 'colonne' => 'libelle'], 'exemple' => 'Catégorie A1'],
@@ -119,11 +119,10 @@ return [
         'colonnes' => [
             'libelle' => ['requis' => true, 'max' => 150, 'exemple' => 'Banque exemple'],
             'sigle' => ['max' => 30, 'exemple' => 'BEX'],
-            'type_institution' => ['requis' => true, 'max' => 50, 'exemple' => 'Banque'],
+            'code_banque' => ['requis' => false, 'max' => 100, 'exemple' => 'Banque'],
             'adresse' => ['max' => 255],
             'telephone' => ['max' => 20],
             'email' => ['type' => 'email', 'max' => 100],
-            'code_banque' => ['max' => 5],
             'code_guichet' => ['max' => 5],
             'iban_exemple' => ['max' => 34],
             'est_actif' => ['type' => 'booleen'],
@@ -136,7 +135,7 @@ return [
         'uniques' => ['libelle'],
         'defauts' => ['est_actif' => 1],
         'colonnes' => [
-            'code' => ['requis' => true, 'max' => 20, 'exemple' => 'MATH'],
+            'code' => ['requis' => true, 'max' => 50, 'exemple' => 'MATH'],
             'libelle' => ['requis' => true, 'max' => 100, 'exemple' => 'Mathématiques'],
             'est_actif' => ['type' => 'booleen'],
         ],
@@ -164,7 +163,6 @@ return [
             'libelle' => ['requis' => true, 'max' => 100, 'exemple' => '2026-2027'],
             'date_debut' => ['requis' => true, 'type' => 'date', 'exemple' => '2026-10-01'],
             'date_fin' => ['requis' => true, 'type' => 'date', 'apres' => 'date_debut', 'exemple' => '2027-07-31'],
-            'observations' => ['max' => 1000],
         ],
     ],
     'periode_paie' => [
@@ -185,7 +183,7 @@ return [
             'libelle' => ['requis' => true, 'max' => 100, 'exemple' => 'Indemnité de responsabilité'],
             'type' => ['requis' => true, 'valeurs' => ['gain', 'retenue'], 'exemple' => 'gain'],
             'periodicite' => ['requis' => true, 'valeurs' => ['mensuelle', 'ponctuelle', 'annuelle'], 'exemple' => 'mensuelle'],
-            'description' => ['max' => 1000],
+            'montant' => ['type' => 'decimal', 'min' => 0],
         ],
     ],
     'etablissement' => [

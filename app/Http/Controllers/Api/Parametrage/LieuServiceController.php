@@ -31,7 +31,12 @@ class LieuServiceController extends Controller
         ]);
 
         $lieux = LieuService::query()
-            ->where(fn ($query) => $query->whereNull('type')->orWhereNotIn('type', ['DRH', 'DECPC', 'DAGE', 'CI']))
+            ->where(fn ($query) => $query->whereNull('type')
+                ->orWhereRaw('UPPER(TRIM(type)) NOT IN (?, ?, ?, ?, ?, ?)', ['DRH', 'DECPC', 'DAGE', 'CI', 'IA', 'IEF'])
+                // The establishment form stores the attachment level in type (IEF).
+                // Its generated ETAB code distinguishes it from the IEF organisation.
+                ->orWhere(fn ($query) => $query->whereRaw('UPPER(TRIM(type)) = ?', ['IEF'])
+                    ->where('code', 'like', 'ETAB%')))
             ->whereNotIn('code', ['DRH', 'DECPC', 'DAGE', 'CI'])
             ->with(['ia:id,code,libelle', 'ief:id,ia_id,code,libelle'])
             ->when($validated['search'] ?? null, function ($query, string $search) {
@@ -116,6 +121,20 @@ class LieuServiceController extends Controller
                 ->map(fn (LieuService $lieu) => $this->formatLieu($lieu))->values(),
         ]);
     }
+    public function storeDirection(Request $request)
+    {
+        abort_unless($request->user()?->hasRole('super_admin'), 403);
+        $data = $request->validate([
+            'code' => ['required', 'string', 'max:20', 'regex:/\A[A-Z0-9_-]+\z/', 'unique:lieu_de_services,code'],
+            'libelle' => ['required', 'string', 'max:100'],
+            'type' => ['required', Rule::in(['CI', 'DAGE', 'DRH', 'DECPC'])],
+        ]);
+        $data += ['est_actif' => true, 'ia_id' => null, 'ief_id' => null];
+        if (Schema::hasColumn((new LieuService)->getTable(), 'perimetre')) $data['perimetre'] = 'national';
+        $direction = LieuService::create($data);
+        return response()->json(['data' => $direction, 'message' => 'Direction enregistrée.'], 201);
+    }
+
     public function store(StoreLieuServiceRequest $request)
     {
         $data = $request->validated() + [

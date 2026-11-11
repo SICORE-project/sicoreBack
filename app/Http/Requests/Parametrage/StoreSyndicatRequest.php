@@ -4,6 +4,8 @@ namespace App\Http\Requests\Parametrage;
 
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Str;
+use App\Models\Parametrage\Syndicat;
+use Illuminate\Validation\Rule;
 
 class StoreSyndicatRequest extends FormRequest
 {
@@ -29,9 +31,11 @@ class StoreSyndicatRequest extends FormRequest
 
     public function rules(): array
     {
+        $deletedId = Syndicat::onlyTrashed()->where('code', $this->input('code'))->value('id');
+
         return [
-            'code' => ['required', 'string', 'max:20', 'unique:syndicats,code'],
-            'libelle' => ['required', 'string', 'max:100', 'unique:syndicats,libelle'],
+            'code' => ['required', 'string', 'max:20', Rule::unique('syndicats', 'code')->ignore($deletedId)],
+            'libelle' => ['required', 'string', 'max:100', Rule::unique('syndicats', 'libelle')->ignore($deletedId)],
             'montant_check_off' => ['sometimes', 'nullable', 'numeric', 'min:0', 'decimal:0,2', 'max:9999999999.99'],
             'montant_oeuvre_sociale' => ['sometimes', 'nullable', 'numeric', 'min:0', 'decimal:0,2', 'max:9999999999.99'],
             'est_actif' => ['sometimes', 'required', 'boolean'],

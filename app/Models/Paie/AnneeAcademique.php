@@ -18,7 +18,7 @@ class AnneeAcademique extends Model
         'est_active',
         'est_cloturee',
         'date_cloture',
-        'observations',
+        
     ];
 
     protected $casts = [

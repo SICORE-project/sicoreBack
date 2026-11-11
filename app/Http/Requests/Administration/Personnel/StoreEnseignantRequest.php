@@ -15,6 +15,9 @@ class StoreEnseignantRequest extends FormRequest
 
     protected function prepareForValidation(): void
     {
+        if ($this->has('compte_bancaire')) {
+            $this->merge(['compte_bancaire' => \App\Support\TeacherRib::prepare($this->input('compte_bancaire'))]);
+        }
         $this->prepareTeacherIdentity();
         $this->prepareTeacherSituation();
         if ($this->has('nombre_femmes') && ! $this->filled('nombre_femmes')) {
@@ -33,6 +36,7 @@ class StoreEnseignantRequest extends FormRequest
             ));
             $this->merge(['compte_bancaire' => $compteBancaire]);
         }
+        $this->prepareTeacherCorps();
         $marie = $this->boolean('est_en_couple');
         $enfants = max(0, $this->integer('nombre_enfants'));
         $conjointTravaille = $marie && $this->boolean('conjoint_travaille');
@@ -52,9 +56,7 @@ class StoreEnseignantRequest extends FormRequest
         $this->merge([
             'nombre_femmes' => $marie ? ($this->input('nombre_femmes') ?? 0) : 0,
             'conjoint_travaille' => $conjointTravaille,
-            'nombre_parts_fiscales' => $this->input('situation_matrimoniale') === 'celibataire'
-                ? 2
-                : min(5, max(1, 2 + ($enfants * .5) - ($conjointTravaille ? .5 : 0))),
+            'nombre_parts_fiscales' => min(5, ($this->input('situation_matrimoniale') === 'celibataire' ? 1 : 2) + ($enfants * .5)),
             'salaire_brut' => $this->corpsEstVacataire() ? 150000 : ($diplome && (($categorieId && (int) $diplome->categorie_id === $categorieId) || (!$categorieId && !$this->corpsEstContractuel())) ? $diplome->salaire_brut : null),
         ]);
         $this->clearInapplicableTeacherFields();
@@ -139,13 +141,12 @@ class StoreEnseignantRequest extends FormRequest
             'salaire_brut' => ['nullable', 'numeric', 'min:0'],
             'annee_recrutement' => ['nullable', 'integer', 'min:1900', 'max:'.now()->year],
             'situation_matrimoniale' => [Rule::requiredIf(fn () => ! $this->teacherIsFonctionnaire()), 'nullable', Rule::in(['celibataire', 'marie', 'veuf', 'divorce'])],
-            'date_fin_contrat' => ['nullable', 'nullable', 'date', 'after_or_equal:date_recrutement'],
+            'date_fin_contrat' => ['nullable', 'date', 'after_or_equal:date_recrutement'],
             'est_en_couple' => ['nullable', 'boolean'],
             'nombre_enfants' => [Rule::requiredIf(fn () => ! $this->teacherIsFonctionnaire()), 'nullable', 'integer', 'min:0'],
             'nombre_femmes' => ['nullable', 'integer', 'min:0'],
             'nombre_parts_fiscales' => ['required', 'numeric', 'min:1', 'max:5'],
             'conjoint_travaille' => ['nullable', 'boolean'],
-            'observations' => ['nullable', 'string'],
 
             // =========================
             // ADMINISTRATION
@@ -173,12 +174,10 @@ class StoreEnseignantRequest extends FormRequest
                 Rule::exists('iefs', 'id')->whereNull('deleted_at'),
             ],
 
-            'corps_id' => [Rule::requiredIf(fn () => $this->teacherIsFonctionnaire()), 'nullable',
-                'integer',
-                'exists:corps_enseignant,id',
-            ],
+            'corps_id' => $this->teacherCorpsRules(),
 
             'categorie_id' => [
+                Rule::requiredIf(fn () => $this->corpsEstContractuel()),
                 'nullable',
                 'integer',
                 Rule::exists('categories', 'id')->where(fn ($query) => $query->where('corps_id', $this->integer('corps_id'))),
@@ -230,24 +229,9 @@ class StoreEnseignantRequest extends FormRequest
                 'exists:instituts_financieres,id',
             ],
 
-            'compte_bancaire.code_banque' => [
-                'required',
-                'string',
-                'size:5',
-            ],
-
-            'compte_bancaire.code_guichet' => [
-                'required',
-                'string',
-                'size:5',
-                "regex:/\A[0-9]+\z/",
-            ],
-
-            'compte_bancaire.numero_compte' => [
-                'required',
-                'string',
-                'size:12',
-            ],
+            'compte_bancaire.code_banque' => ['required', 'string', 'size:5', 'regex:/\ASN[0-9]{3}\z/'],
+            'compte_bancaire.code_guichet' => ['required', 'string', 'size:5', 'regex:/\A[0-9]{5}\z/'],
+            'compte_bancaire.numero_compte' => ['required', 'string', 'size:12', 'regex:/\A[0-9]{12}\z/'],
 
             'compte_bancaire.rib' => [
                 'required',
@@ -376,7 +360,6 @@ class StoreEnseignantRequest extends FormRequest
             'nombre_femmes.min' => 'Le nombre de femmes ne peut pas être négatif.',
             'nombre_enfants.integer' => 'Le nombre d’enfants doit être un nombre entier.',
             'nombre_enfants.min' => 'Le nombre d’enfants ne peut pas être négatif.',
-            'date_fin_contrat.required' => 'La date de fin du contrat est obligatoire pour un enseignant contractuel.',
             'date_fin_contrat.after_or_equal' => 'La fin du contrat doit être postérieure ou égale à la date de recrutement.',
             'diplome_id.exists' => 'Le diplôme sélectionné n’existe plus. Veuillez le sélectionner à nouveau.',
             'salaire_brut.min' => 'Le salaire brut ne peut pas être négatif.',
@@ -424,7 +407,7 @@ class StoreEnseignantRequest extends FormRequest
                 'La catégorie sélectionnée n’appartient pas au corps choisi.',
 
             'categorie_id.required' =>
-                'La catégorie est obligatoire pour le corps Contractuel.',
+                'La catégorie est obligatoire pour un enseignant contractuel du corps PC.',
 
             'discipline_id.exists' =>
                 'La spécialité sélectionnée n’existe pas.',

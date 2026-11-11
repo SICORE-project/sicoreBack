@@ -8,6 +8,39 @@ use Illuminate\Validation\Rule;
 
 trait ValidatesTeacherIdentity
 {
+    protected function prepareTeacherCorps(): void
+    {
+        if ($this->corpsEstContractuel() || $this->corpsEstVacataire()) {
+            $contractuel = $this->corpsEstContractuel();
+            $corps = \App\Models\Parametrage\CorpsEnseignant::query()
+                ->where(function ($query) use ($contractuel) {
+                    if ($contractuel) {
+                        $query->whereRaw('UPPER(TRIM(code)) = ?', ['PC']);
+                    } else {
+                        $query->whereRaw('LOWER(TRIM(code)) IN (?, ?)', ['vac', 'vacataire'])
+                            ->orWhereRaw('LOWER(TRIM(libelle)) = ?', ['vacataire']);
+                    }
+                })->first();
+            $this->merge(['corps_id' => $corps?->id]);
+        }
+        if (! $this->corpsEstContractuel()) {
+            $this->merge(['categorie_id' => null, 'date_fin_contrat' => null]);
+        }
+    }
+
+    protected function teacherCorpsRules(): array
+    {
+        return ['required', 'integer', 'exists:corps_enseignant,id', function ($attribute, $value, $fail) {
+            if (! $this->teacherIsFonctionnaire()) {
+                return;
+            }
+            $corps = \App\Models\Parametrage\CorpsEnseignant::find($value);
+            if ($corps && (in_array(mb_strtolower(trim($corps->code)), ['pc', 'vac', 'vacataire'], true)
+                || mb_strtolower(trim($corps->libelle)) === 'vacataire')) {
+                $fail('Un fonctionnaire doit avoir un corps autre que PC ou Vacataire.');
+            }
+        }];
+    }
     private bool $teacherIdentityTouched = true;
 
     protected function prepareTeacherIdentity(bool $updating = false): void
@@ -42,11 +75,9 @@ trait ValidatesTeacherIdentity
 
     protected function clearInapplicableTeacherFields(): void
     {
-        if (! $this->teacherIsFonctionnaire()) {
-            $this->merge(['corps_id' => null]);
-        } else {
+        if ($this->teacherIsFonctionnaire()) {
             $this->merge(array_fill_keys([ 'salaire_brut', 'date_recrutement',
-                'annee_recrutement', 'generation', 'diplome_id', 'categorie_id', 'date_fin_contrat', 'observations'], null));
+                'annee_recrutement', 'generation', 'diplome_id', 'categorie_id', 'date_fin_contrat'], null));
             $this->merge(['statut' => 'en_activite']);
             $this->merge(['situation_matrimoniale' => null, 'est_en_couple' => false,
                 'nombre_enfants' => 0, 'nombre_femmes' => 0, 'conjoint_travaille' => false,

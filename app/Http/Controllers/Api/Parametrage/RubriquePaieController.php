@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Parametrage\StoreRubriquePaieRequest;
 use App\Http\Requests\Parametrage\UpdateRubriquePaieRequest;
 use App\Models\Paie\RubriquePaie;
+use App\Models\Parametrage\StatutEnseignant;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -19,21 +20,24 @@ class RubriquePaieController extends Controller
             'search' => ['nullable', 'string', 'max:100'],
             'type' => ['nullable', Rule::in(['gain', 'retenue'])],
             'periodicite' => ['nullable', Rule::in(['mensuelle', 'ponctuelle', 'annuelle'])],
+            'statut_enseignant_id' => ['nullable', 'integer', 'exists:statuts_enseignant,id'], 
             'page' => ['nullable', 'integer', 'min:1'],
             'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],
         ]);
 
         $query = RubriquePaie::query()
+            ->with('statutEnseignant')
             ->when($filters['search'] ?? null, function ($query, string $search): void {
                 $term = '%'.mb_strtolower($search).'%';
                 $query->where(function ($query) use ($term): void {
                     $query->whereRaw('LOWER(code) LIKE ?', [$term])
                         ->orWhereRaw('LOWER(libelle) LIKE ?', [$term])
-                        ->orWhereRaw('CAST(montant AS CHAR) LIKE ?', [$term]); // Remplacé description par montant
+                        ->orWhereRaw('CAST(montant AS CHAR) LIKE ?', [$term]);
                 });
             })
             ->when($filters['type'] ?? null, fn ($query, string $type) => $query->where('type', $type))
             ->when($filters['periodicite'] ?? null, fn ($query, string $periodicite) => $query->where('periodicite', $periodicite))
+            ->when($filters['statut_enseignant_id'] ?? null, fn ($query, $statut) => $query->where('statut_enseignant_id', $statut))
             ->orderByDesc('id');
 
         $rubriques = $query->paginate((int) ($filters['per_page'] ?? 10))->withQueryString();
@@ -48,9 +52,26 @@ class RubriquePaieController extends Controller
         ]);
     }
 
+    // NOUVELLE MÉTHODE POUR LE FRONT-END
+    public function getStatuts(): JsonResponse
+    {
+        $statuts = \App\Models\Parametrage\StatutEnseignant::orderBy('libelle')->get();
+        
+        // On simule la structure de pagination attendue par le service du Front
+        return response()->json([
+            'data' => [
+                'data' => $statuts,
+                'current_page' => 1,
+                'last_page' => 1,
+                'total' => $statuts->count(),
+            ]
+        ]);
+    }
+
     public function store(StoreRubriquePaieRequest $request): JsonResponse
     {
         $rubrique = RubriquePaie::query()->create($request->validated());
+        $rubrique->load('statutEnseignant'); 
 
         return response()->json([
             'message' => 'Rubrique de paie ajoutée avec succès.',
@@ -61,7 +82,7 @@ class RubriquePaieController extends Controller
     public function show(int $id): JsonResponse
     {
         return response()->json([
-            'data' => RubriquePaie::query()->findOrFail($id),
+            'data' => RubriquePaie::query()->with('statutEnseignant')->findOrFail($id),
         ]);
     }
 
@@ -69,10 +90,11 @@ class RubriquePaieController extends Controller
     {
         $rubrique = RubriquePaie::query()->findOrFail($id);
         $rubrique->update($request->validated());
-
+        $rubrique->load('statutEnseignant');
+        
         return response()->json([
             'message' => 'Rubrique de paie modifiée avec succès.',
-            'data' => $rubrique->refresh(),
+            'data' => $rubrique,
         ]);
     }
 

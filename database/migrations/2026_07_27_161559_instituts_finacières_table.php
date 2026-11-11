@@ -10,14 +10,14 @@ return new class extends Migration
     {
         Schema::create('instituts_financieres', function (Blueprint $table) {
             $table->id();
-            $table->string('code', 20)->unique();
+            //$table->string('code', 20)->unique();
             $table->string('libelle', 50);
-            $table->string('adresse', 255)->nullable();
-            $table->string('telephone', 20)->nullable();
-            $table->string('email', 100)->nullable();
-            $table->string('code_banque', 5)->nullable();
-            $table->string('code_guichet', 5)->nullable();
-            $table->string('iban_exemple', 34)->nullable();
+            // $table->string('adresse', 255)->nullable();
+            // $table->string('telephone', 20)->nullable();
+            // $table->string('email', 100)->nullable();
+            $table->string('code_banque', 5)->unique();
+            // $table->string('code_guichet', 5)->nullable();
+            // $table->string('iban_exemple', 34)->nullable();
             $table->timestamps();
         });
     }

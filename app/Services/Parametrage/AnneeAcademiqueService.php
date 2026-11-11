@@ -3,6 +3,8 @@
 namespace App\Services\Parametrage;
 
 use App\Models\Paie\AnneeAcademique;
+use App\Models\PayrollPeriod;
+use Carbon\Carbon;
 use DomainException;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
@@ -98,9 +100,16 @@ class AnneeAcademiqueService
             );
         }
 
-        if ($annee->periodesPaie()->exists()) {
+        // Même rattachement que l'état des salaires : une période de paie
+        // appartient à l'année dont les dates l'englobent.
+        $hasPayrollPeriods = PayrollPeriod::query()
+            ->whereDate('start_date', '>=', Carbon::parse($annee->date_debut)->toDateString())
+            ->whereDate('end_date', '<=', Carbon::parse($annee->date_fin)->toDateString())
+            ->exists();
+
+        if ($hasPayrollPeriods || DB::table('payroll_elements')->where('annee_academique_id', $annee->id)->exists()) {
             throw new DomainException(
-                'Cette année académique possède des périodes de paie et ne peut pas être supprimée.',
+                'Cette année académique possède des données de paie et ne peut pas être supprimée.',
             );
         }
 

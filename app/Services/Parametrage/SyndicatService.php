@@ -27,7 +27,19 @@ class SyndicatService
 
     public function createSyndicat(array $data): Syndicat
     {
-        return $this->syndicat->create($data);
+        return DB::transaction(function () use ($data) {
+            $deleted = $this->syndicat->newQuery()->onlyTrashed()
+                ->where('code', $data['code'])->lockForUpdate()->first();
+
+            if ($deleted) {
+                $deleted->fill($data);
+                $deleted->restore();
+
+                return $deleted;
+            }
+
+            return $this->syndicat->create($data);
+        });
     }
 
     public function updateSyndicat(int $id, array $data): Syndicat

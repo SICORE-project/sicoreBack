@@ -86,7 +86,8 @@ class IaController extends Controller
         $teacher = $this->scope->teachers($request->user())->where('e.id', $id)->first(['e.id', 'e.matricule', 'e.nom', 'e.prenom', 'e.statut', 'e.type_engagement', 'e.date_prise_service', 'e.ia_id', 'e.ief_id', 'e.lieu_service_id']);
         abort_unless($teacher, 403);
 
-        return response()->json(['data' => $teacher]);
+        $record = app(\App\Services\Administration\Personnel\EnseignantService::class)->find($id);
+        return (new \App\Http\Resources\Personnel\EnseignantResource($record))->response();
     }
 
     public function references(Request $request)

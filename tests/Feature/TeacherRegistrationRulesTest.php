@@ -30,11 +30,11 @@ class TeacherRegistrationRulesTest extends TestCase
         ], $changes);
     }
 
-    public function test_single_parent_keeps_children_and_has_same_part_calculation_as_married(): void
+    public function test_single_parent_keeps_children_and_adds_them_to_one_base_part(): void
     {
         $this->postJson('/api/admin/personnel/enseignants', $this->payload())
             ->assertCreated()->assertJsonPath('data.nombre_enfants', 3)
-            ->assertJsonPath('data.nombre_parts_fiscales', 3.5)->assertJsonPath('data.nombre_femmes', 0);
+            ->assertJsonPath('data.nombre_parts_fiscales', 2.5)->assertJsonPath('data.nombre_femmes', 0);
     }
 
     public function test_all_required_identity_and_bank_fields_are_validated(): void
@@ -101,20 +101,21 @@ class TeacherRegistrationRulesTest extends TestCase
         $this->deleteJson('/api/statuts-enseignant/2')->assertStatus(409);
     }
 
-    public function test_csv_import_rolls_back_every_row_when_a_later_row_is_invalid(): void
+    public function test_csv_import_keeps_valid_rows_when_a_later_row_is_invalid(): void
     {
+        \Illuminate\Support\Facades\Schema::table('comptes_bancaires_enseignants', fn ($table) => $table->string('rib')->nullable()->unique());
         $this->mock(\App\Services\Administration\OrganizationalScope::class)->shouldReceive('allows')->andReturn(true);
         $this->actingAs(User::find(8));
         $header = 'matricule;nom;prenom;date_naissance;cni;telephone;statut_enseignant_id;ia_id;ief_id;situation_matrimoniale;nombre_enfants;code_banque;code_guichet;numero_compte;cle_rib';
-        $valid = '202600001/A;Diop;Awa;1990-01-01;1234567890123;771234567;2;1;2;celibataire;3;00100;00001;000123456789;01';
+        $valid = '202600001/A;Diop;Awa;1990-01-01;1234567890123;771234567;3;1;2;celibataire;3;SN100;00001;000123456789;01';
         $invalid = str_replace('202600001/A', '202600002/B', $valid);
         $invalid = str_replace('1234567890123', 'bad', $invalid);
         $this->postJson('/api/admin/personnel/enseignants/import', ['csv' => UploadedFile::fake()->createWithContent('enseignants.csv', "$header\n$valid\n$invalid\n")])
-            ->assertUnprocessable()->assertJsonValidationErrors('csv');
-        $this->assertDatabaseCount('enseignants', 0);
-        $this->assertDatabaseCount('payroll_audit_logs', 0);
+            ->assertCreated()->assertJsonPath('count', 1)->assertJsonPath('blocked.0.line', 3);
+        $this->assertDatabaseCount('enseignants', 1);
+        $this->assertDatabaseCount('payroll_audit_logs', 1);
         $this->postJson('/api/admin/personnel/enseignants/import', ['csv' => UploadedFile::fake()->createWithContent('enseignants.csv', "$header\n$valid\n")])
-            ->assertCreated()->assertJsonPath('count', 1);
+            ->assertOk()->assertJsonPath('count', 0)->assertJsonPath('blocked_count', 1);
         $this->assertDatabaseHas('comptes_bancaires_enseignants', ['numero_compte' => '000123456789']);
     }
 }

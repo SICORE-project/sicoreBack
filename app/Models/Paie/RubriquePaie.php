@@ -18,6 +18,7 @@ class RubriquePaie extends Model
         'type',
         'periodicite',
         'montant',
+        'statut_enseignant_id',
     ];
 
     protected $casts = [
@@ -59,4 +60,11 @@ class RubriquePaie extends Model
 
         return $types[$this->type] ?? $this->type;
     }
+    public function statutEnseignant()
+    {
+        return $this->belongsTo(\App\Models\Parametrage\StatutEnseignant::class, 'statut_enseignant_id');
+    }
+    
+    
+
 }
