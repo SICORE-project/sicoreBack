@@ -49,26 +49,90 @@ class PayrollPageController extends Controller
     private function page(Request $request, string $slug, array $filters): array
     {
         $user = $request->user();
+    
         if (! $user?->hasRole('gestionnaire_ia')) {
             return $this->pages->page($slug, $filters['period_id'] ?? null, $filters);
         }
-        abort_unless(isset(self::IA_PERMISSIONS[$slug]) && $user->hasPermission(self::IA_PERMISSIONS[$slug]), 403);
+    
+        abort_unless(
+            isset(self::IA_PERMISSIONS[$slug]) && $user->hasPermission(self::IA_PERMISSIONS[$slug]),
+            403
+        );
+    
         $iaId = app(\App\Services\Administration\IaScope::class)->id($user);
-        $page = $this->pages->forIa($iaId)->page($slug, $filters['period_id'] ?? null, array_merge($filters, ['ia_id' => $iaId]));
+    
+        // 🔒 Sécurité : on écrase tout ia_id venant du front
+        $filters['ia_id'] = $iaId;
+    
+        $page = $this->pages->forIa($iaId)->page(
+            $slug,
+            $filters['period_id'] ?? null,
+            $filters
+        );
+    
         $page['scope_ia_id'] = $iaId;
-        $page['scope_label'] = \Illuminate\Support\Facades\DB::table('ias')->where('id', $iaId)->value('libelle');
+        $page['scope_label'] = DB::table('ias')->where('id', $iaId)->value('libelle');
         $page['notice'] = 'Périmètre : '.$page['scope_label'].'. '.$page['notice'];
-        $page['actions'] = collect($page['actions'])->filter(fn ($action) => ($action['code'] ?? '') === 'export' && $user->hasPermission('paie.bulletins.export'))->values()->all();
-        $page['report_catalog'] = collect($page['report_catalog'])->filter(fn ($report) => isset(self::IA_PERMISSIONS[$report['slug']]) && $user->hasPermission(self::IA_PERMISSIONS[$report['slug']]))->values()->all();
+    
+        $page['actions'] = collect($page['actions'])->filter(
+            fn ($action) => ($action['code'] ?? '') === 'export'
+                && $user->hasPermission('paie.bulletins.export')
+        )->values()->all();
+    
+        $page['report_catalog'] = collect($page['report_catalog'])->filter(
+            fn ($report) => isset(self::IA_PERMISSIONS[$report['slug']])
+                && $user->hasPermission(self::IA_PERMISSIONS[$report['slug']])
+        )->values()->all();
+    
         if ($slug === 'paie-travaux-periodiques') {
             $page['stats'][0]['value'] = count($page['report_catalog']);
         }
+    
         $page['rows'] = collect($page['rows'])->map(fn ($row) => collect($row)->map(function ($cell) {
             if (is_array($cell) && isset($cell['actions'])) {
-                $cell['actions'] = array_values(array_filter($cell['actions'], fn ($action) => $action['code'] === 'view-payslip'));
+                $cell['actions'] = array_values(array_filter(
+                    $cell['actions'],
+                    fn ($action) => $action['code'] === 'view-payslip'
+                ));
             }
             return $cell;
         })->all())->all();
+    
+        // 🔒 On nettoie les filtres exposés au front pour ne garder que ceux du périmètre IA
+        $page['filters'] = collect($page['filters'])->map(function (array $filter) use ($iaId) {
+
+            // IA : verrouillée sur l'IA du gestionnaire
+            if ($filter['name'] === 'ia_id') {
+                $filter['value'] = $iaId;
+                $filter['readonly'] = true;
+        
+                $filter['options'] = DB::table('ias')
+                    ->where('id', $iaId)
+                    ->get()
+                    ->map(fn ($i) => [
+                        'value' => $i->id,
+                        'label' => $i->libelle
+                    ])
+                    ->toArray();
+                }
+
+                // IEF : uniquement les IEF de son IA
+                if ($filter['name'] === 'ief_id') {
+                    $filter['options'] = DB::table('iefs')
+                        ->where('ia_id', $iaId)
+                        ->orderBy('libelle')
+                        ->get()
+                        ->map(fn ($i) => [
+                            'value' => $i->id,
+                            'label' => $i->libelle
+                        ])
+                        ->toArray();
+                
+            }
+    
+            return $filter;
+        })->all();
+    
         return $page;
     }
 
@@ -125,20 +189,21 @@ class PayrollPageController extends Controller
             'period_id' => ['nullable', 'integer', 'exists:payroll_periods,id'],
         ];
 
-        if ($slug === 'paie-etat-salaires') {
+        if (in_array($slug, ['paie-etat-salaires', 'paie-edition'], true)) {
             $rules += [
                 'academic_year_id' => ['nullable', 'integer'],
+                'annee_academique_id' => ['nullable', 'integer'],
+                'statuts_enseignant_id' => ['nullable', 'integer'],
                 'statut_enseignant_id' => ['nullable', 'integer'],
+                'corps_id' => ['nullable', 'integer'],
                 'ia_id' => ['nullable', 'integer'],
                 'ief_id' => ['nullable', 'integer'],
                 'matricule' => ['nullable', 'string', 'max:50'],
-                'payment_place_id' => ['nullable', 'integer'],
-                'training_center_id' => ['nullable', 'integer'],
-                'tabaski_only' => ['nullable', 'boolean'],
-                'with_signature' => ['nullable', 'boolean'],
-                'without_service_done' => ['nullable', 'boolean'],
-                'dage_signatory' => ['nullable', 'boolean'],
             ];
+        }
+
+        if ($slug === 'paie-edition') {
+            $rules['search'] = ['nullable', 'boolean'];
         }
 
         return $request->validate($rules);
