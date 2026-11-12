@@ -78,7 +78,17 @@ class IaController extends Controller
             $query->where(fn ($q) => $q->where('e.nom', 'like', '%'.$term.'%')->orWhere('e.prenom', 'like', '%'.$term.'%')->orWhere('e.matricule', 'like', '%'.$term.'%'));
         }
 
-        return response()->json($query->orderBy('e.nom')->orderBy('e.id')->paginate(20, ['e.id', 'e.matricule', 'e.nom', 'e.prenom', 'e.statut', 'e.date_prise_service', 'e.type_engagement']));
+        $teachers = $query->orderBy('e.nom')->orderBy('e.id')->paginate(20, ['e.id', 'e.matricule', 'e.nom', 'e.prenom', 'e.statut', 'e.date_prise_service', 'e.type_engagement']);
+
+        // Statistiques sur tout le périmètre de l'IA, sans les filtres de recherche.
+        $scope = $this->scope->teachers($request->user());
+
+        return response()->json(array_merge($teachers->toArray(), ['stats' => [
+            'total' => (clone $scope)->count(),
+            'en_activite' => (clone $scope)->where('e.statut', 'en_activite')->count(),
+            'non_fonctionnaires' => (clone $scope)->whereIn('e.type_engagement', ['contractuel', 'vacataire'])->count(),
+            'ief' => (clone $scope)->whereNotNull('e.ief_id')->distinct()->count('e.ief_id'),
+        ]]));
     }
 
     public function teacher(Request $request, int $id)

@@ -34,6 +34,7 @@ class UserController extends Controller
         return UserResource::collection($users)->additional([
             'success' => true,
             'message' => 'Liste des utilisateurs',
+            'stats' => $this->userService->statistics(),
         ]);
     }
 

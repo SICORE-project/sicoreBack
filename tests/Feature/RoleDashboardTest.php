@@ -171,7 +171,7 @@ class RoleDashboardTest extends TestCase
     public function test_payroll_statistics_are_scoped_and_do_not_expose_global_shortcuts_to_regional_accounts(): void
     {
         $this->login('gestionnaire_paie', ['paie.bulletins.read'], 'IEF');
-        $this->getJson('/api/dashboard')->assertOk()->assertJsonPath('data.cards.0.value', 1)->assertJsonPath('data.cards.3.value', 100)
+        $this->getJson('/api/dashboard')->assertOk()->assertJsonPath('data.cards.0.value', 1)->assertJsonPath('data.cards.1.value', 100)
             ->assertJsonPath('data.actions', [])->assertDontSee('Comptes utilisateurs');
     }
 
@@ -195,7 +195,7 @@ class RoleDashboardTest extends TestCase
     public function test_admin_and_national_hr_respect_permissions(): void
     {
         $this->login('admin', ['administration.users.read']);
-        $this->getJson('/api/dashboard')->assertOk()->assertJsonCount(3, 'data.cards')->assertJsonCount(1, 'data.actions')->assertDontSee('DossierA');
+        $this->getJson('/api/dashboard')->assertOk()->assertJsonCount(1, 'data.cards')->assertJsonCount(1, 'data.actions')->assertDontSee('DossierA');
     }
 
     public function test_national_hr_has_hr_data_without_administration_or_payroll(): void

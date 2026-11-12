@@ -72,9 +72,7 @@ class DashboardService
         if ($admin) {
             if ($can('administration.users.read')) {
                 $data['cards'][] = $this->card('Comptes utilisateurs', User::count(), 'fa-users', group: 'Administration');
-                $data['cards'][] = $this->card('Comptes actifs', User::where('statut', 'actif')->count(), 'fa-user-check', group: 'Administration');
                 $inactive = User::whereIn('statut', ['inactif', 'bloque'])->count();
-                $data['cards'][] = $this->card('Comptes inactifs ou bloqués', $inactive, 'fa-user-lock', group: 'Administration');
                 if ($inactive) $data['notices'][] = "$inactive compte(s) inactif(s) ou bloqué(s) à examiner.";
                 $data['actions'][] = $this->action('Gérer les utilisateurs', 'utilisateurs.index', 'fa-users-gear');
             }
@@ -88,7 +86,6 @@ class DashboardService
             $data['cards'][] = $this->card('Total des enseignants', (clone $teachers)->count(), 'fa-chalkboard-user', group: 'Personnel');
             $data['cards'][] = $this->card('Enseignants en activité', (clone $teachers)->where('statut', 'en_activite')->count(), 'fa-user-check', group: 'Personnel');
             $withoutEmail = (clone $teachers)->where(fn ($q) => $q->whereNull('email')->orWhere('email', ''))->count();
-            $data['cards'][] = $this->card('Enseignants sans e-mail', $withoutEmail, 'fa-envelope', group: 'Personnel');
             if ($withoutEmail) $data['notices'][] = "$withoutEmail enseignant(s) sans adresse e-mail. Coordonnées à compléter.";
             $data['actions'][] = $this->action('Consulter les enseignants', 'enseignants.index', 'fa-chalkboard-user');
             $data['sections'][] = [
@@ -102,8 +99,6 @@ class DashboardService
             if ($period) $payslips->where('payroll_period_id', $period->id);
             else $payslips->whereRaw('1 = 0');
             $data['cards'][] = $this->card('Bulletins de la dernière période', (clone $payslips)->count(), 'fa-file-invoice', group: 'Paie');
-            $data['cards'][] = $this->card('Paiements en attente', (clone $payslips)->where('payment_status', 'pending')->count(), 'fa-hourglass-half', group: 'Paie');
-            $data['cards'][] = $this->card('Paiements rejetés', (clone $payslips)->where('payment_status', 'rejected')->count(), 'fa-circle-exclamation', group: 'Paie');
             $data['cards'][] = $this->card('Montant net de la période', (clone $payslips)->sum('net_amount'), 'fa-money-bill-wave', 'FCFA', group: 'Paie');
             $data['notices'][] = $period ? 'Indicateurs de paie pour la période '.$period->code.'.' : 'Aucune période de paie disponible.';
             // Existing payroll screens authorize these roles and token abilities only.
@@ -134,10 +129,6 @@ class DashboardService
         $data['layout'] = 'super-admin';
         $active = User::where('statut', 'actif')->where(fn ($q) => $q->whereNull('enseignant_id')->orWhereNotNull('password_changed_at'))->count();
         $pending = User::where('statut', 'actif')->whereNotNull('enseignant_id')->whereNull('password_changed_at')->count();
-        foreach ($data['cards'] as &$card) {
-            if ($card['label'] === 'Comptes actifs') $card['value'] = $active;
-        }
-        unset($card);
         $history = [];
         for ($i = 11; $i >= 0; $i--) {
             $start = now()->startOfMonth()->subMonths($i);
