@@ -77,14 +77,21 @@ class DashboardService
                 $data['actions'][] = $this->action('Gérer les utilisateurs', 'utilisateurs.index', 'fa-users-gear');
             }
             if ($can('administration.roles.read')) {
-                $data['cards'][] = $this->card('Profils actifs', Role::where('est_actif', true)->count(), 'fa-id-badge', group: 'Administration');
+                // Super admin : carte remplacée par Contractuels / Vacataires (section Personnel).
+                if ($role !== 'super_admin') $data['cards'][] = $this->card('Profils actifs', Role::where('est_actif', true)->count(), 'fa-id-badge', group: 'Administration');
                 $data['actions'][] = $this->action('Consulter les profils', 'utilisateurs.profils-roles', 'fa-id-badge');
             }
             if ($can('administration.users.create')) $data['actions'][] = $this->action('Créer un compte enseignant', 'utilisateurs.teacher.create', 'fa-user-plus');
         }
         if ($can('enseignants.read') && ! in_array($role, ['gestionnaire_paie', 'gestionnaire_budget', 'auditeur'], true)) {
             $data['cards'][] = $this->card('Total des enseignants', (clone $teachers)->count(), 'fa-chalkboard-user', group: 'Personnel');
-            $data['cards'][] = $this->card('Enseignants en activité', (clone $teachers)->where('statut', 'en_activite')->count(), 'fa-user-check', group: 'Personnel');
+            if ($role === 'super_admin') {
+                // Même classement que le tableau de bord IA (enseignants.type_engagement).
+                $data['cards'][] = $this->card('Contractuels', (clone $teachers)->where('type_engagement', 'contractuel')->count(), 'fa-file-signature', group: 'Personnel');
+                $data['cards'][] = $this->card('Vacataires', (clone $teachers)->where('type_engagement', 'vacataire')->count(), 'fa-user-clock', group: 'Personnel');
+            } else {
+                $data['cards'][] = $this->card('Enseignants en activité', (clone $teachers)->where('statut', 'en_activite')->count(), 'fa-user-check', group: 'Personnel');
+            }
             $withoutEmail = (clone $teachers)->where(fn ($q) => $q->whereNull('email')->orWhere('email', ''))->count();
             if ($withoutEmail) $data['notices'][] = "$withoutEmail enseignant(s) sans adresse e-mail. Coordonnées à compléter.";
             $data['actions'][] = $this->action('Consulter les enseignants', 'enseignants.index', 'fa-chalkboard-user');

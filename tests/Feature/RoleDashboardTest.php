@@ -192,6 +192,20 @@ class RoleDashboardTest extends TestCase
         $this->assertContains('utilisateurs.index', array_column($response->json('data.actions'), 'route'));
     }
 
+    public function test_super_admin_cards_show_contract_and_temporary_teachers(): void
+    {
+        (require database_path('migrations/2026_08_23_130000_add_payroll_engagement_type_to_enseignants.php'))->up();
+        DB::table('enseignants')->where('id', 1)->update(['type_engagement' => 'contractuel']);
+        DB::table('enseignants')->whereIn('id', [2, 3])->update(['type_engagement' => 'vacataire']);
+        $this->login('super_admin');
+        $cards = collect($this->getJson('/api/dashboard')->assertOk()->json('data.cards'))->keyBy('label');
+        $this->assertEquals(1, $cards['Contractuels']['value']);
+        $this->assertEquals(2, $cards['Vacataires']['value']);
+        $this->assertArrayNotHasKey('Profils actifs', $cards);
+        $this->assertArrayNotHasKey('Enseignants en activité', $cards);
+        $this->assertSame(0, $cards->count() % 4, 'Les cartes doivent remplir des lignes complètes de 4.');
+    }
+
     public function test_admin_and_national_hr_respect_permissions(): void
     {
         $this->login('admin', ['administration.users.read']);
