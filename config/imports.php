@@ -120,7 +120,6 @@ return [
             'libelle' => ['requis' => true, 'max' => 150, 'exemple' => 'Banque exemple'],
             'sigle' => ['max' => 30, 'exemple' => 'BEX'],
             'code_banque' => ['requis' => false, 'max' => 100, 'exemple' => 'Banque'],
-            'adresse' => ['max' => 255],
             'telephone' => ['max' => 20],
             'email' => ['type' => 'email', 'max' => 100],
             'code_guichet' => ['max' => 5],
