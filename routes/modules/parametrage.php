@@ -279,6 +279,8 @@ Route::get('/', [RubriquePaieController::class, 'index'])->middleware('permissio
 });
 
 Route::prefix('periodes-paie')->group(function () {
+    Route::post('/{id}/open', [PeriodePaieController::class, 'open'])->whereNumber('id')->middleware('permission:parametrage.periodes_paie.manage');
+    Route::post('/cycles/{id}/close', [PeriodePaieController::class, 'close'])->whereNumber('id')->middleware('permission:parametrage.periodes_paie.manage');
     Route::get('/', [PeriodePaieController::class, 'index'])->middleware('permission:parametrage.periodes_paie.read');
     Route::post('/', [PeriodePaieController::class, 'store'])->middleware('permission:parametrage.periodes_paie.manage');
     Route::get('/{id}', [PeriodePaieController::class, 'show'])->whereNumber('id')->middleware('permission:parametrage.periodes_paie.read');

@@ -33,15 +33,19 @@ class PeriodePaieController extends Controller
             ->paginate((int) ($filters['per_page'] ?? 10))
             ->withQueryString();
 
-        return response()->json(['data' => $periodes]);
+        return response()->json(['data' => $periodes, 'payroll_periods' => \App\Models\PayrollPeriod::orderByDesc('start_date')->get(['id', 'code', 'label', 'status'])]);
     }
 
     public function store(StorePeriodePaieRequest $request): JsonResponse
     {
-        $periode = PeriodePaie::query()->create($request->validated());
+        $periode = \Illuminate\Support\Facades\DB::transaction(function () use ($request) {
+            $reference = PeriodePaie::query()->create($request->validated());
+            app(\App\Services\PayrollPeriodLifecycle::class)->open($reference, $request->user(), $request);
+            return $reference;
+        });
 
         return response()->json([
-            'message' => 'Période de paie ajoutée avec succès.',
+            'message' => 'Période créée et paie calculée automatiquement pour toutes les IA.',
             'data' => $periode,
         ], 201);
     }
@@ -53,9 +57,24 @@ class PeriodePaieController extends Controller
         ]);
     }
 
+    public function open(Request $request, int $id): JsonResponse
+    {
+        $period = app(\App\Services\PayrollPeriodLifecycle::class)->open(PeriodePaie::findOrFail($id), $request->user(), $request);
+        return response()->json(['message' => 'Période ouverte : toutes les IA ont été calculées.', 'data' => $period]);
+    }
+
+    public function close(Request $request, int $id): JsonResponse
+    {
+        $period = app(\App\Services\PayrollPeriodLifecycle::class)->close($id, $request->user(), $request);
+        return response()->json(['message' => 'Période clôturée. Les bulletins restent consultables.', 'data' => $period]);
+    }
+
     public function update(UpdatePeriodePaieRequest $request, int $id): JsonResponse
     {
         $periode = PeriodePaie::query()->findOrFail($id);
+        if ($periode->code !== ($request->validated()['code'] ?? $periode->code)) {
+            throw \Illuminate\Validation\ValidationException::withMessages(['code' => 'Le code d’une période créée ne peut plus être modifié. Créez une nouvelle période après clôture.']);
+        }
         $periode->update($request->validated());
 
         return response()->json([

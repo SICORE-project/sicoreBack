@@ -6,7 +6,7 @@ use App\Models\Admin\User;
 use App\Models\Enseignant;
 use App\Models\PayrollPayslip;
 use App\Models\PayrollPeriod;
-use App\Services\PayrollGenerationService;
+use App\Services\PayrollCalculationService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -71,9 +71,19 @@ class PayrollGenerationIntegrationTest extends TestCase
 
     private function generate(array $selection)
     {
-        return app(PayrollGenerationService::class)->generate([
-            'annee_academique_id' => $this->year, 'month' => 10, ...$selection,
-        ], $this->actor, Request::create('/generation', 'POST'), null);
+        // Internal engine coverage: there is no longer a manual generation API.
+        return DB::transaction(function () use ($selection) {
+            $query = Enseignant::where('est_actif', true);
+            if ($selection['generation_scope'] === 'teacher') $query->where('id', $selection['enseignant_id']);
+            else {
+                $query->where('ia_id', $selection['ia_id']);
+                if (! empty($selection['ief_id'])) $query->where('ief_id', $selection['ief_id']);
+            }
+            $ids = $query->pluck('id')->all();
+            if ($ids === []) throw ValidationException::withMessages(['selection' => 'Aucun enseignant.']);
+            $period = PayrollPeriod::firstOrCreate(['code' => '2026-10'], ['label' => 'Octobre 2026', 'status' => 'open', 'start_date' => '2026-10-01', 'end_date' => '2026-10-31']);
+            return app(PayrollCalculationService::class)->calculate($period, $this->actor, $ids);
+        });
     }
 
     public function test_individual_generation_reads_personnel_without_saving_a_second_profile(): void

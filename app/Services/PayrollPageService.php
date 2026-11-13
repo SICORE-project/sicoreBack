@@ -159,7 +159,7 @@ class PayrollPageService
             ? 'est_active'
             : 'en cours';
         $academicYears = DB::table('annee_academiques')
-            ->where('est_cloturee', false)
+            ->when(! in_array($slug, ['paie-bulletins', 'paie-etat-salaires'], true), fn ($q) => $q->where('est_cloturee', false))
             ->orderByDesc($activeYearColumn)
             ->orderByDesc('date_debut')
             ->get();
@@ -553,7 +553,6 @@ class PayrollPageService
                 (string) $item->version,
             ])->values(),
             'actions' => [
-                $this->action('Générer des bulletins', 'generate-payslips'),
                 $this->action('Valider la paie', 'validate-payroll'),
             ],
             'stats' => [
@@ -784,31 +783,13 @@ class PayrollPageService
                 'payload' => ['payroll_payslip_id' => $item->id],
             ]]],
         ]);
-        $existingIds = $items->pluck('enseignant_id');
-        $withoutPayslip = $teachers->reject(fn (Enseignant $teacher) => $existingIds->contains($teacher->id));
-        $rows = $rows->concat($withoutPayslip->map(fn (Enseignant $teacher): array => [
-            'Non calculé', $period?->label ?? '—', $teacher->matricule ?: '—',
-            $this->teacherName($teacher), '—', '—', '—', '—', ['actions' => [[
-                'label' => 'Générer', 'code' => 'generate-payslips',
-                'payload' => ['generation_scope' => 'teacher', 'enseignant_id' => $teacher->id],
-            ]]],
-        ]))->sortBy(fn (array $row) => (string) $row[2])->values();
-
         return [
             'columns' => ['Référence', 'Mois du bulletin', 'Matricule', 'Enseignant', 'Brut', 'Retenues', 'Net', 'Version', 'Actions'],
             'rows' => $rows,
-            'actions' => [$this->action('Générer des bulletins', 'generate-payslips', 'primary'), $this->exportAction()],
-            'notice' => $period
-                ? sprintf(
-                    '%s — %d bulletin(s) disponible(s), %d enseignant(s) enregistré(s) sans bulletin calculé. Les enseignants apparaissent dès leur enregistrement dans Personnel.',
-                    $period->label,
-                    $items->count(),
-                    $withoutPayslip->count()
-                )
-                : 'Les enseignants enregistrés dans Personnel sont affichés directement. Renseignez un mois dans Paramétrage pour consulter ses bulletins. Les montants non calculés restent vides.',
+            'actions' => [$this->exportAction()],
+            'notice' => 'Les bulletins sont calculés automatiquement lors de l’ouverture de la période dans Paramétrage.',
         ];
     }
-
     /** @return array<string, mixed> */
     private function workforceReport(Collection $teachers): array
     {
@@ -869,15 +850,9 @@ private function notGeneratedReport(?PayrollPeriod $period): array
             $this->money($teacher->salaire_base),
             $teacher->institutionFinanciere?->nom ?? 'Non renseignée',
             $this->payrollProfileReason($teacher),
-            $this->actionCell(
-                'Générer',
-                'generate-payslips', [
-                    'generation_scope' => 'teacher',
-                    'enseignant_id' => $teacher->id,
-                ]),
+            'Disponible après ouverture de la période',
         ])->values(),
         'actions' => [
-            $this->action('Générer des bulletins', 'generate-payslips', 'primary'),
             $this->exportAction(),
         ],
         'stats' => [

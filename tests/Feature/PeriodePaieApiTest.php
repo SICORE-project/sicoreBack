@@ -37,6 +37,15 @@ class PeriodePaieApiTest extends TestCase
             $table->string('libelle', 100);
             $table->timestamps();
         });
+        Schema::create('payroll_periods', function (Blueprint $table): void {
+            $table->id(); $table->string('code'); $table->string('label'); $table->string('status'); $table->date('start_date');
+        });
+        foreach (['heures_supplementaires', 'mise_a_jour_mc_ve', 'mise_a_jour_pc_vac'] as $table) {
+            Schema::create($table, function (Blueprint $t): void { $t->id(); $t->integer('periode_paie_id'); });
+        }
+        // The lifecycle has its own atomicity/national calculation tests.
+        $this->mock(\App\Services\PayrollPeriodLifecycle::class)->shouldReceive('open')->zeroOrMoreTimes()
+            ->andReturn(new \App\Models\PayrollPeriod());
     }
 
     public function test_admin_peut_effectuer_le_crud_complet(): void

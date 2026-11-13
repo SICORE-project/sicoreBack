@@ -18,15 +18,6 @@ class PayrollActionRequest extends FormRequest
     public function rules(): array
     {
         return match ((string) $this->route('action')) {
-            'generate-payslips' => [
-                'generation_scope' => ['required', Rule::in(['ia', 'teacher'])],
-                'ia_id' => ['nullable', 'required_if:generation_scope,ia', 'integer', 'exists:ias,id'],
-                'ief_id' => ['nullable', 'integer', Rule::exists('iefs', 'id')->where('ia_id', (int) $this->input('ia_id'))],
-                'statut_enseignant_id' => ['nullable', 'integer', 'exists:statuts_enseignant,id'],
-                'enseignant_id' => ['nullable', 'required_if:generation_scope,teacher', 'integer', $this->activeTeacherRule()],
-                'annee_academique_id' => ['required', 'integer', 'exists:annee_academiques,id'],
-                'month' => ['required', 'integer', 'between:1,12'],
-            ],
             'configure-teacher-payroll' => [
                 'ia_id' => ['required', 'integer', 'exists:ias,id'],
                 'ief_id' => [
