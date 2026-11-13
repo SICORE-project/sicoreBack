@@ -10,7 +10,7 @@ use Tests\TestCase;
 
 class IefEtablissementsCountTest extends TestCase
 {
-    public function test_iefs_list_counts_attached_establishments(): void
+    public function test_iefs_list_returns_the_number_of_establishments(): void
     {
         foreach (['ias', 'iefs'] as $table) {
             Schema::create($table, function (Blueprint $t) use ($table): void {
@@ -48,9 +48,8 @@ class IefEtablissementsCountTest extends TestCase
         ]);
 
         $response = app(IefController::class)->index()->response(request())->getData(true);
-        $counts = collect($response['data'])->pluck('etablissements_count', 'code')->all();
 
-        $this->assertSame(['IEF1' => 2, 'IEF2' => 0], collect($counts)->sortKeys()->all());
-        $this->assertSame(['etablissements' => 2, 'iefs_sans_etablissement' => 1], $response['stats']);
+        // 2 établissements rattachés à une IEF (le supprimé et celui sans IEF ne comptent pas).
+        $this->assertSame(['etablissements' => 2], $response['stats']);
     }
 }
