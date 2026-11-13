@@ -48,6 +48,9 @@ class RubriquePaieController extends Controller
                 'total' => RubriquePaie::query()->count(),
                 'gains' => RubriquePaie::query()->where('type', 'gain')->count(),
                 'retenues' => RubriquePaie::query()->where('type', 'retenue')->count(),
+                'contractuels' => $this->parStatut('contractuel', ['PC', 'CONTRACTUEL'])->count(),
+                'vacataires' => $this->parStatut('vacataire', ['VAC', 'VACATAIRE'])->count(),
+                'mensuelles' => RubriquePaie::query()->where('periodicite', 'mensuelle')->count(),
             ],
         ]);
     }
@@ -119,5 +122,14 @@ class RubriquePaieController extends Controller
         return response()->json([
             'message' => 'Rubrique de paie supprimée avec succès.',
         ]);
+    }
+
+    /** Rubriques rattachées à un statut enseignant (catégorie, code ou libellé : les données existantes varient). */
+    private function parStatut(string $categorie, array $codes)
+    {
+        return RubriquePaie::query()->whereHas('statutEnseignant', fn ($statut) => $statut
+            ->whereRaw('LOWER(categorie) = ?', [$categorie])
+            ->orWhereIn('code', $codes)
+            ->orWhereRaw('LOWER(libelle) LIKE ?', ['%'.$categorie.'%']));
     }
 }
