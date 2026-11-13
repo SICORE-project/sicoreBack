@@ -13,7 +13,7 @@ class UserResource extends JsonResource
     public function toArray(Request $request): array
     {
         return [
-            $this->mergeWhen($this->resource->hasRole('agent_decpc'), fn () => [
+            $this->mergeWhen($this->resource->hasRole('agent_decpc') || $this->resource->hasRole('decpc'), fn () => [
                 'decpc' => app(\App\Services\Administration\DecpcDashboard::class)->context($this->resource),
             ]),
             $this->mergeWhen($this->resource->isDrh(), fn () => [
