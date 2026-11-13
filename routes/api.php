@@ -57,7 +57,7 @@ Route::middleware(['auth:sanctum', \App\Http\Middleware\TeacherPersonalAccess::c
 
     Route::get('/decpc/dashboard', function (\Illuminate\Http\Request $request) {
         return response()->json(['data' => app(\App\Services\Administration\DecpcDashboard::class)->data($request->user())]);
-    })->middleware('role:agent_decpc');
+    })->middleware('role:agent_decpc,decpc');
 
     Route::post('/logout', [AuthController::class, 'logout']);
 
