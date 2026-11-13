@@ -166,6 +166,20 @@ class IaAccessTest extends TestCase
             ->assertJsonCount(1, 'data.iefs')->assertJsonCount(1, 'data.dernieres_operations')->assertDontSee('HorsPerimetre');
     }
 
+    public function test_contract_and_temporary_teachers_are_counted_and_filtered_separately(): void
+    {
+        DB::table('enseignants')->insert(['id' => 4, 'nom' => 'Local', 'prenom' => 'Vacataire', 'matricule' => 'MAT4',
+            'ia_id' => 1, 'ief_id' => 1, 'lieu_service_id' => 1, 'statut' => 'en_activite', 'type_engagement' => 'vacataire']);
+        $this->getJson('/api/ia/dashboard')->assertOk()
+            ->assertJsonPath('data.indicateurs.contractuels', 1)->assertJsonPath('data.indicateurs.vacataires', 1);
+        $this->getJson('/api/ia/enseignants')->assertOk()->assertJsonPath('stats.fonctionnaires', 1)
+            ->assertJsonPath('stats.contractuels', 1)->assertJsonPath('stats.vacataires', 1);
+        $this->getJson('/api/ia/enseignants?engagement=vacataire')->assertOk()
+            ->assertJsonPath('total', 1)->assertJsonPath('data.0.type_engagement', 'vacataire');
+        $this->getJson('/api/ia/enseignants?engagement=contractuel')->assertOk()
+            ->assertJsonPath('total', 1)->assertJsonPath('data.0.type_engagement', 'contractuel');
+    }
+
     public function test_user_personal_fields_are_validated_saved_and_editable(): void
     {
         Schema::table('users', function (Blueprint $table) {
