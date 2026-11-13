@@ -31,6 +31,9 @@ class IefResource extends JsonResource
 
             'nom_complet' => $this->nom_complet,
 
+            // Nombre d'établissements (lieux de service) rattachés à l'IEF.
+            'etablissements_count' => $this->whenCounted('lieuxServices'),
+
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
         ];

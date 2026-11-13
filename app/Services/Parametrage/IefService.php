@@ -13,7 +13,7 @@ class IefService
      */
     public function getAll(array $filters = [])
     {
-        $query = Ief::with('ia');
+        $query = Ief::with('ia')->withCount('lieuxServices');
 
         if (!empty($filters['search'])) {
             $search = trim($filters['search']);
