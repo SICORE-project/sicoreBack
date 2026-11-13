@@ -30,14 +30,7 @@ class LieuServiceController extends Controller
             'direction' => ['nullable', Rule::in(['asc', 'desc'])],
         ]);
 
-        $lieux = LieuService::query()
-            ->where(fn ($query) => $query->whereNull('type')
-                ->orWhereRaw('UPPER(TRIM(type)) NOT IN (?, ?, ?, ?, ?, ?)', ['DRH', 'DECPC', 'DAGE', 'CI', 'IA', 'IEF'])
-                // The establishment form stores the attachment level in type (IEF).
-                // Its generated ETAB code distinguishes it from the IEF organisation.
-                ->orWhere(fn ($query) => $query->whereRaw('UPPER(TRIM(type)) = ?', ['IEF'])
-                    ->where('code', 'like', 'ETAB%')))
-            ->whereNotIn('code', ['DRH', 'DECPC', 'DAGE', 'CI'])
+        $lieux = $this->etablissements()
             ->with(['ia:id,code,libelle', 'ief:id,ia_id,code,libelle'])
             ->when($validated['search'] ?? null, function ($query, string $search) {
                 $query->where(function ($query) use ($search) {
@@ -74,7 +67,28 @@ class LieuServiceController extends Controller
                 'per_page' => $lieux->perPage(),
                 'total' => $lieux->total(),
             ],
+            'stats' => [
+                'total' => $this->etablissements()->count(),
+                'actifs' => $this->etablissements()->where('est_actif', true)->count(),
+                'ia' => $this->etablissements()->whereNotNull('ia_id')->distinct()->count('ia_id'),
+                'ief' => $this->etablissements()->whereNotNull('ief_id')->distinct()->count('ief_id'),
+            ],
         ]);
+    }
+
+    /**
+     * Établissements uniquement (hors directions et structures IA/IEF).
+     */
+    private function etablissements()
+    {
+        return LieuService::query()
+            ->where(fn ($query) => $query->whereNull('type')
+                ->orWhereRaw('UPPER(TRIM(type)) NOT IN (?, ?, ?, ?, ?, ?)', ['DRH', 'DECPC', 'DAGE', 'CI', 'IA', 'IEF'])
+                // The establishment form stores the attachment level in type (IEF).
+                // Its generated ETAB code distinguishes it from the IEF organisation.
+                ->orWhere(fn ($query) => $query->whereRaw('UPPER(TRIM(type)) = ?', ['IEF'])
+                    ->where('code', 'like', 'ETAB%')))
+            ->whereNotIn('code', ['DRH', 'DECPC', 'DAGE', 'CI']);
     }
 
     public function iaOptions()

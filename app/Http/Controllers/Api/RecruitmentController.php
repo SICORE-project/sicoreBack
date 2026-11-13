@@ -32,8 +32,16 @@ class RecruitmentController extends Controller
         if (! empty($filters['year'])) $query->whereYear('recruited_at',$filters['year']);
         if (! empty(trim($filters['reference'] ?? ''))) $query->where('reference','like','%'.trim($filters['reference']).'%');
 
+        // Statistiques sur tout le périmètre de l'utilisateur, sans les filtres.
+        $members = $this->access->members($request->user());
+
         return response()->json(['data' => $query->orderByDesc('id')
-            ->get(['id', 'reference', 'recruited_at', 'transmitted_at', 'created_at'])]);
+            ->get(['id', 'reference', 'recruited_at', 'transmitted_at', 'created_at']), 'stats' => [
+                'listes' => (clone $members)->distinct()->count('m.batch_id'),
+                'recrutes' => (clone $members)->count(),
+                'prises_service' => (clone $members)->whereNotNull('m.service_date')->count(),
+                'en_attente' => (clone $members)->whereNull('m.service_date')->count(),
+            ]]);
     }
 
     public function search(Request $request)
