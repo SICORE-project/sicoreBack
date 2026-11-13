@@ -331,7 +331,6 @@ trait EtatSalaireReport
             ['key' => 'first_name', 'label' => 'Prénoms'],
             ['key' => 'last_name', 'label' => 'Nom'],
             ['key' => 'matricule', 'label' => 'Matricule'],
-            ['key' => 'corps', 'label' => 'Corps'],
             ['key' => 'category', 'label' => 'Catégorie'],
             ['key' => 'statut', 'label' => 'Statut'],
             ['key' => 'salary_category', 'label' => 'Sal. catég.', 'amount' => true],
