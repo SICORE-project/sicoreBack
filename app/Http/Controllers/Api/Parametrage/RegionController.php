@@ -6,6 +6,10 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Parametrage\Region\StoreRegionRequest;
 use App\Http\Requests\Parametrage\Region\UpdateRegionRequest;
 use App\Http\Resources\Parametrage\RegionResource;
+use App\Models\Parametrage\Commune;
+use App\Models\Parametrage\Departement;
+use App\Models\Parametrage\Ia;
+use App\Models\Parametrage\Region;
 use App\Services\Parametrage\RegionService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -35,6 +39,12 @@ class RegionController extends Controller
         return RegionResource::collection($regions)
             ->additional([
                 'success' => true,
+                'stats' => [
+                    'total' => Region::count(),
+                    'departements' => Departement::count(),
+                    'communes' => Commune::count(),
+                    'ias' => Ia::count(),
+                ],
             ]);
     }
 

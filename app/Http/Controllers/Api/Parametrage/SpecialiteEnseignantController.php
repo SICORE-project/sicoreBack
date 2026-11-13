@@ -28,7 +28,12 @@ class SpecialiteEnseignantController extends Controller
             ->when(! empty($data['statut']), fn ($query) => $query->where('statut', $data['statut']))
             ->orderBy($sort, $direction)->orderByDesc('id')->paginate($data['per_page'] ?? 10)->withQueryString();
 
-        return response()->json(['success' => true, 'message' => 'Liste des spécialités.', 'data' => $items]);
+        return response()->json(['success' => true, 'message' => 'Liste des spécialités.', 'data' => $items, 'stats' => [
+            'total' => SpecialiteEnseignant::count(),
+            'actives' => SpecialiteEnseignant::where('statut', 'actif')->count(),
+            'inactives' => SpecialiteEnseignant::where('statut', 'inactif')->count(),
+            'enseignants' => (int) SpecialiteEnseignant::withCount('enseignants')->get()->sum('enseignants_count'),
+        ]]);
     }
 
     public function store(Request $request)

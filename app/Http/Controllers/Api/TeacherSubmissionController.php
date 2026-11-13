@@ -42,10 +42,15 @@ class TeacherSubmissionController extends Controller
     {
         $query = TeacherSubmission::query();
         if ($request->user()->hasRole('gestionnaire_ia')) $query->where('teacher_submissions.ia_id', $scope->id($request->user()));
-        else {
-            abort_unless($request->user()->hasRole('super_admin'), 403);
-            $query->where('status', 'pending');
-        }
+        else abort_unless($request->user()->hasRole('super_admin'), 403);
+        // Statistiques sur tous les dossiers du périmètre, avant le filtre d'affichage.
+        $stats = [
+            'total' => (clone $query)->count(),
+            'en_attente' => (clone $query)->where('status', 'pending')->count(),
+            'valides' => (clone $query)->where('status', 'approved')->count(),
+            'ia' => (clone $query)->whereNotNull('teacher_submissions.ia_id')->distinct()->count('teacher_submissions.ia_id'),
+        ];
+        if (! $request->user()->hasRole('gestionnaire_ia')) $query->where('status', 'pending');
         $page = $query->orderByDesc('id')->paginate(20);
         $page->through(function ($submission) {
             $payload = $submission->payload;
@@ -60,7 +65,7 @@ class TeacherSubmissionController extends Controller
             $payload['compte_bancaire']['institut_financier'] = $bankId ? DB::table('instituts_financieres')->find($bankId) : null;
             return array_merge($submission->toArray(), ['payload' => $payload]);
         });
-        return response()->json(['data' => $page]);
+        return response()->json(['data' => $page, 'stats' => $stats]);
     }
 
     public function approve(Request $request, int $id, TeacherSubmissionService $service)

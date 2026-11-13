@@ -8,7 +8,9 @@ use App\Http\Requests\Parametrage\StoreInstitutFinancierRequest;
 use App\Http\Requests\Parametrage\UpdateInstitutFinancierRequest;
 use App\Http\Requests\Parametrage\UpdateStatutInstitutFinancierRequest;
 use App\Http\Resources\Parametrage\InstitutFinancierResource;
+use App\Models\Parametrage\Guichet;
 use App\Models\Parametrage\InstitutFinancier;
+use App\Models\Personnel\CompteBancaireEnseignant;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
@@ -44,6 +46,12 @@ class InstitutFinancierController extends Controller
         return InstitutFinancierResource::collection($institutions)->additional([
             'success' => true,
             'message' => 'Liste des banques.',
+            'stats' => [
+                'total' => InstitutFinancier::count(),
+                'guichets' => Guichet::count(),
+                'comptes' => CompteBancaireEnseignant::count(),
+                'enseignants' => CompteBancaireEnseignant::distinct()->count('enseignant_id'),
+            ],
         ]);
     }
 

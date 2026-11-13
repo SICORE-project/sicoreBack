@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Parametrage\StorePeriodePaieRequest;
 use App\Http\Requests\Parametrage\UpdatePeriodePaieRequest;
 use App\Models\Paie\PeriodePaie;
+use App\Models\PayrollPeriod;
 use App\Support\Rattachements;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse;
@@ -33,7 +34,12 @@ class PeriodePaieController extends Controller
             ->paginate((int) ($filters['per_page'] ?? 10))
             ->withQueryString();
 
-        return response()->json(['data' => $periodes]);
+        return response()->json(['data' => $periodes, 'stats' => [
+            'total' => PeriodePaie::count(),
+            'ouvertes' => PayrollPeriod::where('status', '!=', PayrollPeriod::STATUS_CLOSED)->count(),
+            'cloturees' => PayrollPeriod::where('status', PayrollPeriod::STATUS_CLOSED)->count(),
+            'derniere' => PayrollPeriod::orderByDesc('start_date')->value('code'),
+        ]]);
     }
 
     public function store(StorePeriodePaieRequest $request): JsonResponse

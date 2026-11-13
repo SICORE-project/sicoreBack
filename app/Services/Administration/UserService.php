@@ -124,6 +124,19 @@ class UserService
         return $query->orderBy('nom')->orderBy('prenom')->orderBy('id')->paginate($perPage);
     }
 
+    /**
+     * Statistiques globales des comptes utilisateurs.
+     */
+    public function statistics(): array
+    {
+        return [
+            'total' => User::count(),
+            'actifs' => User::where('statut', 'actif')->count(),
+            'suspendus' => User::where('statut', '!=', 'actif')->count(),
+            'enseignants' => User::whereNotNull('enseignant_id')->count(),
+        ];
+    }
+
 
 
     /**

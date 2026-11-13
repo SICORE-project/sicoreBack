@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Parametrage\Commune\StoreCommuneRequest;
 use App\Http\Requests\Parametrage\Commune\UpdateCommuneRequest;
 use App\Http\Resources\Parametrage\CommuneResource;
+use App\Models\Parametrage\Commune;
 use App\Services\Parametrage\CommuneService;
 use DomainException;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
@@ -47,6 +48,12 @@ class CommuneController extends Controller
                 'last_page' => $communes->lastPage(),
                 'per_page' => $communes->perPage(),
                 'total' => $communes->total(),
+            ],
+            'stats' => [
+                'total' => Commune::count(),
+                'actives' => Commune::where('est_actif', true)->count(),
+                'departements' => Commune::whereNotNull('departement_id')->distinct()->count('departement_id'),
+                'regions' => Commune::whereNotNull('region_id')->distinct()->count('region_id'),
             ],
         ]);
     }

@@ -32,7 +32,22 @@ class CorpsController extends Controller
         return response()->json([
             'message' => 'Liste des corps enseignants récupérée avec succès.',
             'data' => $corps,
+            'stats' => $this->statistics(),
         ], 200);
+    }
+
+    /**
+     * Statistiques globales des corps enseignants.
+     */
+    private function statistics(): array
+    {
+        $corps = CorpsEnseignant::query()->withCount(['categories', 'enseignants'])->get();
+
+        return [
+            'total' => $corps->count(),
+            'categories' => (int) $corps->sum('categories_count'),
+            'enseignants' => (int) $corps->sum('enseignants_count'),
+        ];
     }
 
     /**

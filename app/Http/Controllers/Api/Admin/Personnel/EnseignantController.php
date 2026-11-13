@@ -75,6 +75,7 @@ class EnseignantController extends Controller
             ->additional([
                 'success' => true,
                 'message' => 'Liste des enseignants récupérée avec succès.',
+                'stats' => $this->enseignantService->statistics(),
             ]);
     }
 

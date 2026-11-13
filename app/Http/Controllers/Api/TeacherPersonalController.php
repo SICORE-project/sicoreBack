@@ -50,6 +50,13 @@ class TeacherPersonalController extends Controller
         $filters = $request->validate(['annee' => ['nullable', 'integer', 'between:1900,2200'], 'periode_id' => ['nullable', 'integer'], 'page' => ['nullable', 'integer', 'min:1']]);
         $base = $this->available($request);
         $periods = PayrollPeriod::whereIn('id', (clone $base)->select('payroll_period_id'))->orderByDesc('start_date')->get();
+        // Statistiques sur tous les bulletins disponibles de l'enseignant, sans les filtres.
+        $stats = [
+            'total' => (clone $base)->count(),
+            'payes' => (clone $base)->where('payment_status', 'paid')->count(),
+            'dernier_net' => $periods->isEmpty() ? null : (float) (clone $base)->where('payroll_period_id', $periods->first()->id)->value('net_amount'),
+            'cumul_net' => (float) (clone $base)->sum('net_amount'),
+        ];
         $items = $base->with('period')
             ->when($filters['annee'] ?? null, fn ($q, $year) => $q->whereHas('period', fn ($q) => $q->whereYear('start_date', $year)))
             ->when($filters['periode_id'] ?? null, fn ($q, $period) => $q->where('payroll_period_id', $period))
@@ -60,7 +67,7 @@ class TeacherPersonalController extends Controller
             'statut' => $p->period->status === 'closed' ? 'Clôturé' : 'Validé', 'net' => $p->net_amount,
         ]);
 
-        return response()->json(['data' => $items, 'periodes' => $periods->map(fn ($p) => ['id' => $p->id, 'libelle' => $p->label]),
+        return response()->json(['data' => $items, 'stats' => $stats, 'periodes' => $periods->map(fn ($p) => ['id' => $p->id, 'libelle' => $p->label]),
             'annees' => $periods->map(fn ($p) => $p->start_date->year)->unique()->values()])->header('Cache-Control', 'no-store, private');
     }
 

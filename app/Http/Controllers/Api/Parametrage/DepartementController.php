@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Parametrage\Departement\StoreDepartementRequest;
 use App\Http\Requests\Parametrage\Departement\UpdateDepartementRequest;
 use App\Http\Resources\Parametrage\DepartementResource;
+use App\Models\Parametrage\Commune;
+use App\Models\Parametrage\Departement;
 use App\Services\Parametrage\DepartementService;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\JsonResponse;
@@ -47,6 +49,12 @@ class DepartementController extends Controller
                 'last_page' => $departements->lastPage(),
                 'per_page' => $departements->perPage(),
                 'total' => $departements->total(),
+            ],
+            'stats' => [
+                'total' => Departement::count(),
+                'actifs' => Departement::where('est_actif', true)->count(),
+                'regions' => Departement::whereNotNull('region_id')->distinct()->count('region_id'),
+                'communes' => Commune::whereNotNull('departement_id')->count(),
             ],
         ]);
     }

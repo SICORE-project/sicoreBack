@@ -5,6 +5,8 @@ namespace App\Http\Controllers\Api\Parametrage;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Parametrage\StoreCategorieRequest;
 use App\Http\Requests\Parametrage\UpdateCategorieRequest;
+use App\Models\Parametrage\Categorie;
+use App\Models\Parametrage\Diplome;
 use App\Services\Parametrage\CategorieService;
 use App\Support\Rattachements;
 use Illuminate\Http\Request;
@@ -21,6 +23,12 @@ class CategorieController extends Controller
         return response()->json([
             'message' => 'Liste des catégories récupérée avec succès.',
             'data' => $this->categorieService->getAll($request->only(['search', 'corps_id', 'per_page'])),
+            'stats' => [
+                'total' => Categorie::count(),
+                'actives' => Categorie::where('est_actif', true)->count(),
+                'corps' => Categorie::whereNotNull('corps_id')->distinct()->count('corps_id'),
+                'diplomes' => Diplome::whereNotNull('categorie_id')->count(),
+            ],
         ]);
     }
 

@@ -1223,53 +1223,55 @@ private function notGeneratedReport(?PayrollPeriod $period): array
                     [
                         'name' => 'statuts_enseignant_id',
                         'label' => 'Corps d\'enseignant',
-                        'value' => request('statuts_enseignant_id'),
-                        'options' => Schema::hasTable('statuts_enseignant') 
-                            ? DB::table('statuts_enseignant') 
-                            ->whereRaw("LOWER(libelle) NOT LIKE '%fonctionnaire%'") // <-- EXCLUT LES FONCTIONNAIRE
-                            ->orderBy('libelle')->get()->map(fn($c) => ['value' => $c->id, 'label' => $c->libelle])->toArray()
-                            : []
-                    ],
-
-
-                    [
-                        'name' => 'period_id',
-                        'label' => 'Période de paie',
-                        'value' => $selected?->id,
-                        'options' => $periods->map(fn (PayrollPeriod $period): array => [
-                            'value' => $period->id,
-                            'label' => $period->label.' — '.$this->statusLabel($period->status),
-                        ])->values(),
+                        'value' => request('statuts_enseignant_id') ?? request('corps_id'),
+                        'options' => Schema::hasTable('statuts_enseignant')
+                            ? DB::table('statuts_enseignant')
+                                ->whereRaw("LOWER(libelle) NOT LIKE '%fonctionnaire%'")
+                                ->orderBy('libelle')->get()
+                                ->map(fn ($c) => ['value' => $c->id, 'label' => $c->libelle])->toArray()
+                            : [],
                     ],
                     [
                         'name' => 'annee_academique_id',
                         'label' => 'Année académique',
                         'value' => request('annee_academique_id'),
-                        'options' => Schema::hasTable('annee_academiques') 
-                            ? DB::table('annee_academiques')->orderByDesc('date_debut')->get()->map(fn($a) => ['value' => $a->id, 'label' => $a->libelle])->toArray()
-                            : []
+                        'options' => Schema::hasTable('annee_academiques')
+                            ? DB::table('annee_academiques')->orderByDesc('date_debut')->get()
+                                ->map(fn ($a) => ['value' => $a->id, 'label' => $a->libelle])->toArray()
+                            : [],
+                    ],
+                    [
+                        'name' => 'period_id',
+                        'label' => 'Période de paie',
+                        'value' => $selected?->id ?? request('period_id'),
+                        'options' => $periods->map(fn (PayrollPeriod $p) => [
+                            'value' => $p->id,
+                            'label' => $p->label . ' — ' . $this->statusLabel($p->status),
+                        ])->values()->toArray(),
                     ],
                     [
                         'name' => 'ia_id',
-                        'label' => 'Inspection Académique (IA)',
+                        'label' => 'IA',
                         'value' => request('ia_id'),
-                        'options' => Schema::hasTable('ias') 
-                            ? DB::table('ias')->orderBy('libelle')->get()->map(fn($i) => ['value' => $i->id, 'label' => $i->libelle])->toArray()
-                            : []
+                        'options' => Schema::hasTable('ias')
+                            ? DB::table('ias')->orderBy('libelle')->get()
+                                ->map(fn ($i) => ['value' => $i->id, 'label' => $i->libelle])->toArray()
+                            : [],
                     ],
                     [
                         'name' => 'ief_id',
                         'label' => 'IEF',
                         'value' => request('ief_id'),
-                        'options' => Schema::hasTable('iefs') 
-                            ? DB::table('iefs')->orderBy('libelle')->get()->map(fn($i) => ['value' => $i->id, 'label' => $i->libelle])->toArray()
-                            : []
+                        'options' => Schema::hasTable('iefs')
+                            ? DB::table('iefs')->orderBy('libelle')->get()
+                                ->map(fn ($i) => ['value' => $i->id, 'label' => $i->libelle])->toArray()
+                            : [],
                     ],
                     [
                         'name' => 'matricule',
                         'label' => 'Matricule',
                         'value' => request('matricule'),
-                        'options' => [] // Champ texte libre
+                        'options' => [],
                     ],
                 ];
             }
@@ -1597,97 +1599,158 @@ private function notGeneratedReport(?PayrollPeriod $period): array
 
         /** @return array<string, mixed> */
            /** @return array<string, mixed> */
+
+
+           private function periodIdsForAcademicYear(?int $academicYearId): array
+           {
+               if (!$academicYearId || !Schema::hasTable('annee_academiques')) {
+                   return [];
+               }
+           
+               $year = DB::table('annee_academiques')->where('id', $academicYearId)->first(['date_debut', 'date_fin']);
+               if (!$year) {
+                   return [];
+               }
+           
+               return PayrollPeriod::query()
+                   ->whereDate('start_date', '>=', $year->date_debut)
+                   ->whereDate('end_date', '<=', $year->date_fin)
+                   ->pluck('id')
+                   ->map(fn ($id) => (int) $id)
+                   ->all();
+           }
            private function editionReport(?PayrollPeriod $period, Collection $teachers, array $criteria = []): array
            {
-               // ON FORCE LES CRITERES DEPUIS L'URL SI LE TABLEAU EST VIDE
+               // 1. Récupération des critères
                if (empty($criteria)) {
-                   $criteria = request()->only(['statuts_enseignant_id', 'ia_id', 'ief_id', 'matricule', 'period_id']);
+                   $criteria = request()->only([
+                       'statuts_enseignant_id',
+                       'corps_id',
+                       'annee_academique_id',
+                       'period_id',
+                       'ia_id',
+                       'ief_id',
+                       'matricule',
+                   ]);
                }
-   
-               // 1. Si aucun filtre n'est présent, on vide la page
-               $hasFilter = !empty($criteria['ia_id']) 
-                   || !empty($criteria['statuts_enseignant_id']) 
-                   || !empty($criteria['ief_id']) 
+           
+
+               if ($this->iaScopeId !== null && !empty($criteria['ief_id'])) {
+
+                $validIef = DB::table('iefs')
+                    ->where('id', $criteria['ief_id'])
+                    ->where('ia_id', $this->iaScopeId)
+                    ->exists();
+            
+                if (!$validIef) {
+                    throw ValidationException::withMessages(['ief_id' => 'Cette IEF ne relève pas de votre IA.']);
+                }
+            }
+               // 2. Présence d'au moins un filtre
+               $hasFilter = !empty($criteria['ia_id'])
+                   || !empty($criteria['statuts_enseignant_id'])
+                   || !empty($criteria['corps_id'])
+                   || !empty($criteria['period_id'])
+                   || !empty($criteria['annee_academique_id'])
+                   || !empty($criteria['ief_id'])
                    || !empty($criteria['matricule']);
-   
-               if (!$hasFilter && $this->iaScopeId === null) {
+           
+               if ($this->iaScopeId !== null
+                   ? empty($criteria['search'])
+                   : !$hasFilter) {
                    return [
-                       'columns' => [], 'rows' => [], 'actions' => [], 
+                       'columns' => [], 'rows' => [], 'actions' => [],
                        'stats' => [
                            $this->stat('Enseignants', 0, 'En attente de filtre', 'EN', 'green'),
                            $this->stat('Bulletins générés', 0, '-', 'BS', 'blue'),
-                           $this->stat('Masse brute', '0', '-', 'BR', 'yellow'),
-                           $this->stat('Net à payer', '0', '-', 'SP', 'red'),
+                           $this->stat('Masse brute', '0 FCFA', '-', 'BR', 'yellow'),
+                           $this->stat('Net à payer', '0 FCFA', '-', 'SP', 'red'),
                        ],
-                       'notice' => 'Veuillez sélectionner un Corps, une Année académique, une Période ou une IA, puis cliquez sur "Générer la paie" pour afficher la liste.',
+                       'notice' => 'Sélectionnez un Corps, une Année académique, une Période, une IA, un IEF ou un Matricule, puis cliquez sur « Consulter ».',
                    ];
                }
-   
-               // 2. Filtrage des enseignants
-               $filteredTeachers = $teachers->filter(function (Enseignant $teacher) use ($criteria): bool {
-                   if (filled($criteria['statuts_enseignant_id'] ?? null) && (int) $teacher->statut_enseignant_id !== (int) $criteria['statuts_enseignant_id']) return false;
-                   if (filled($criteria['ia_id'] ?? null) && (int) $teacher->ia_id !== (int) $criteria['ia_id']) return false;
-                   if (filled($criteria['ief_id'] ?? null) && (int) $teacher->ief_id !== (int) $criteria['ief_id']) return false;
-                   if (filled($criteria['matricule'] ?? null) && ! str_contains($this->normalizeMatricule($teacher->matricule), $this->normalizeMatricule((string) $criteria['matricule']))) return false;
+           
+               // 3. Filtre Corps
+               $corpsFilter = $criteria['statuts_enseignant_id']
+                   ?? $criteria['corps_id']
+                   ?? null;
+
+
+                   logger()->info('CONTROLE FILTRE VACATAIRE', [
+                    'criteria_recus' => $criteria,
+                    'corpsFilter' => $corpsFilter,
+                    'nombre_enseignants_avant_filtre' => $teachers->count(),
+                
+                    'enseignants' => $teachers->map(function ($teacher) {
+                        return [
+                            'id' => $teacher->id,
+                            'nom' => $teacher->nom,
+                            'prenom' => $teacher->prenom,
+                            'statut_enseignant_id' => $teacher->statut_enseignant_id,
+                            'ia_id' => $teacher->ia_id,
+                        ];
+                    })->values()->toArray(),
+                ]);
+           
+               // 4. Filtre Année académique → restreint les bulletins aux périodes de cette année
+               $academicYearFilter = $criteria['annee_academique_id'] ?? null;
+               $payslips = $this->payslips($period)->keyBy('enseignant_id');
+               if (!empty($academicYearFilter)) {
+                   $allowedPeriodIds = $this->periodIdsForAcademicYear((int) $academicYearFilter);
+                   $payslips = $payslips->filter(
+                       fn (PayrollPayslip $payslip): bool => in_array((int) $payslip->payroll_period_id, $allowedPeriodIds, true)
+                   );
+               }
+           
+               // 5. Filtrage des enseignants (Corps, IA, IEF, Matricule)
+               $filteredTeachers = $teachers->filter(function (Enseignant $teacher) use ($criteria, $corpsFilter): bool {
+                   if (filled($corpsFilter)) {
+                       $teacherCorpsId = $teacher->getAttribute('statut_enseignant_id')
+                           ?? $teacher->getAttribute('corps_id')
+                           ?? $teacher->getAttribute('corps_enseignant_id');
+                       if ((int) $teacherCorpsId !== (int) $corpsFilter) return false;
+                   }
+                   if (filled($criteria['ia_id'] ?? null) && $this->teacherIaId($teacher) !== (int) $criteria['ia_id']) return false;
+                   if (filled($criteria['ief_id'] ?? null) && $this->teacherIefId($teacher) !== (int) $criteria['ief_id']) return false;
+                   if (filled($criteria['matricule'] ?? null)
+                       && !str_contains(
+                           $this->normalizeMatricule($teacher->matricule),
+                           $this->normalizeMatricule((string) $criteria['matricule'])
+                       )) return false;
                    return true;
                });
-   
-               // 3. Récupération des bulletins
-               $payslips = $this->payslips($period)->keyBy('enseignant_id');
-   
-               // 4. RÉCUPÉRATION DES RUBRIQUES DE PAIE (montants par défaut)
-               $rubriques = collect();
-               if (\Illuminate\Support\Facades\Schema::hasTable('rubrique_paies')) {
-                   $rubriques = \Illuminate\Support\Facades\DB::table('rubrique_paies')
-                       ->where('est_actif', 1)
-                       ->get()
-                       ->keyBy('code');
-               }
-   
-               // 5. RÉCUPÉRATION DES COMPTES BANCAIRES
+
+
+               logger()->info('RESULTAT FILTRE VACATAIRE', [
+                'nombre_apres_filtre' => $filteredTeachers->count(),
+                'enseignants_retenus' => $filteredTeachers->map(fn ($teacher) => [
+                    'id' => $teacher->id,
+                    'nom' => $teacher->nom,
+                    'prenom' => $teacher->prenom,
+                    'statut_enseignant_id' => $teacher->statut_enseignant_id,
+                ])->values()->toArray(),
+            ]);
+           
+               // 6. Comptes bancaires
                $bankAccounts = collect();
-               if (\Illuminate\Support\Facades\Schema::hasTable('comptes_bancaires_enseignants')) {
-                   $bankAccounts = \Illuminate\Support\Facades\DB::table('comptes_bancaires_enseignants')
+               if (Schema::hasTable('comptes_bancaires_enseignants') && $filteredTeachers->isNotEmpty()) {
+                   $bankAccounts = DB::table('comptes_bancaires_enseignants')
                        ->whereIn('enseignant_id', $filteredTeachers->pluck('id'))
                        ->get()
                        ->keyBy('enseignant_id');
                }
-   
-               // 6. RÉCUPÉRATION DES ÉTABLISSEMENTS
-               $etablissements = collect();
-               if (\Illuminate\Support\Facades\Schema::hasTable('lieu_de_services')) {
-                   $etablissements = \Illuminate\Support\Facades\DB::table('lieu_de_services')
-                       ->whereIn('id', $filteredTeachers->pluck('lieu_service_id')->filter())
-                       ->pluck('libelle', 'id');
-               }
-   
-               // 7. Construction des lignes
-               $rows = $filteredTeachers->values()->map(function (Enseignant $teacher, $index) use ($payslips, $rubriques, $bankAccounts, $etablissements): array {
+           
+               // 7. Construction des lignes (tous les enseignants filtrés sont affichés)
+               $rows = $filteredTeachers->values()->map(function (Enseignant $teacher, int $index) use ($payslips, $bankAccounts): array {
                    $payslip = $payslips->get($teacher->id);
-                   
-                   $amount = function (array $codes) use ($payslip, $rubriques) {
-                       if ($payslip) {
-                           $val = $this->salaryLineAmount($payslip, $codes);
-                           return $val > 0 ? number_format($val, 0, ',', ' ') : '—';
-                       }
-                       $total = 0;
-                       foreach ($codes as $code) {
-                           $rubrique = $rubriques->get($code);
-                           if ($rubrique) {
-                               $total += (float) $rubrique->montant;
-                           }
-                       }
-                       return $total > 0 ? number_format($total, 0, ',', ' ') : '—';
-                   };
-   
-                   $salaireBrut = $teacher->salaire_brut ?? 0;
-                   $salaire = $payslip 
-                       ? number_format($payslip->gross_amount ?? 0, 0, ',', ' ') 
-                       : number_format($salaireBrut, 0, ',', ' ');
-   
+                   $amount = fn (array $codes): string => $payslip
+                       ? $this->money($this->salaryLineAmount($payslip, $codes))
+                       : '—';
+           
+                   $salaireBrut = (float) ($teacher->salaire_brut ?? 0);
+                   $salaire = $this->money($salaireBrut);
                    $account = $bankAccounts->get($teacher->id);
-                   $etabLabel = $etablissements->get($teacher->lieu_service_id) ?? '—';
-   
+           
                    return [
                        $index + 1,
                        $teacher->prenom ?? '—',
@@ -1697,7 +1760,7 @@ private function notGeneratedReport(?PayrollPeriod $period): array
                        $amount(['PRIME_SPECIALE']),
                        $amount(['INDEMNITE_COMPENSATION', 'IRD', 'AUGMENTATION_IRD']),
                        $amount(['AUGMENTATION']),
-                       $payslip ? number_format($payslip->gross_amount ?? 0, 0, ',', ' ') : $salaire,
+                       $payslip ? $this->money($payslip->gross_amount) : $salaire,
                        $amount(['TABASKI_AVANCE']),
                        $amount(['RAPPEL', 'RAPPEL_GAIN']),
                        $amount(['REGULARISATION']),
@@ -1716,47 +1779,55 @@ private function notGeneratedReport(?PayrollPeriod $period): array
                        $amount(['COFFRET']),
                        $amount(['SOLINK']),
                        $amount(['INDEMNITE']),
-                       $payslip ? number_format($payslip->net_amount ?? 0, 0, ',', ' ') : $salaire,
-                       $account->numero_compte ?? ($teacher->numero_compte_bancaire ?? '—'),
+                       $payslip ? $this->money($payslip->net_amount) : $salaire,
+                       $account?->numero_compte ?? ($teacher->numero_compte_bancaire ?? '—'),
                        $teacher->statut ?? '—',
                        $teacher->nombre_femmes ?? '—',
                        $teacher->nombre_enfants ?? '—',
                        '—',
                        $teacher->categorie_id ?? '—',
-                       $etabLabel,
-                       $account->code_banque ?? ($teacher->code_banque ?? '—'),
-                       $account->code_guichet ?? ($teacher->code_guichet ?? '—'),
+                       $teacher->etablissement_id ?? '—',
+                       $account?->code_banque ?? ($teacher->code_banque ?? '—'),
+                       $account?->code_guichet ?? ($teacher->code_guichet ?? '—'),
                    ];
                });
-   
-               // Calcul des totaux globaux
-               $totalBrut = $payslips->isNotEmpty() 
-                   ? $payslips->sum('gross_amount') 
-                   : $filteredTeachers->sum('salaire_brut');
-   
-               $totalNet = $payslips->isNotEmpty() 
-                   ? $payslips->sum('net_amount') 
-                   : $filteredTeachers->sum('salaire_brut');
-   
+           
+               $payslips = $payslips->only($filteredTeachers->pluck('id')->all());
+               $totalBrut = (float) $payslips->sum('gross_amount');
+               $totalNet = (float) $payslips->sum('net_amount');
+           
+               // 8. Notice contextuelle
+               $noticeParts = [];
+               if (!empty($criteria['period_id'])) $noticeParts[] = 'Période : ' . ($period?->label ?? '—');
+               if (!empty($academicYearFilter) && Schema::hasTable('annee_academiques')) {
+                   $yearLabel = DB::table('annee_academiques')->where('id', $academicYearFilter)->value('libelle');
+                   if ($yearLabel) $noticeParts[] = 'Année : ' . $yearLabel;
+               }
+               if ($payslips->isEmpty()) $noticeParts[] = 'aucun bulletin généré — montants à "—"';
+           
                return [
                    'columns' => [
-                       'N° Ordre', 'Prénom(s)', 'Nom', 'Nb Part', 'Salaire brut', 'Prime spéciale', 'Idemn. Comp.', 'Augmentation', 
-                       'Montant Total', 'Avance tabaski', 'Rappel', 'Régularisation', 'Prime Scolaire', 'Ipres', 'Ipm', 'IR', 
-                       'Trimf', 'Check off', 'Oeuvre Sociale', 'Retenue', 'Retenue DMC', 'Retenue Tabaski', 'Autres retenues', 
-                       'Pension Alim.', 'Coffret', 'SOLINK', 'Indemnité', 'Salaire Net', 'COMPTE', 'SORTANT', 'NBEPOUSE', 
-                       'NBENFANTS', 'SYNDICAT', 'Categ.', 'Etab', 'NUMEROBANQUE', 'CODEGUICHET'
+                       'N° Ordre', 'Prénom(s)', 'Nom', 'Nb Part', 'Salaire brut', 'Prime spéciale', 'Idemn. Comp.', 'Augmentation',
+                       'Montant Total', 'Avance tabaski', 'Rappel', 'Régularisation', 'Prime Scolaire', 'Ipres', 'Ipm', 'IR',
+                       'Trimf', 'Check off', 'Oeuvre Sociale', 'Retenue', 'Retenue DMC', 'Retenue Tabaski', 'Autres retenues',
+                       'Pension Alim.', 'Coffret', 'SOLINK', 'Indemnité', 'Salaire Net', 'COMPTE', 'SORTANT', 'NBEPOUSE',
+                       'NBENFANTS', 'SYNDICAT', 'Categ.', 'Etab', 'NUMEROBANQUE', 'CODEGUICHET',
                    ],
                    'rows' => $rows,
                    'actions' => [],
                    'stats' => [
-                       $this->stat('Enseignants', $filteredTeachers->count(), 'Total', 'EN', 'green'),
+                       $this->stat('Enseignants', $filteredTeachers->count(), 'Total filtré', 'EN', 'green'),
                        $this->stat('Bulletins générés', $payslips->count(), $period?->label ?? 'Période', 'BS', 'blue'),
-                       $this->stat('Masse brute', number_format($totalBrut, 0, ',', ' ') . ' FCFA', 'Total des gains', 'BR', 'yellow'),
-                       $this->stat('Net à payer', number_format($totalNet, 0, ',', ' ') . ' FCFA', 'Total à verser', 'SP', 'red'),
+                       $this->stat('Masse brute', $this->money($totalBrut), 'Total des gains (bulletins)', 'BR', 'yellow'),
+                       $this->stat('Net à payer', $this->money($totalNet), 'Total à verser (bulletins)', 'SP', 'red'),
                    ],
                    'notice' => $filteredTeachers->isEmpty()
-                       ? 'Aucun enseignant ne correspond aux critères.'
-                       : sprintf('Résultats pour %s : %d enseignant(s).', $period?->label ?? 'la période', $filteredTeachers->count()),
+                       ? 'Aucun enseignant ne correspond aux critères sélectionnés.'
+                       : sprintf(
+                           'Résultats%s : %d enseignant(s).',
+                           $noticeParts ? ' (' . implode(' — ', $noticeParts) . ')' : '',
+                           $filteredTeachers->count()
+                       ),
                ];
            }
 }

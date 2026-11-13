@@ -4,6 +4,8 @@ namespace App\Http\Requests\Parametrage;
 
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use App\Models\Parametrage\LieuService;
+use Illuminate\Support\Str;
 
 class StoreLieuServiceRequest extends FormRequest
 {
@@ -16,7 +18,18 @@ class StoreLieuServiceRequest extends FormRequest
     {
         return [
             'telephone' => ['nullable', 'string', 'max:20'],
-            'libelle' => ['required', 'string', 'max:100'],
+            'libelle' => ['bail', 'required', 'string', 'max:100', function ($attribute, $value, $fail): void {
+                if (! $this->filled('ief_id')) return;
+                $current = $this->route('lieuService');
+                $currentId = $current instanceof LieuService ? $current->getKey() : $current;
+                $duplicate = LieuService::query()->where('ief_id', $this->input('ief_id'))
+                    ->when($currentId, fn ($query) => $query->whereKeyNot($currentId))
+                    ->get(['libelle'])
+                    ->contains(fn ($lieu) => $this->normalizeLabel($lieu->libelle) === $this->normalizeLabel($value));
+                if ($duplicate) {
+                    $fail('Un établissement portant ce libellé existe déjà dans cette IEF. Modifiez l’établissement existant au lieu de le créer à nouveau.');
+                }
+            }],
             'ia_id' => [
                 'required',
                 'integer',
@@ -46,8 +59,13 @@ class StoreLieuServiceRequest extends FormRequest
 
     protected function prepareForValidation(): void
     {
-        if ($this->has('libelle')) {
-            $this->merge(['libelle' => trim((string) $this->input('libelle'))]);
+        if (is_string($this->input('libelle'))) {
+            $this->merge(['libelle' => preg_replace('/\s+/u', ' ', trim($this->input('libelle')))]);
         }
+    }
+
+    private function normalizeLabel(string $label): string
+    {
+        return Str::lower(Str::ascii(preg_replace('/\s+/u', ' ', trim($label))));
     }
 }

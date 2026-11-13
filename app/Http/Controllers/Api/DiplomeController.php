@@ -53,6 +53,12 @@ class DiplomeController extends Controller
                 'per_page' => $diplomes->perPage(),
                 'total' => $diplomes->total(),
             ],
+            'stats' => [
+                'total' => Diplome::count(),
+                'categories' => Diplome::whereNotNull('categorie_id')->distinct()->count('categorie_id'),
+                'salaire_moyen' => (float) Diplome::avg('salaire_brut'),
+                'salaire_max' => (float) Diplome::max('salaire_brut'),
+            ],
         ]);
     }
 
