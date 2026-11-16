@@ -10,6 +10,9 @@ class UpdatePeriodePaieRequest extends StorePeriodePaieRequest
     {
         // On repart des règles du Store (code + libelle)
         $rules = parent::rules();
+        unset($rules['date_debut'], $rules['date_fin']);
+        $rules['date_debut'] = ['prohibited'];
+        $rules['date_fin'] = ['prohibited'];
 
         // On remplace uniquement la règle du code pour ignorer l'enregistrement courant
         $rules['code'] = [

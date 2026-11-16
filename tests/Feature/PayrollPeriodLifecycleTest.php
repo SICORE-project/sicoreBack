@@ -23,7 +23,7 @@ class PayrollPeriodLifecycleTest extends TestCase
     {
         parent::setUp();
         Schema::create('annee_academiques', function (Blueprint $t) { $t->id(); $t->date('date_debut'); $t->date('date_fin'); $t->boolean('est_active')->default(true); $t->boolean('est_cloturee')->default(false); });
-        Schema::create('periode_de_paies', function (Blueprint $t) { $t->id(); $t->string('code'); $t->string('libelle'); $t->timestamps(); });
+        Schema::create('periode_de_paies', function (Blueprint $t) { $t->id(); $t->string('code'); $t->string('libelle'); $t->date('date_debut')->nullable(); $t->date('date_fin')->nullable(); $t->integer('payroll_period_id')->nullable(); $t->timestamps(); });
         Schema::create('payroll_periods', function (Blueprint $t) {
             $t->id(); $t->string('code')->unique(); $t->string('label'); $t->string('status'); $t->date('start_date'); $t->date('end_date');
             $t->integer('version')->default(1); $t->integer('closed_by')->nullable(); $t->dateTime('closed_at')->nullable(); $t->timestamps();
@@ -105,5 +105,22 @@ class PayrollPeriodLifecycleTest extends TestCase
     {
         $route = collect(app('router')->getRoutes())->first(fn ($route) => $route->uri() === 'api/payroll/actions/{action}');
         $this->assertStringNotContainsString('generate-payslips',$route->wheres['action']);
+    }
+
+    public function test_creation_dates_are_saved_on_cycle_and_linked_to_reference(): void
+    {
+        $reference = PeriodePaie::create(['code' => '2026-11', 'libelle' => 'Novembre', 'date_debut' => '2026-11-02', 'date_fin' => '2026-11-28']);
+        $this->mock(PayrollCalculationService::class)->shouldReceive('calculate')->once()->andReturn(new PayrollRun());
+        $period = app(PayrollPeriodLifecycle::class)->open($reference, $this->actor(), Request::create('/'));
+        $this->assertSame('2026-11-02', $period->start_date->toDateString());
+        $this->assertSame('2026-11-28', $period->end_date->toDateString());
+        $this->assertEquals($period->id, $reference->fresh()->payroll_period_id);
+    }
+
+    public function test_dates_must_match_month_code(): void
+    {
+        $reference = new PeriodePaie(['code' => '2026-11', 'libelle' => 'Novembre', 'date_debut' => '2026-11-01', 'date_fin' => '2026-12-01']);
+        $this->expectException(ValidationException::class);
+        app(PayrollPeriodLifecycle::class)->date($reference);
     }
 }

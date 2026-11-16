@@ -33,11 +33,23 @@ class PeriodePaieController extends Controller
             ->paginate((int) ($filters['per_page'] ?? 10))
             ->withQueryString();
 
-        return response()->json(['data' => $periodes, 'payroll_periods' => \App\Models\PayrollPeriod::orderByDesc('start_date')->get(['id', 'code', 'label', 'status'])]);
+        $cycles = \App\Models\PayrollPeriod::orderByDesc('start_date')->get(['id', 'code', 'label', 'status', 'start_date', 'end_date', 'closed_at']);
+        $periodes->getCollection()->each(function ($reference) use ($cycles) {
+            $month = app(\App\Services\PayrollPeriodCatalogue::class)->month($reference);
+            $cycle = $reference->payroll_period_id ? $cycles->firstWhere('id', $reference->payroll_period_id)
+                : $cycles->first(fn ($cycle) => $cycle->code === $reference->code || (! preg_match('/^\d{4}-/', $reference->code) && (int) substr($cycle->code, 5, 2) === $month));
+            $reference->setAttribute('cycle_status', $cycle?->status ?? 'not_opened');
+            $reference->setAttribute('cycle_closed_at', $cycle?->closed_at?->toIso8601String());
+            $reference->setAttribute('display_start_date', $reference->date_debut ?: $cycle?->start_date?->toDateString());
+            $reference->setAttribute('display_end_date', $reference->date_fin ?: $cycle?->end_date?->toDateString());
+            $reference->setAttribute('auto_close_enabled', $reference->payroll_period_id !== null && $reference->date_fin !== null);
+        });
+        return response()->json(['data' => $periodes, 'payroll_periods' => $cycles]);
     }
 
     public function store(StorePeriodePaieRequest $request): JsonResponse
     {
+        app(\App\Services\PayrollPeriodAutoClosure::class)->run();
         $periode = \Illuminate\Support\Facades\DB::transaction(function () use ($request) {
             $reference = PeriodePaie::query()->create($request->validated());
             app(\App\Services\PayrollPeriodLifecycle::class)->open($reference, $request->user(), $request);
@@ -59,6 +71,7 @@ class PeriodePaieController extends Controller
 
     public function open(Request $request, int $id): JsonResponse
     {
+        app(\App\Services\PayrollPeriodAutoClosure::class)->run();
         $period = app(\App\Services\PayrollPeriodLifecycle::class)->open(PeriodePaie::findOrFail($id), $request->user(), $request);
         return response()->json(['message' => 'Période ouverte : toutes les IA ont été calculées.', 'data' => $period]);
     }
@@ -86,6 +99,9 @@ class PeriodePaieController extends Controller
     public function destroy(int $id): JsonResponse
     {
         $periode = PeriodePaie::query()->findOrFail($id);
+        if ($periode->payroll_period_id) {
+            return response()->json(['message' => 'Cette période possède un historique de paie et une clôture programmée ; elle ne peut pas être supprimée.'], 409);
+        }
 
         $message = Rattachements::message("la période « {$periode->libelle} »", [
             [Rattachements::compter('heures_supplementaires', 'periode_paie_id', $id), 'heure supplémentaire', 'heures supplémentaires'],

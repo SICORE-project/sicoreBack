@@ -16,6 +16,19 @@ class PayrollPeriodLifecycle
 {
     public function date(object $reference): CarbonImmutable
     {
+        if (! empty($reference->date_debut) && ! empty($reference->date_fin)) {
+            $start = CarbonImmutable::parse($reference->date_debut);
+            $end = CarbonImmutable::parse($reference->date_fin);
+            $month = app(PayrollPeriodCatalogue::class)->month($reference);
+            if ($start->greaterThan($end) || $start->format('Y-m') !== $end->format('Y-m') || $month !== $start->month
+                || (preg_match('/^\d{4}-\d{2}$/', $reference->code) && $reference->code !== $start->format('Y-m'))) {
+                throw ValidationException::withMessages(['date_fin' => 'Les dates doivent appartenir au même mois et correspondre au code de la période.']);
+            }
+            if (! DB::table('annee_academiques')->where('est_cloturee', false)->whereDate('date_debut', '<=', $start->toDateString())->whereDate('date_fin', '>=', $end->toDateString())->exists()) {
+                throw ValidationException::withMessages(['date_debut' => 'Les dates doivent être comprises dans une année académique non clôturée.']);
+            }
+            return $start;
+        }
         $month = app(PayrollPeriodCatalogue::class)->month($reference);
         $explicit = preg_match('/^\d{4}-(0[1-9]|1[0-2])$/', $reference->code) === 1;
         $years = DB::table('annee_academiques')->where('est_cloturee', false)->get();
@@ -53,7 +66,10 @@ class PayrollPeriodLifecycle
             }
             $label = preg_match('/\b'.$date->year.'\b/', $reference->libelle) ? $reference->libelle : $reference->libelle.' '.$date->year;
             $period = PayrollPeriod::create(['code' => $code, 'label' => $label,
-                'start_date' => $date->toDateString(), 'end_date' => $date->endOfMonth()->toDateString(), 'status' => 'open']);
+                'start_date' => $date->toDateString(), 'end_date' => $reference->date_fin ?: $date->endOfMonth()->toDateString(), 'status' => 'open']);
+            if (! empty($reference->date_fin)) {
+                $reference->forceFill(['payroll_period_id' => $period->id])->save();
+            }
             $statuses = DB::table('statuts_enseignant')->whereIn('code', ['PC', 'VAC'])
                 ->orWhereRaw('LOWER(libelle) LIKE ?', ['%contractuel%'])->orWhereRaw('LOWER(libelle) LIKE ?', ['%vacataire%'])->pluck('id');
             $ids = Enseignant::where('est_actif', true)->whereNull('deleted_at')
