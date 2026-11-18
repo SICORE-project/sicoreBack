@@ -32,6 +32,8 @@ class IaController extends Controller
                 'agents' => (clone $teachers)->count(),
                 'fonctionnaires' => (clone $teachers)->where('type_engagement', 'fonctionnaire')->count(),
                 'non_fonctionnaires' => (clone $teachers)->whereIn('type_engagement', ['vacataire', 'contractuel'])->count(),
+                'contractuels' => (clone $teachers)->where('type_engagement', 'contractuel')->count(),
+                'vacataires' => (clone $teachers)->where('type_engagement', 'vacataire')->count(),
             ];
             foreach (['ief_id' => 'iefs', 'lieu_service_id' => 'lieu_de_services'] as $field => $table) {
                 $data[$table] = (clone $teachers)->leftJoin($table.' as ref', fn ($join) => $join->on('ref.id', '=', 'e.'.$field)->where('ref.ia_id', $id)->whereNull('ref.deleted_at'))
@@ -64,10 +66,12 @@ class IaController extends Controller
 
     public function teachers(Request $request)
     {
-        $data = $request->validate(['search' => ['nullable', 'string', 'max:100'], 'page' => ['nullable', 'integer', 'min:1'], 'ief_id' => ['nullable', 'integer'], 'lieu_service_id' => ['nullable', 'integer'], 'engagement' => ['nullable', 'in:non_fonctionnaires']]);
+        $data = $request->validate(['search' => ['nullable', 'string', 'max:100'], 'page' => ['nullable', 'integer', 'min:1'], 'ief_id' => ['nullable', 'integer'], 'lieu_service_id' => ['nullable', 'integer'], 'engagement' => ['nullable', 'in:non_fonctionnaires,contractuel,vacataire']]);
         $query = $this->scope->teachers($request->user());
         if (($data['engagement'] ?? null) === 'non_fonctionnaires') {
             $query->whereIn('e.type_engagement', ['contractuel', 'vacataire']);
+        } elseif (! empty($data['engagement'])) {
+            $query->where('e.type_engagement', $data['engagement']);
         }
         foreach (['ief_id', 'lieu_service_id'] as $field) {
             if (! empty($data[$field])) {
@@ -87,6 +91,9 @@ class IaController extends Controller
             'total' => (clone $scope)->count(),
             'en_activite' => (clone $scope)->where('e.statut', 'en_activite')->count(),
             'non_fonctionnaires' => (clone $scope)->whereIn('e.type_engagement', ['contractuel', 'vacataire'])->count(),
+            'fonctionnaires' => (clone $scope)->where('e.type_engagement', 'fonctionnaire')->count(),
+            'contractuels' => (clone $scope)->where('e.type_engagement', 'contractuel')->count(),
+            'vacataires' => (clone $scope)->where('e.type_engagement', 'vacataire')->count(),
             'ief' => (clone $scope)->whereNotNull('e.ief_id')->distinct()->count('e.ief_id'),
         ]]));
     }

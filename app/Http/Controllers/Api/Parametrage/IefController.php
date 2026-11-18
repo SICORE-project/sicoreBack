@@ -9,6 +9,7 @@ use App\Http\Requests\Parametrage\Ief\ChangeIefStatusRequest;
 use App\Http\Requests\Parametrage\Ief\RattacherIefIaRequest;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use App\Http\Resources\Parametrage\IefResource;
+use App\Models\Parametrage\LieuService;
 use App\Services\Parametrage\IefService;
 
 
@@ -38,6 +39,10 @@ class IefController extends Controller
         return IefResource::collection($iefs)
             ->additional([
                 'success' => true,
+                'stats' => [
+                    // Nombre d'établissements (lieux de service) rattachés à une IEF.
+                    'etablissements' => LieuService::whereHas('ief')->count(),
+                ],
             ]);
     }
 
