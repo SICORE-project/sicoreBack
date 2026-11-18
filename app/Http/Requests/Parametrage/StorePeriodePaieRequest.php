@@ -33,8 +33,6 @@ class StorePeriodePaieRequest extends FormRequest
                 Rule::unique('periode_de_paies', 'code'),
             ],
             'libelle' => ['required', 'string', 'max:100'],
-            'date_debut' => ['required', 'date_format:Y-m-d'],
-            'date_fin' => ['required', 'date_format:Y-m-d', 'after_or_equal:date_debut', 'after_or_equal:today'],
         ];
     }
 

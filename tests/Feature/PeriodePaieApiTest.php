@@ -58,7 +58,6 @@ class PeriodePaieApiTest extends TestCase
         $create = $this->postJson('/api/periodes-paie', [
             'code' => ' paie-08 ',
             'libelle' => ' Août 2026 ',
-            'date_debut' => '2026-08-01', 'date_fin' => '2026-08-31',
         ])->assertCreated()
             ->assertJsonPath('data.code', 'PAIE-08')
             ->assertJsonPath('data.libelle', 'Août 2026');
@@ -89,7 +88,6 @@ class PeriodePaieApiTest extends TestCase
         $this->postJson('/api/periodes-paie', [
             'code' => 'PAIE-08',
             'libelle' => 'Août 2026',
-            'date_debut' => '2026-08-01', 'date_fin' => '2026-08-31',
         ])->assertCreated();
 
         $this->postJson('/api/periodes-paie', [

@@ -58,13 +58,15 @@ class PayrollPeriodLifecycleTest extends TestCase
         $this->assertSame('calculated',$period->status);
     }
 
-    public function test_unclosed_period_blocks_next_opening_without_calling_calculator(): void
+    public function test_registering_next_month_does_not_prematurely_close_previous_month(): void
     {
-        $this->existing('calculated');
-        $this->mock(PayrollCalculationService::class)->shouldNotReceive('calculate');
-        try { app(PayrollPeriodLifecycle::class)->open($this->reference(),$this->actor(),Request::create('/')); $this->fail('Opening allowed'); }
-        catch (ValidationException $e) { $this->assertStringContainsString('Clôturez',$e->getMessage()); }
-        $this->assertSame(1,PayrollPeriod::count());
+        $previous = $this->existing('open');
+        $this->mock(PayrollCalculationService::class)->shouldReceive('calculate')->once()->andReturnUsing(function () use ($previous) {
+            $this->assertSame('open', $previous->fresh()->status);
+            return new PayrollRun();
+        });
+        app(PayrollPeriodLifecycle::class)->open($this->reference(),$this->actor(),Request::create('/'));
+        $this->assertSame(2,PayrollPeriod::count());
     }
 
     public function test_calculation_failure_rolls_back_reference_period_and_partial_data(): void
@@ -106,6 +108,36 @@ class PayrollPeriodLifecycleTest extends TestCase
     {
         $route = collect(app('router')->getRoutes())->first(fn ($route) => $route->uri() === 'api/payroll/actions/{action}');
         $this->assertStringNotContainsString('generate-payslips',$route->wheres['action']);
+    }
+
+    public function test_code_and_label_infer_full_month_without_user_dates(): void
+    {
+        $this->mock(PayrollCalculationService::class)->shouldReceive('calculate')->once()->andReturn(new PayrollRun());
+        $reference = $this->reference();
+        $period = app(PayrollPeriodLifecycle::class)->open($reference, $this->actor(), Request::create('/'));
+        $this->assertSame('2026-11-01', $period->start_date->toDateString());
+        $this->assertSame('2026-11-30', $period->end_date->toDateString());
+        $this->assertEquals($period->id, $reference->fresh()->payroll_period_id);
+    }
+
+    public function test_existing_month_alias_does_not_recalculate_or_reopen_history(): void
+    {
+        $existing = $this->existing('closed');
+        $this->mock(PayrollCalculationService::class)->shouldNotReceive('calculate');
+        $reference = PeriodePaie::create(['code' => 'OCT', 'libelle' => 'Octobre']);
+        $period = app(PayrollPeriodLifecycle::class)->open($reference, $this->actor(), Request::create('/'));
+        $this->assertSame($existing->id, $period->id);
+        $this->assertSame('closed', $period->status);
+        $this->assertSame(1, PayrollPeriod::count());
+    }
+
+    public function test_next_month_failure_preserves_previous_month(): void
+    {
+        $previous = $this->existing('open');
+        $this->mock(PayrollCalculationService::class)->shouldReceive('calculate')->once()->andThrow(new \RuntimeException('Dossier incomplet'));
+        try { app(PayrollPeriodLifecycle::class)->open($this->reference(), $this->actor(), Request::create('/')); $this->fail('Failed calculation ignored'); }
+        catch (\RuntimeException $e) { $this->assertSame('open', $previous->fresh()->status); }
+        $this->assertSame(1, PayrollPeriod::count());
     }
 
     public function test_creation_dates_are_saved_on_cycle_and_linked_to_reference(): void

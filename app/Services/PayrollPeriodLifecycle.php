@@ -55,21 +55,20 @@ class PayrollPeriodLifecycle
         return DB::transaction(function () use ($reference, $actor, $request) {
             // Shared lock serializes competing openings, including different months.
             DB::table('annee_academiques')->orderBy('id')->lockForUpdate()->get();
-            $active = PayrollPeriod::where('status', '!=', PayrollPeriod::STATUS_CLOSED)->lockForUpdate()->get();
-            if ($active->isNotEmpty()) {
-                throw ValidationException::withMessages(['code' => 'Clôturez d’abord les périodes en cours : '.$active->pluck('label')->implode(', ').'.']);
-            }
             $date = $this->date($reference);
             $code = $date->format('Y-m');
-            if (PayrollPeriod::where('code', $code)->exists()) {
-                throw ValidationException::withMessages(['code' => 'Cette période a déjà été traitée. Son historique reste consultable ; elle ne peut pas être rouverte.']);
+            $existing = PayrollPeriod::where('code', $code)->lockForUpdate()->first();
+            if ($existing) {
+                // A catalogue alias must never recalculate or reopen historical payroll.
+                return $existing;
             }
+            // Like the main catalogue, months can be registered in any order.
+            // A future reference must not prematurely freeze another month's payroll.
             $label = preg_match('/\b'.$date->year.'\b/', $reference->libelle) ? $reference->libelle : $reference->libelle.' '.$date->year;
             $period = PayrollPeriod::create(['code' => $code, 'label' => $label,
                 'start_date' => $date->toDateString(), 'end_date' => $reference->date_fin ?: $date->endOfMonth()->toDateString(), 'status' => 'open']);
-            if (! empty($reference->date_fin)) {
-                $reference->forceFill(['payroll_period_id' => $period->id])->save();
-            }
+            $reference->forceFill(['payroll_period_id' => $period->id,
+                'date_debut' => $date->toDateString(), 'date_fin' => $period->end_date->toDateString()])->save();
             $statuses = DB::table('statuts_enseignant')->whereIn('code', ['PC', 'VAC'])
                 ->orWhereRaw('LOWER(libelle) LIKE ?', ['%contractuel%'])->orWhereRaw('LOWER(libelle) LIKE ?', ['%vacataire%'])->pluck('id');
             $ids = Enseignant::where('est_actif', true)->whereNull('deleted_at')

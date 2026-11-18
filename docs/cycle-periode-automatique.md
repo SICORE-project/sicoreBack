@@ -1,5 +1,8 @@
 # Ouverture et calcul automatiques des périodes
 
+> Note historique : la présentation et l'ouverture ont été simplifiées depuis.
+> Voir `referentiel-periodes-main.md` pour le fonctionnement actuel.
+
 Le point d'entrée est Paramétrage → Périodes de paie. La création du catalogue et
 le calcul des enseignants PC/VAC actifs de toutes les IA sont dans une même
 transaction. Les dossiers administratifs et le moteur financier existant sont

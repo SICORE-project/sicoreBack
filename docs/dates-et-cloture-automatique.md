@@ -1,5 +1,8 @@
 # Dates et clôture des périodes de paie
 
+> Note historique : les dates ne sont plus demandées dans le formulaire ; elles
+> sont déterminées en interne. Voir `referentiel-periodes-main.md`.
+
 La création exige date_debut et date_fin au format AAAA-MM-JJ. Les dates doivent
 appartenir au même mois, correspondre au code de la période, être comprises dans
 une année académique non clôturée et respecter début <= fin. La date de fin ne

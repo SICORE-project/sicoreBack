@@ -688,7 +688,7 @@ class PayrollPageService
             'columns' => ['Référence', 'Mois du bulletin', 'Matricule', 'Enseignant', 'Brut', 'Retenues', 'Net', 'Version', 'Actions'],
             'rows' => $rows,
             'actions' => [$this->exportAction()],
-            'notice' => 'Les bulletins sont calculés automatiquement lors de l’ouverture de la période dans Paramétrage.',
+            'notice' => 'Les bulletins des mois enregistrés dans Paramétrage sont disponibles à la consultation.',
         ];
     }
     /** @return array<string, mixed> */
@@ -1333,12 +1333,7 @@ private function notGeneratedReport(?PayrollPeriod $period): array
             return 'Aucune période n’est configurée. Créez d’abord une période de paie.';
         }
 
-        return sprintf(
-            'Période active : %s (%s) — statut %s.',
-            $period->label,
-            $period->code,
-            mb_strtolower($this->statusLabel($period->status))
-        );
+        return 'Période : '.$period->label.'.';
     }
 
     private function teacherName(Enseignant $teacher): string
