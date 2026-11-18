@@ -46,7 +46,7 @@ class PayrollPageController extends Controller
         'paie-fermeture-periode' => 'paie.cloture.read',
     ];
 
-    private function page(Request $request, string $slug, array $filters): array
+    protected function page(Request $request, string $slug, array $filters): array
     {
         $user = $request->user();
     
@@ -152,6 +152,13 @@ class PayrollPageController extends Controller
         $validated = $this->validatedFilters($request, $slug);
         abort_if($request->user()?->hasRole('gestionnaire_ia') && ! $request->user()->hasPermission('paie.bulletins.export'), 403);
         $page = $this->page($request, $slug, $validated);
+
+        return $this->csvDownload($page, $slug);
+    }
+
+    /** Fichier CSV d'une page de paie (cellules neutralisées contre l'injection de formules). */
+    protected function csvDownload(array $page, string $slug): StreamedResponse
+    {
         $filename = $slug.'-'.($page['period']['code'] ?? now()->format('Y-m')).'.csv';
 
         return response()->streamDownload(function () use ($page): void {
@@ -178,8 +185,9 @@ class PayrollPageController extends Controller
     }
 
     /**
-     * Valide les critères communs puis, uniquement pour l'état des salaires,
-     * les options d'édition issues du formulaire métier historique.
+     * Valide les critères communs puis ceux de l'édition de la paie.
+     * L'état des salaires a ses propres filtres :
+     * App\Http\Controllers\Paie\EtatSalaire\EtatSalaireController.
      *
      * @return array<string, mixed>
      */
@@ -189,7 +197,7 @@ class PayrollPageController extends Controller
             'period_id' => ['nullable', 'integer', 'exists:payroll_periods,id'],
         ];
 
-        if (in_array($slug, ['paie-etat-salaires', 'paie-edition'], true)) {
+        if ($slug === 'paie-edition') {
             $rules += [
                 'academic_year_id' => ['nullable', 'integer'],
                 'annee_academique_id' => ['nullable', 'integer'],
