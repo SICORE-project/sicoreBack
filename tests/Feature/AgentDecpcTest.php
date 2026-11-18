@@ -126,6 +126,8 @@ class AgentDecpcTest extends TestCase
         (require database_path('migrations/2026_08_09_090000_create_type_indemnites_table.php'))->up();
         (require database_path('migrations/2026_08_09_090100_create_indemnites_table.php'))->up();
         (require database_path('migrations/2026_09_21_000003_create_decpc_audit_logs_table.php'))->up();
+        (require database_path('migrations/2026_08_09_100000_create_convocations_table.php'))->up();
+        (require database_path('migrations/2026_08_09_100500_create_piece_justificatives_table.php'))->up();
         DB::table('type_indemnites')->insert(['id' => 1, 'libelle' => 'Test', 'mode_calcul' => 'forfaitaire']);
         foreach ([1, 2] as $ia) {
             $beneficiary = User::create(['nom' => 'Beneficiaire', 'prenom' => 'Agent',
@@ -151,6 +153,35 @@ class AgentDecpcTest extends TestCase
             ->assertJsonCount(2, 'data.modules');
         $this->getJson('/api/me')->assertOk()->assertJsonPath('user.decpc.dashboard_path', '/decpc/dashboard');
         $this->assertDatabaseHas('decpc_audit_logs', ['route' => 'api/decpc/dashboard']);
+    }
+
+    public function test_dashboard_counts_convocations_and_pieces_for_both_decpc_profiles(): void
+    {
+        foreach (['brouillon', 'envoyee', 'envoyee'] as $statut) {
+            DB::table('convocations')->insert(['date_emission' => '2026-11-01', 'objet' => 'Examen', 'statut' => $statut, 'utilisateur_id' => $this->agent->id]);
+        }
+        foreach (['depose', 'valide', 'rejete', 'depose'] as $statut) {
+            DB::table('piece_justificatives')->insert(['type' => 'service_fait', 'statut' => $statut, 'convocation_id' => 1]);
+        }
+
+        $this->getJson('/api/decpc/dashboard')->assertOk()
+            ->assertJsonPath('data.convocations.total', 3)
+            ->assertJsonPath('data.convocations.envoyees', 2)
+            ->assertJsonPath('data.convocations.brouillons', 1)
+            ->assertJsonCount(3, 'data.convocations.dernieres')
+            ->assertJsonPath('data.pieces.a_verifier', 2)
+            ->assertJsonPath('data.pieces.rejetees', 1)
+            ->assertJsonPath('data.indemnites_par_type.0.libelle', 'Test');
+
+        $decpc = Role::find(DB::table('roles')->insertGetId(['nom' => 'DECPC', 'slug' => 'decpc', 'type_role_id' => DB::table('type_roles')->value('id'), 'est_actif' => true]));
+        $decpc->permissions()->sync(Permission::where('slug', 'indemnites.read')->pluck('id')->all());
+        $this->agent->update(['role_id' => $decpc->id]);
+        Sanctum::actingAs($this->agent->fresh(), ['*']);
+        $this->getJson('/api/decpc/dashboard')->assertOk()->assertJsonPath('data.convocations.total', 3);
+
+        $decpc->permissions()->detach();
+        Sanctum::actingAs($this->agent->fresh(), ['*']);
+        $this->getJson('/api/decpc/dashboard')->assertOk()->assertJsonPath('data.convocations', null)->assertJsonPath('data.pieces', null);
     }
 
     public function test_lists_and_direct_urls_cannot_escape_scope(): void
