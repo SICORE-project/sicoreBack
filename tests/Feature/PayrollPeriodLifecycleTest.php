@@ -39,6 +39,7 @@ class PayrollPeriodLifecycleTest extends TestCase
             DB::table('enseignants')->insert(['id' => $i+1,'statut_enseignant_id' => $statut,'ia_id' => $ia,'est_actif' => $active]);
         }
         $this->mock(PayrollAuditService::class)->shouldReceive('log')->zeroOrMoreTimes();
+        $this->mock(\App\Services\PayrollTabaskiSchedule::class)->shouldReceive('materialize')->zeroOrMoreTimes();
     }
 
     private function actor(): User { return new User(['id' => 1]); }

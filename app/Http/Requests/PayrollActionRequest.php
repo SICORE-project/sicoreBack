@@ -82,7 +82,7 @@ class PayrollActionRequest extends FormRequest
                     'integer',
                     $this->activeTeacherRule(),
                 ],
-                'code' => ['required', 'string', 'max:50', 'regex:/^[A-Z0-9_]+$/'],
+                'code' => ['required', 'string', 'max:50', 'regex:/^[A-Z0-9_]+$/', Rule::notIn(['TABASKI_AVANCE', 'TABASKI_RETENUE'])],
                 'label' => ['required', 'string', 'max:150'],
                 'category' => ['required', Rule::in(['earning', 'deduction', 'contribution'])],
                 'amount' => ['required', 'numeric', 'gt:0', 'max:999999999999.99'],
@@ -154,17 +154,14 @@ class PayrollActionRequest extends FormRequest
             ],
             'ia_ids' => ['required', 'array', 'min:1'],
             'ia_ids.*' => ['required', 'integer', 'distinct', 'exists:ias,id'],
-            'annee_academique_id' => ['required', 'integer', 'exists:annee_academiques,id'],
-            'amount' => ['required', 'numeric', 'gt:0', 'max:999999999999.99'],
+            'ief_id' => ['nullable', 'integer', Rule::exists('iefs', 'id')->whereIn('ia_id', (array) $this->input('ia_ids', []))],
+            'matricule' => ['nullable', 'string', 'max:100'],
+            'start_month' => ['required', 'date_format:Y-m'],
+            'amount' => ['sometimes', 'numeric', 'in:'.($deduction ? '10000' : '100000')],
+            'months' => ['prohibited'],
+            'month' => ['prohibited'],
+            'annee_academique_id' => ['prohibited'],
         ];
-
-        if ($deduction) {
-            $rules['months'] = ['required', 'array', 'size:10'];
-            $rules['months.*'] = ['required', 'integer', 'distinct', 'between:1,12'];
-        } else {
-            $rules['month'] = ['required', 'integer', 'between:1,12'];
-        }
-
         return $rules;
     }
 

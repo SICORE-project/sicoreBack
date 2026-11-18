@@ -76,6 +76,7 @@ class PayrollPeriodLifecycle
                 ->where(function ($q) use ($statuses) { $q->whereIn('statut_enseignant_id', $statuses)->orWhereIn('type_engagement', ['contractuel', 'vacataire']); })
                 ->orderBy('id')->pluck('id')->all();
             if ($ids === []) throw ValidationException::withMessages(['code' => 'Aucun enseignant PC/VAC actif disponible pour le calcul national.']);
+            app(PayrollTabaskiSchedule::class)->materialize($period, $ids, $actor);
             $run = app(PayrollCalculationService::class)->calculate($period, $actor, $ids);
             app(PayrollAuditService::class)->log('period.opened_and_calculated', $period, null, $run->toArray(), $actor, $request, null);
             return $period->fresh();

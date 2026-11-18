@@ -165,12 +165,11 @@ class PayrollPageService
             ->get();
 
         $report = $this->report($slug, $period, $teachers, $criteria);
-        if ($periods->isEmpty()) {
+        if ($periods->isEmpty() && ! in_array($slug, ['paie-avance-tabaski', 'paie-retenue-tabaski'], true)) {
             $report['notice'] = 'Renseignez les périodes de paie dans Paramétrage (code 01 à 12, nom du mois ou AAAA-MM), puis une année académique avec ses dates. Les mois seront disponibles ici automatiquement.';
         }
         if (in_array($slug, ['paie-avance-tabaski', 'paie-retenue-tabaski'], true)) {
             $missingReferences = collect([
-                $academicYears->isEmpty() ? 'une année académique' : null,
                 $teachingCorps->isEmpty() ? 'un corps enseignant' : null,
                 $academicInspections->isEmpty() ? 'une IA' : null,
             ])->filter()->values();
@@ -245,6 +244,7 @@ class PayrollPageService
             'filters' => $this->filters($periods, $period, $slug),
             'actions' => $report['actions'] ?? $this->reportActions($slug, $period),
             'input_records' => $report['input_records'] ?? [],
+            'tabaski_beneficiaries' => $report['tabaski_beneficiaries'] ?? [],
             'notice' => $report['notice'] ?? $this->periodNotice($period),
         ];
     }
@@ -370,106 +370,7 @@ class PayrollPageService
         $isTabaski = in_array($code, ['TABASKI_AVANCE', 'TABASKI_RETENUE'], true);
 
         if ($isTabaski) {
-            // Les formateurs proviennent de l'Administration. Les lignes Tabaski
-            // peuvent concerner plusieurs mois : aucun filtre de période caché.
-            $items = PayrollElement::query()
-                ->with('period')
-                ->where('code', $code)
-                ->whereIn('enseignant_id', $teachers->pluck('id'))
-                ->latest('updated_at')
-                ->get();
-            $itemsByTeacher = $items->groupBy('enseignant_id');
-            $corps = DB::table('corps_enseignant')->get(['id', 'code', 'libelle'])->keyBy('id');
-            $ias = ias::query()->pluck('libelle', 'id');
-            $iefs = iefs::query()->pluck('libelle', 'id');
-            $rows = $teachers->flatMap(function (Enseignant $teacher) use ($itemsByTeacher, $corps, $ias, $iefs): Collection {
-                $teacherItems = $itemsByTeacher->get($teacher->id, collect());
-                $baseCorpsId = $teacher->getAttribute('corps_id') ?? $teacher->getAttribute('corps_enseignant_id');
-                $baseIaId = $this->teacherIaId($teacher);
-                $baseIefId = $this->teacherIefId($teacher);
-
-                $rowFor = function (?PayrollElement $item) use ($teacher, $corps, $ias, $iefs, $baseCorpsId, $baseIaId, $baseIefId): array {
-                    $corpsId = $item?->application_corps_id ?? $baseCorpsId;
-                    $corpsData = $corps->get((int) $corpsId);
-                    $corpsLabel = $corpsData
-                        ? $corpsData->code.' — '.$corpsData->libelle
-                        : 'Non renseigné';
-                    $iaId = $item?->application_ia_id ?? $baseIaId;
-                    $iefId = $item?->application_ief_id ?? $baseIefId;
-                    $hierarchy = ($ias->get((int) $iaId) ?: 'IA non renseignée')
-                        .' / '.($iefs->get((int) $iefId) ?: 'IEF non renseignée');
-
-                    return [
-                        $this->teacherName($teacher),
-                        $teacher->matricule ?: '—',
-                        $corpsLabel,
-                        $hierarchy,
-                        $item?->academic_year ?: '—',
-                        $item?->period?->label ?: '—',
-                        $item ? $this->money($item->amount) : '—',
-                        $item ? ($item->application_scope === 'collective' ? 'Collective' : 'Individuelle') : '—',
-                        $this->statusCell($item ? ($item->is_exempt ? 'exempt' : $item->status) : 'not_applied'),
-                        $item && ! $item->is_exempt && $item->period?->isMutable()
-                            ? $this->actionCell('Exempter', 'exempt-element', [
-                                'payroll_element_id' => $item->id,
-                                'expected_version' => $item->version,
-                            ])
-                            : '—',
-                    ];
-                };
-
-                return $teacherItems->isEmpty()
-                    ? collect([$rowFor(null)])
-                    : $teacherItems->map($rowFor);
-            })->values();
-            $actionCode = $code === 'TABASKI_AVANCE'
-                ? 'apply-tabaski-advance'
-                : 'apply-tabaski-deduction';
-            $actions = [$this->action('Appliquer collectivement', $actionCode, 'primary')];
-            if ($period?->isMutable()) {
-                $actions[] = $this->action('Valider les éléments', 'validate-elements');
-            }
-            $actions[] = $this->exportAction();
-
-            return [
-                'columns' => [
-                    'Enseignant',
-                    'Matricule',
-                    'Statut enseignant',
-                    'IA / IEF',
-                    'Année académique',
-                    'Mois d’application',
-                    'Montant',
-                    'Portée',
-                    'Statut',
-                    'Actions',
-                ],
-                'rows' => $items->map(fn (PayrollElement $item): array => [
-                    $this->teacherName($item->enseignant),
-                    $item->enseignant->matricule ?: '—',
-                    $this->tabaskiStatusLabel($item),
-                    $this->tabaskiHierarchyLabel($item),
-                    $item->academic_year ?: 'Non renseignée',
-                    $period?->label ?? '—',
-                    $this->money($item->amount),
-                    $item->application_scope === 'collective' ? 'Collective' : 'Individuelle',
-                    $this->statusCell($item->status),
-                    $item->is_exempt
-                        ? '—'
-                        : $this->actionCell('Exempter', 'exempt-element', [
-                            'payroll_element_id' => $item->id,
-                            'expected_version' => $item->version,
-                        ]),
-                ])->values(),
-                'actions' => $actions,
-                'stats' => [
-                    $this->stat('Formateurs actifs', $teachers->count(), $label, 'EN', 'green'),
-                    $this->stat('Montant total', $this->money($items->sum('amount')), 'Toutes les périodes', 'FC', 'blue'),
-                    $this->stat('Applications collectives', $items->where('application_scope', 'collective')->count(), 'Lignes tracées', 'EX', 'yellow'),
-                    $this->stat('À valider', $items->where('status', 'draft')->count(), 'Contrôle requis', 'CT', 'red'),
-                ],
-                'notice' => 'Formateurs actifs issus d’Administration ; données IA, IEF et corps issues de Paramétrage. Historique Tabaski de toutes les périodes.',
-            ];
+            return app(PayrollTabaskiReport::class)->report($code, $teachers);
         }
 
         $items = $period
