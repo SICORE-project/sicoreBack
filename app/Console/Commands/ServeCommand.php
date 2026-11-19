@@ -37,8 +37,8 @@ class ServeCommand extends BaseServeCommand
             $options = ['-d', 'zend_extension=opcache'];
         }
 
-        // Les fichiers modifiés sont relus aussitôt : rien ne change pour le développement.
+        // Les fichiers modifiés sont relus (au plus 2 s après) : rien ne change pour le développement.
         return [...$options, '-d', 'opcache.enable=1', '-d', 'opcache.enable_cli=1',
-            '-d', 'opcache.validate_timestamps=1', '-d', 'opcache.revalidate_freq=0'];
+            '-d', 'opcache.validate_timestamps=1'];
     }
 }
