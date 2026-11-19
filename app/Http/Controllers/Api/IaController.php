@@ -84,18 +84,21 @@ class IaController extends Controller
 
         $teachers = $query->orderBy('e.nom')->orderBy('e.id')->paginate(20, ['e.id', 'e.matricule', 'e.nom', 'e.prenom', 'e.statut', 'e.date_prise_service', 'e.type_engagement']);
 
-        // Statistiques sur tout le périmètre de l'IA, sans les filtres de recherche.
-        $scope = $this->scope->teachers($request->user());
+        // Statistiques sur tout le périmètre de l'IA, sans les filtres de recherche (une seule requête).
+        $counts = $this->scope->teachers($request->user())->selectRaw(
+            "COUNT(*) as total,
+            SUM(CASE WHEN e.statut = 'en_activite' THEN 1 ELSE 0 END) as en_activite,
+            SUM(CASE WHEN e.type_engagement IN ('contractuel', 'vacataire') THEN 1 ELSE 0 END) as non_fonctionnaires,
+            SUM(CASE WHEN e.type_engagement = 'fonctionnaire' THEN 1 ELSE 0 END) as fonctionnaires,
+            SUM(CASE WHEN e.type_engagement = 'contractuel' THEN 1 ELSE 0 END) as contractuels,
+            SUM(CASE WHEN e.type_engagement = 'vacataire' THEN 1 ELSE 0 END) as vacataires,
+            COUNT(DISTINCT e.ief_id) as ief"
+        )->first();
 
-        return response()->json(array_merge($teachers->toArray(), ['stats' => [
-            'total' => (clone $scope)->count(),
-            'en_activite' => (clone $scope)->where('e.statut', 'en_activite')->count(),
-            'non_fonctionnaires' => (clone $scope)->whereIn('e.type_engagement', ['contractuel', 'vacataire'])->count(),
-            'fonctionnaires' => (clone $scope)->where('e.type_engagement', 'fonctionnaire')->count(),
-            'contractuels' => (clone $scope)->where('e.type_engagement', 'contractuel')->count(),
-            'vacataires' => (clone $scope)->where('e.type_engagement', 'vacataire')->count(),
-            'ief' => (clone $scope)->whereNotNull('e.ief_id')->distinct()->count('e.ief_id'),
-        ]]));
+        return response()->json(array_merge($teachers->toArray(), ['stats' => array_map(
+            fn ($value) => (int) $value,
+            (array) $counts
+        )]));
     }
 
     public function teacher(Request $request, int $id)
