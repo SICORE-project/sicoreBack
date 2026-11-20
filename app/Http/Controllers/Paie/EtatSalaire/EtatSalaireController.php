@@ -49,6 +49,9 @@ class EtatSalaireController extends PayrollPageController
             'with_signature' => ['nullable', 'boolean'],
             'without_service_done' => ['nullable', 'boolean'],
             'dage_signatory' => ['nullable', 'boolean'],
+            // Bulletins décochés dans l'écran de consultation IA (exclus de l'export).
+            'exclude' => ['nullable', 'array', 'max:5000'],
+            'exclude.*' => ['string', 'max:100'],
         ]);
     }
 }
