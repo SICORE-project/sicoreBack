@@ -1,5 +1,8 @@
 # Dates et clôture des périodes de paie
 
+> La clôture automatique est désormais désactivée ; voir
+> `periodes-sans-verrouillage.md`. Les descriptions ci-dessous sont historiques.
+
 > Note historique : les dates ne sont plus demandées dans le formulaire ; elles
 > sont déterminées en interne. Voir `referentiel-periodes-main.md`.
 

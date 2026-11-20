@@ -159,12 +159,12 @@ class PayrollGenerationIntegrationTest extends TestCase
         }
     }
 
-    public function test_validated_period_is_not_regenerated(): void
+    public function test_validated_period_does_not_block_an_explicit_unpaid_calculation(): void
     {
         $this->generate(['generation_scope' => 'teacher', 'enseignant_id' => $this->teacherIds[0]]);
         PayrollPeriod::first()->update(['status' => 'validated']);
-        $this->expectException(ConflictHttpException::class);
-        $this->generate(['generation_scope' => 'teacher', 'enseignant_id' => $this->teacherIds[1]]);
+        $run = $this->generate(['generation_scope' => 'teacher', 'enseignant_id' => $this->teacherIds[1]]);
+        $this->assertTrue($run->payslips()->where('enseignant_id', $this->teacherIds[1])->exists());
     }
 
     public function test_ief_outside_the_selected_ia_does_not_generate_any_teacher(): void

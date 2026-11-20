@@ -20,11 +20,9 @@ class PayrollCalculationService
         return DB::transaction(function () use ($period, $actor, $teacherIds): PayrollRun {
             $lockedPeriod = PayrollPeriod::query()->lockForUpdate()->findOrFail($period->id);
 
-            if (! in_array($lockedPeriod->status, [
-                PayrollPeriod::STATUS_OPEN,
-                PayrollPeriod::STATUS_CALCULATED,
-            ], true)) {
-                throw new ConflictHttpException('Cette période ne peut plus être recalculée.');
+            if ($lockedPeriod->payslips()->when($teacherIds !== null, fn ($q) => $q->whereIn('enseignant_id', $teacherIds))
+                ->where('payment_status', 'paid')->exists()) {
+                throw new ConflictHttpException('Un bulletin déjà payé ne peut pas être remplacé.');
             }
 
             if ($lockedPeriod->attendances()->when($teacherIds !== null, fn ($q) => $q->whereIn('enseignant_id', $teacherIds))->where('status', 'draft')->exists()) {
@@ -87,9 +85,6 @@ class PayrollCalculationService
                 }
                 $profiles = app(PayrollTeacherProfile::class);
                 $enseignants = $enseignants->map(fn ($teacher) => $profiles->prepare($teacher));
-                if ($lockedPeriod->payslips()->whereIn('enseignant_id', $teacherIds)->where('payment_status', 'paid')->exists()) {
-                    throw new ConflictHttpException('Un bulletin sélectionné est déjà payé et ne peut pas être remplacé.');
-                }
             }
 
             if ($enseignants->isEmpty()) {
@@ -207,7 +202,9 @@ class PayrollCalculationService
             ->where('status', 'validated')
             ->where('is_exempt', false)
             ->orderBy('id')
-            ->get();
+            ->get()
+            ->filter(fn ($element) => $element->code !== 'TABASKI_RETENUE' || app(PayrollTabaskiSchedule::class)->allowsDeduction($element))
+            ->values();
         $attendance = $period->attendances()
             ->where('enseignant_id', $enseignant->id)
             ->where('status', 'validated')
@@ -406,7 +403,9 @@ class PayrollCalculationService
             ->where('status', 'validated')
             ->where('is_exempt', false)
             ->orderBy('id')
-            ->get();
+            ->get()
+            ->filter(fn ($element) => $element->code !== 'TABASKI_RETENUE' || app(PayrollTabaskiSchedule::class)->allowsDeduction($element))
+            ->values();
         $attendance = $period->attendances()
             ->where('enseignant_id', $enseignant->id)
             ->where('status', 'validated')

@@ -159,7 +159,7 @@ class PayrollPageService
             ? 'est_active'
             : 'en cours';
         $academicYears = DB::table('annee_academiques')
-            ->when(! in_array($slug, ['paie-bulletins', 'paie-etat-salaires'], true), fn ($q) => $q->where('est_cloturee', false))
+            ->when(! in_array($slug, ['paie-bulletins', 'paie-etat-salaires', 'paie-avance-tabaski', 'paie-retenue-tabaski'], true), fn ($q) => $q->where('est_cloturee', false))
             ->orderByDesc($activeYearColumn)
             ->orderByDesc('date_debut')
             ->get();
@@ -1228,7 +1228,7 @@ private function notGeneratedReport(?PayrollPeriod $period): array
             }
         }
 
-        return $periods->firstWhere('status', PayrollPeriod::STATUS_OPEN) ?? $periods->first();
+        return $periods->first();
     }
 
     private function payrollProfileReason(Enseignant $teacher): string
@@ -1323,6 +1323,7 @@ private function notGeneratedReport(?PayrollPeriod $period): array
             'end_date' => $period->end_date->toDateString(),
             'month_label' => $period->label,
             'month_number' => (int) $period->start_date->format('n'),
+            'has_salary_statement' => (int) $period->payslips_count > 0,
             'year' => (int) $period->start_date->format('Y'),
         ];
     }

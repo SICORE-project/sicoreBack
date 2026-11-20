@@ -96,12 +96,13 @@ class PayrollPeriodLifecycleTest extends TestCase
         $this->assertSame('closed',$period->status); $this->assertSame(0,DB::table('payroll_payslips')->count());
     }
 
-    public function test_empty_period_with_unprocessed_inputs_cannot_be_closed(): void
+    public function test_legacy_closure_metadata_does_not_lock_unprocessed_inputs(): void
     {
         $period = $this->existing('open');
         DB::table('payroll_elements')->insert(['payroll_period_id' => $period->id]);
-        $this->expectException(ValidationException::class);
-        app(PayrollPeriodLifecycle::class)->close($period->id,$this->actor(),Request::create('/'));
+        $closed = app(PayrollPeriodLifecycle::class)->close($period->id,$this->actor(),Request::create('/'));
+        $this->assertTrue($closed->isMutable());
+        $this->assertSame(1, DB::table('payroll_elements')->count());
     }
 
     public function test_manual_generation_endpoint_is_removed(): void
@@ -155,5 +156,31 @@ class PayrollPeriodLifecycleTest extends TestCase
         $reference = new PeriodePaie(['code' => '2026-11', 'libelle' => 'Novembre', 'date_debut' => '2026-11-01', 'date_fin' => '2026-12-01']);
         $this->expectException(ValidationException::class);
         app(PayrollPeriodLifecycle::class)->date($reference);
+    }
+
+    public function test_inactive_closed_academic_year_allows_month_creation(): void
+    {
+        DB::table('annee_academiques')->update(['est_active' => false, 'est_cloturee' => true]);
+        $this->mock(PayrollCalculationService::class)->shouldReceive('calculate')->once()->andReturn(new PayrollRun());
+        $reference = PeriodePaie::create(['code' => 'JUILLET', 'libelle' => 'Juillet']);
+        $period = app(PayrollPeriodLifecycle::class)->open($reference, $this->actor(), Request::create('/'));
+        $this->assertSame('2027-07', $period->code);
+    }
+
+    public function test_explicit_dates_accept_inactive_closed_year(): void
+    {
+        DB::table('annee_academiques')->update(['est_active' => false, 'est_cloturee' => true]);
+        $reference = new PeriodePaie(['code' => '2027-07', 'libelle' => 'Juillet', 'date_debut' => '2027-07-01', 'date_fin' => '2027-07-31']);
+        $this->assertSame('2027-07', app(PayrollPeriodLifecycle::class)->date($reference)->format('Y-m'));
+    }
+
+    public function test_academic_status_does_not_silently_choose_calendar_year(): void
+    {
+        DB::table('annee_academiques')->insert(['date_debut' => '2027-10-01', 'date_fin' => '2028-09-30', 'est_active' => false, 'est_cloturee' => true]);
+        $explicit = new PeriodePaie(['code' => '2028-07', 'libelle' => 'Juillet']);
+        $this->assertSame('2028-07', app(PayrollPeriodLifecycle::class)->date($explicit)->format('Y-m'));
+        $this->expectException(ValidationException::class);
+        $this->expectExceptionMessage('plusieurs années');
+        app(PayrollPeriodLifecycle::class)->date(new PeriodePaie(['code' => 'JUILLET', 'libelle' => 'Juillet']));
     }
 }

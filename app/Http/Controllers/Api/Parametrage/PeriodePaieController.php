@@ -44,7 +44,6 @@ class PeriodePaieController extends Controller
 
     public function store(StorePeriodePaieRequest $request): JsonResponse
     {
-        app(\App\Services\PayrollPeriodAutoClosure::class)->run();
         $periode = \Illuminate\Support\Facades\DB::transaction(function () use ($request) {
             $reference = PeriodePaie::query()->create($request->validated());
             app(\App\Services\PayrollPeriodLifecycle::class)->open($reference, $request->user(), $request);

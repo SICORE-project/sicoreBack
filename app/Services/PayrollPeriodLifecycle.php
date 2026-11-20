@@ -24,17 +24,18 @@ class PayrollPeriodLifecycle
                 || (preg_match('/^\d{4}-\d{2}$/', $reference->code) && $reference->code !== $start->format('Y-m'))) {
                 throw ValidationException::withMessages(['date_fin' => 'Les dates doivent appartenir au même mois et correspondre au code de la période.']);
             }
-            if (! DB::table('annee_academiques')->where('est_cloturee', false)->whereDate('date_debut', '<=', $start->toDateString())->whereDate('date_fin', '>=', $end->toDateString())->exists()) {
-                throw ValidationException::withMessages(['date_debut' => 'Les dates doivent être comprises dans une année académique non clôturée.']);
+            if (! DB::table('annee_academiques')->whereDate('date_debut', '<=', $start->toDateString())->whereDate('date_fin', '>=', $end->toDateString())->exists()) {
+                throw ValidationException::withMessages(['date_debut' => 'Les dates doivent être comprises dans une année académique enregistrée.']);
             }
             return $start;
         }
         $month = app(PayrollPeriodCatalogue::class)->month($reference);
-        $explicit = preg_match('/^\d{4}-(0[1-9]|1[0-2])$/', $reference->code) === 1;
-        $years = DB::table('annee_academiques')->where('est_cloturee', false)->get();
-        if (! $explicit && $years->where('est_active', true)->count() === 1) {
-            $years = $years->where('est_active', true);
+        if ($month === null) {
+            throw ValidationException::withMessages(['code' => 'Mois non reconnu. Renseignez un mois de janvier à décembre (exemple : JUILLET) ou un code AAAA-MM.']);
         }
+        $explicit = preg_match('/^\d{4}-(0[1-9]|1[0-2])$/', $reference->code) === 1;
+        // Academic status is metadata, never a payroll authorization condition.
+        $years = DB::table('annee_academiques')->get();
         $dates = collect();
         foreach ($years as $year) {
             $date = CarbonImmutable::parse($year->date_debut)->startOfMonth();
@@ -45,7 +46,9 @@ class PayrollPeriodLifecycle
         }
         $dates = $dates->unique(fn ($date) => $date->format('Y-m'));
         if ($dates->count() !== 1) {
-            throw ValidationException::withMessages(['code' => 'Le mois doit correspondre à une année académique non clôturée unique. Utilisez un code AAAA-MM en cas d’ambiguïté.']);
+            throw ValidationException::withMessages(['code' => $dates->isEmpty()
+                ? 'Aucune année académique enregistrée ne couvre ce mois. Vérifiez les dates des années académiques et le code AAAA-MM.'
+                : 'Ce mois correspond à plusieurs années. Précisez le code AAAA-MM (exemple : 2027-07). Les statuts actif ou clôturé ne bloquent pas la paie.']);
         }
         return $dates->first();
     }
@@ -87,19 +90,7 @@ class PayrollPeriodLifecycle
         return DB::transaction(function () use ($id, $actor, $request) {
             DB::table('annee_academiques')->orderBy('id')->lockForUpdate()->get();
             $period = PayrollPeriod::lockForUpdate()->findOrFail($id);
-            if ($period->status === 'closed') return $period;
-            // Empty legacy periods can be closed without creating fictitious payroll.
-            if ($period->status === 'open' && ! $period->run()->exists() && ! $period->payslips()->exists()) {
-                if ($period->elements()->exists() || $period->attendances()->exists()) {
-                    throw ValidationException::withMessages(['periode' => 'Cette période contient des saisies non calculées ; sa clôture nécessite leur régularisation.']);
-                }
-                $before = $period->toArray();
-                $period->update(['status' => 'closed', 'closed_by' => $actor->id, 'closed_at' => now(), 'version' => $period->version + 1]);
-                app(PayrollAuditService::class)->log('period.empty_closed', $period, $before, $period->toArray(), $actor, $request, null);
-                return $period->fresh();
-            }
             $actions = app(PayrollActionService::class);
-            if ($period->status === 'calculated') $period = $actions->validatePayroll($period->id, $actor, $request, null);
             return $actions->closePeriod(['payroll_period_id' => $period->id, 'expected_version' => $period->version, 'confirmation' => $period->code], $actor, $request, null);
         }, 3);
     }

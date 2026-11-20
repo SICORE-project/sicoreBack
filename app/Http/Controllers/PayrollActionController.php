@@ -104,7 +104,7 @@ class PayrollActionController extends Controller
             'configure-teacher-payroll' => 'Le profil de paie du formateur a été configuré.',
             'save-attendance' => 'L’état de présence a été enregistré.',
             'add-element' => 'L’élément variable a été enregistré.',
-            'apply-tabaski-advance' => 'Avance de 100 000 FCFA programmée pour les bénéficiaires sélectionnés, sur leur prochain bulletin éligible.',
+            'apply-tabaski-advance' => 'Avance de 100 000 FCFA enregistrée pour le mois choisi. Les bulletins disponibles et non payés sont mis à jour ; les autres attendent l’état des salaires de ce mois.',
             'apply-tabaski-deduction' => 'Échéancier activé : 10 retenues mensuelles de 10 000 FCFA pour les seuls bénéficiaires de l’avance.',
             'exempt-element' => 'L’exemption a été enregistrée.',
             'validate-attendance' => 'Les états de présence ont été validés.',

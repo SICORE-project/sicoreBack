@@ -140,7 +140,7 @@ class PayrollActionService
     public function addElement(array $data, User $actor, Request $request, ?string $key): PayrollElement
     {
         return DB::transaction(function () use ($data, $actor, $request, $key): PayrollElement {
-            if (in_array($data['code'], PayrollReferenceService::RESERVED_ELEMENT_CODES, true)) {
+            if (in_array($data['code'], array_merge(PayrollReferenceService::RESERVED_ELEMENT_CODES, ['TABASKI_AVANCE', 'TABASKI_RETENUE']), true)) {
                 throw ValidationException::withMessages([
                     'code' => 'Ce code est calculé automatiquement par le moteur de paie.',
                 ]);
@@ -317,7 +317,7 @@ class PayrollActionService
             $period = PayrollPeriod::query()->lockForUpdate()->findOrFail($periodId);
             $run = PayrollRun::query()->where('payroll_period_id', $period->id)->lockForUpdate()->first();
 
-            if ($period->status !== PayrollPeriod::STATUS_CALCULATED || ! $run) {
+            if (! $run) {
                 throw new ConflictHttpException('La paie doit être calculée avant sa validation.');
             }
 
@@ -349,25 +349,17 @@ class PayrollActionService
             $period = PayrollPeriod::query()->lockForUpdate()->findOrFail($data['payroll_period_id']);
             $this->assertVersion($period, (int) $data['expected_version']);
 
-            if ($period->status !== PayrollPeriod::STATUS_VALIDATED) {
-                throw new ConflictHttpException('Seule une période validée peut être clôturée.');
-            }
-
             if (! hash_equals($period->code, trim((string) $data['confirmation']))) {
                 throw new ConflictHttpException('Le code de confirmation ne correspond pas à la période.');
             }
 
             $run = PayrollRun::query()
                 ->where('payroll_period_id', $period->id)
-                ->where('status', 'validated')
                 ->lockForUpdate()
                 ->first();
-            if (! $run) {
-                throw new ConflictHttpException('Le cycle de paie validé est introuvable.');
-            }
 
             $before = $period->toArray();
-            $run->update(['status' => 'closed']);
+            $run?->update(['status' => 'closed']);
             $period->update([
                 'status' => PayrollPeriod::STATUS_CLOSED,
                 'closed_by' => $actor->id,
@@ -385,14 +377,6 @@ class PayrollActionService
         return DB::transaction(function () use ($data, $actor, $request, $key): PayrollPayslip {
             $payslip = PayrollPayslip::query()->lockForUpdate()->findOrFail($data['payroll_payslip_id']);
             $this->assertVersion($payslip, (int) $data['expected_version']);
-            $period = PayrollPeriod::findOrFail($payslip->payroll_period_id);
-
-            if (! in_array($period->status, [
-                PayrollPeriod::STATUS_VALIDATED,
-                PayrollPeriod::STATUS_CLOSED,
-            ], true)) {
-                throw new ConflictHttpException('La paie doit être validée avant le marquage du paiement.');
-            }
 
             if ($payslip->payment_status === 'paid') {
                 throw new ConflictHttpException('Ce bulletin est déjà marqué comme payé.');
@@ -414,16 +398,9 @@ class PayrollActionService
     private function mutablePeriod(int $periodId): PayrollPeriod
     {
         $period = PayrollPeriod::query()->lockForUpdate()->findOrFail($periodId);
-        if (! $period->isMutable()) {
-            throw new ConflictHttpException(
-                'Cette période n’est plus modifiable. Créez une régularisation sur une période ouverte.'
-            );
-        }
-
         return $period;
     }
 
-    /** @return Collection<int, PayrollPeriod> */
     private function teacherIaId(Enseignant $teacher): ?int
     {
         $id = $teacher->getAttribute('ia_id');

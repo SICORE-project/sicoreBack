@@ -1,5 +1,8 @@
 # Référentiel des périodes : retour à la présentation main
 
+> Mise à jour : la clôture automatique et le verrouillage par statut sont
+> désactivés. Voir `periodes-sans-verrouillage.md` pour la règle actuelle.
+
 Cette évolution remplace les étapes manuelles décrites dans les anciennes notes
 de cycle de paie et de dates. L'interface Paramétrage reprend la version main :
 Code et Libellé uniquement, puis liste Code / Libellé / Actions. Les statistiques
