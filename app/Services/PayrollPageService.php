@@ -717,6 +717,12 @@ class PayrollPageService
                 $this->money($items->sum('net_amount')),
                 $period ? $this->statusCell($period->status) : '—',
             ])->values(),
+            'stats' => [
+                $this->stat('IEF concernées', $groups->keys()->reject(fn (string $ief): bool => $ief === 'IEF non renseignée')->count(), 'Période sélectionnée', 'IE', 'green'),
+                $this->stat('Bulletins générés', $groups->sum(fn (Collection $items): int => $items->count()), 'Toutes IEF', 'BS', 'blue'),
+                $this->stat('Masse brute', $this->money($groups->flatten()->sum('gross_amount')), 'Avant retenues', 'FC', 'yellow'),
+                $this->stat('Net total', $this->money($groups->flatten()->sum('net_amount')), 'Après retenues', 'NT', 'red'),
+            ],
             'actions' => [$this->exportAction()],
         ];
     }
@@ -762,6 +768,12 @@ class PayrollPageService
                 $item->reference,
                 $this->statusCell($item->payment_status),
             ])->values(),
+            'stats' => [
+                $this->stat('Banques', $items->pluck('enseignant.institution_financiere_id')->filter()->unique()->count(), 'Période sélectionnée', 'BQ', 'green'),
+                $this->stat('Bénéficiaires', $items->count(), 'Bulletins à virer', 'BN', 'blue'),
+                $this->stat('Montant à virer', $this->money($items->sum('net_amount')), 'FCFA', 'FC', 'yellow'),
+                $this->stat('Sans banque', $items->filter(fn (PayrollPayslip $item): bool => ! $item->enseignant->institution_financiere_id)->count(), 'À compléter', 'SB', 'red'),
+            ],
             'actions' => [$this->exportAction()],
         ];
     }
@@ -829,6 +841,12 @@ class PayrollPageService
                     (string) $items->whereNull('institution_financiere_id')->count(),
                 ];
             })->values(),
+            'stats' => [
+                $this->stat('Corps', $teachers->pluck('corps_id')->filter()->unique()->count(), 'Corps enseignants', 'CO', 'green'),
+                $this->stat('Effectif actif', $teachers->count(), 'Tous corps', 'EN', 'blue'),
+                $this->stat('Masse salariale de base', $this->money($teachers->sum(fn (Enseignant $teacher): float => (float) $teacher->salaire_base)), 'FCFA', 'FC', 'yellow'),
+                $this->stat('Sans banque', $teachers->whereNull('institution_financiere_id')->count(), 'À compléter', 'SB', 'red'),
+            ],
             'actions' => [$this->exportAction()],
         ];
     }
