@@ -102,7 +102,11 @@ class DashboardService
         }
         if ($can('paie.bulletins.read') && in_array($role, ['super_admin', 'admin', 'gestionnaire_paie', 'auditeur', 'consultant'], true)) {
             $period = PayrollPeriod::orderByDesc('start_date')->first();
-            $payslips = PayrollPayslip::whereIn('enseignant_id', (clone $teachers)->select('enseignants.id'));
+            // On part des bulletins de la période (et non de la liste de tous les enseignants) :
+            // reste rapide quel que soit le nombre d'enseignants.
+            $payslips = PayrollPayslip::query()->whereExists(
+                (clone $teachers)->toBase()->selectRaw('1')->whereColumn('enseignants.id', 'payroll_payslips.enseignant_id')
+            );
             if ($period) $payslips->where('payroll_period_id', $period->id);
             else $payslips->whereRaw('1 = 0');
             $data['cards'][] = $this->card('Bulletins de la dernière période', (clone $payslips)->count(), 'fa-file-invoice', group: 'Paie');
@@ -147,16 +151,21 @@ class DashboardService
         $series = fn ($items) => collect($items)->map(fn ($value, $label) => ['label' => $label, 'value' => (int) $value])->values()->all();
         $period = PayrollPeriod::orderByDesc('start_date')->first();
         $payments = $period ? PayrollPayslip::where('payroll_period_id', $period->id)->selectRaw('payment_status, COUNT(*) as total')->groupBy('payment_status')->pluck('total', 'payment_status') : collect();
-        $corps = \App\Models\Parametrage\CorpsEnseignant::query()->orderBy('id')->withCount([
-            'enseignants',
-            'enseignants as accounts_count' => fn ($query) => $query->whereHas('user'),
-        ])->get();
+        $corps = \App\Models\Parametrage\CorpsEnseignant::query()->orderBy('id')->withCount('enseignants')->get();
+        // Comptes enseignants par corps : on part des comptes utilisateurs (peu nombreux)
+        // au lieu de vérifier chaque enseignant un par un.
+        $accounts = User::query()->join('enseignants', 'enseignants.id', '=', 'users.enseignant_id')
+            ->whereNull('enseignants.deleted_at')
+            ->selectRaw('enseignants.corps_id as corps_id, COUNT(*) as total')
+            ->groupBy('enseignants.corps_id')->pluck('total', 'corps_id');
+        $corpsIds = $corps->modelKeys();
         $teachersByCorps = $corps->map(fn ($item) => ['label' => $item->libelle, 'value' => $item->enseignants_count])->all();
-        $accountsByCorps = $corps->map(fn ($item) => ['label' => $item->libelle, 'value' => $item->accounts_count])->all();
-        $unassigned = Enseignant::where(fn ($query) => $query->whereNull('corps_id')->orWhereNotIn('corps_id', $corps->modelKeys()));
-        if ((clone $unassigned)->exists()) {
-            $teachersByCorps[] = ['label' => 'Corps non renseigné', 'value' => (clone $unassigned)->count()];
-            $accountsByCorps[] = ['label' => 'Corps non renseigné', 'value' => (clone $unassigned)->whereHas('user')->count()];
+        $accountsByCorps = $corps->map(fn ($item) => ['label' => $item->libelle, 'value' => (int) ($accounts[$item->id] ?? 0)])->all();
+        // Sans corps = total moins les enseignants rattachés à un corps (évite de reparcourir la table).
+        $unassignedCount = Enseignant::count() - (int) $corps->sum('enseignants_count');
+        if ($unassignedCount > 0) {
+            $teachersByCorps[] = ['label' => 'Corps non renseigné', 'value' => $unassignedCount];
+            $accountsByCorps[] = ['label' => 'Corps non renseigné', 'value' => (int) $accounts->reject(fn ($total, $corpsId) => in_array($corpsId, $corpsIds))->sum()];
         }
         $data['analytics'] = [
             'history' => $history,
