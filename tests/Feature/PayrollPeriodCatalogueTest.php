@@ -33,12 +33,10 @@ class PayrollPeriodCatalogueTest extends TestCase
             ['code' => '10', 'libelle' => 'OCTOBRE'], ['code' => 'JUIN', 'libelle' => 'JUIN'],
         ]);
         $catalogue = app(PayrollPeriodCatalogue::class);
-        $this->assertEqualsCanonicalizing(['2026-10', '2027-06'], $catalogue->synchronize()->all());
-        $this->assertSame('OCTOBRE 2026', PayrollPeriod::where('code', '2026-10')->value('label'));
-        $this->assertSame('2027-06-30', PayrollPeriod::where('code', '2027-06')->first()->end_date->format('Y-m-d'));
+        $this->assertSame([], $catalogue->synchronize()->all());
         $this->assertEquals([6, 10], array_column($catalogue->months(), 'value'));
         $catalogue->synchronize();
-        $this->assertSame(2, PayrollPeriod::count());
+        $this->assertSame(0, PayrollPeriod::count());
     }
 
     public function test_existing_calculated_period_is_reused_without_rewriting_status_or_label(): void

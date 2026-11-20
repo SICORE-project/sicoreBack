@@ -27,8 +27,13 @@ Le dossier enseignant n'est pas réenregistré et aucun second profil n'est cré
 La première ligne d'un bulletin généré depuis ce dossier est « SALAIRE BRUT » :
 elle reprend intégralement `diplomes.salaire_brut`, avec la source `diploma_salary`.
 La rubrique SALAIRE_BASE/10 ne peut ni modifier ni masquer cette ligne.
-Les augmentations historiques ne sont pas décomposées ou ajoutées à nouveau
-à ce salaire de diplôme. Les autres gains et retenues du moteur restent appliqués.
+Selon la confirmation de l'utilisateur, les huit augmentations PC sont lues
+dans Rubriques de paie et ajoutées au salaire du diplôme, sur des lignes
+distinctes. Leurs montants sont inclus dans les gains et les totaux brut/net.
+Les autres gains et retenues du moteur restent appliqués. Les anciennes grilles
+conservent leur règle historique de décomposition pour ne pas compter deux fois
+des augmentations déjà incluses dans leur salaire. Les lignes d'augmentation
+restent visibles sur les anciens bulletins.
 Le code technique SALAIRE_BASE est conservé pour la compatibilité des rapports.
 Les bulletins historiques restent figés : utiliser une génération/recalcul
 autorisé pour adopter cette présentation et ce salaire, sans écraser les

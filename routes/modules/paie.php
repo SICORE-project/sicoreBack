@@ -32,7 +32,6 @@ Route::middleware('auth:sanctum')->group(function () {
 
         Route::post('/actions/{action}', [PayrollActionController::class, 'handle'])
             ->whereIn('action', [
-                'generate-payslips',
                 'configure-teacher-payroll',
                 'save-attendance',
                 'add-element',

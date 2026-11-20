@@ -79,10 +79,9 @@ class PayrollPayslipPresentationService
             return $position !== false ? (float) $position : ($line['category'] === 'earning' ? 11.5 : 100.0);
         })->values()->all();
 
-        // Legacy documents already store the current salary as a base plus its
-        // historical increases. Consolidate those stored amounts, never substitute
-        // a current diploma value into a historical document without recalculation.
-        $salaryLines = $payslip->lines->filter(fn ($line) => $line->code === 'SALAIRE_BASE' || $line->source === 'salary_increase');
+        // Legacy documents retain their recorded salary and separate increases.
+        // Never substitute a current diploma value without recalculation.
+        $salaryLines = $payslip->lines->filter(fn ($line) => $line->code === 'SALAIRE_BASE');
         if ($salaryLines->isNotEmpty() && ! $salaryLines->contains(fn ($line) => $line->source === 'diploma_salary')) {
             $salaryCodes = $salaryLines->pluck('code')->all();
             $lines = collect($lines)->reject(fn ($line) => in_array($line['code'], $salaryCodes, true))->prepend([

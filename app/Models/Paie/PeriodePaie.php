@@ -14,5 +14,7 @@ class PeriodePaie extends Model
     protected $fillable = [
         'code',
         'libelle',
+        'date_debut',
+        'date_fin',
     ];
 }

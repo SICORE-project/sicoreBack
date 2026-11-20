@@ -33,7 +33,6 @@ class PayrollActionController extends Controller
         $data = $request->validated();
         $actor = $request->user();
         $resource = match ($action) {
-            'generate-payslips' => app(\App\Services\PayrollGenerationService::class)->generate($data, $actor, $request, $idempotencyKey),
             'configure-teacher-payroll' => $this->actions->configureTeacherPayroll(
                 $data,
                 $actor,
@@ -102,12 +101,11 @@ class PayrollActionController extends Controller
     private function message(string $action): string
     {
         return match ($action) {
-            'generate-payslips' => 'Les bulletins de la sélection ont été générés. Les autres enseignants sont conservés.',
             'configure-teacher-payroll' => 'Le profil de paie du formateur a été configuré.',
             'save-attendance' => 'L’état de présence a été enregistré.',
             'add-element' => 'L’élément variable a été enregistré.',
-            'apply-tabaski-advance' => 'L’avance Tabaski a été appliquée au groupe sélectionné.',
-            'apply-tabaski-deduction' => 'La retenue Tabaski a été appliquée au groupe sélectionné.',
+            'apply-tabaski-advance' => 'Avance de 100 000 FCFA enregistrée pour le mois choisi. Les bulletins disponibles et non payés sont mis à jour ; les autres attendent l’état des salaires de ce mois.',
+            'apply-tabaski-deduction' => 'Échéancier activé : 10 retenues mensuelles de 10 000 FCFA pour les seuls bénéficiaires de l’avance.',
             'exempt-element' => 'L’exemption a été enregistrée.',
             'validate-attendance' => 'Les états de présence ont été validés.',
             'validate-elements' => 'Les éléments variables ont été validés.',

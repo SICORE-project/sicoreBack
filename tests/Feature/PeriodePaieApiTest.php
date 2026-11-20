@@ -14,6 +14,7 @@ class PeriodePaieApiTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        $this->travelTo(\Carbon\Carbon::parse('2026-08-01'));
 
         Schema::create('roles', function (Blueprint $table): void {
             $table->id();
@@ -37,6 +38,17 @@ class PeriodePaieApiTest extends TestCase
             $table->string('libelle', 100);
             $table->timestamps();
         });
+        Schema::create('payroll_periods', function (Blueprint $table): void {
+            $table->id(); $table->string('code'); $table->string('label'); $table->string('status'); $table->date('start_date'); $table->date('end_date'); $table->dateTime('closed_at')->nullable();
+        });
+        Schema::table('periode_de_paies', function (Blueprint $table): void { $table->date('date_debut')->nullable(); $table->date('date_fin')->nullable(); $table->integer('payroll_period_id')->nullable(); });
+        foreach (['heures_supplementaires', 'mise_a_jour_mc_ve', 'mise_a_jour_pc_vac'] as $table) {
+            Schema::create($table, function (Blueprint $t): void { $t->id(); $t->integer('periode_paie_id'); });
+        }
+        // The lifecycle has its own atomicity/national calculation tests.
+        $this->mock(\App\Services\PayrollPeriodLifecycle::class)->shouldReceive('open')->zeroOrMoreTimes()
+            ->andReturn(new \App\Models\PayrollPeriod());
+        $this->mock(\App\Services\PayrollPeriodAutoClosure::class)->shouldReceive('run')->zeroOrMoreTimes()->andReturn(['closed' => 0, 'failed' => 0]);
     }
 
     public function test_admin_peut_effectuer_le_crud_complet(): void

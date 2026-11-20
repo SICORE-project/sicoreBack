@@ -54,6 +54,7 @@ class PayrollPeriod extends Model
 
     public function isMutable(): bool
     {
-        return $this->status === self::STATUS_OPEN;
+        // Historical lifecycle statuses are metadata, never an operational lock.
+        return true;
     }
 }
