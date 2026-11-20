@@ -928,7 +928,7 @@ private function notGeneratedReport(?PayrollPeriod $period): array
                 $this->stat('Corps', $groups->count(), 'Regroupements disponibles', 'EC', 'green'),
                 $this->stat('Bulletins', $groups->flatten(1)->count(), 'Période sélectionnée', 'BS', 'blue'),
                 $this->stat('Masse brute', $this->money($groups->flatten(1)->sum('gross_amount')), 'Tous corps', 'BR', 'yellow'),
-                $this->stat('Net total', $this->money($groups->flatten(1)->sum('net_amount')), $period?->label ?? '—', 'SP', 'red'),
+                $this->stat('Net total', $this->money($groups->flatten(1)->sum('net_amount')), $period?->label ?? 'Aucune période', 'SP', 'red'),
             ],
         ];
     }
@@ -1031,7 +1031,7 @@ private function notGeneratedReport(?PayrollPeriod $period): array
                 $this->stat('Banques', $groups->count(), 'Institutions concernées', 'BQ', 'green'),
                 $this->stat('Engagé', $this->money($groups->flatten(1)->sum('net_amount')), 'Net des bulletins', 'BR', 'blue'),
                 $this->stat('Payé', $this->money($groups->flatten(1)->where('payment_status', 'paid')->sum('net_amount')), 'Virements enregistrés', 'OK', 'yellow'),
-                $this->stat('En attente', $groups->flatten(1)->where('payment_status', 'pending')->count(), $period?->label ?? '—', 'AT', 'red'),
+                $this->stat('En attente', $groups->flatten(1)->where('payment_status', 'pending')->count(), $period?->label ?? 'Aucune période', 'AT', 'red'),
             ],
         ];
     }
@@ -1506,9 +1506,9 @@ private function notGeneratedReport(?PayrollPeriod $period): array
                 'columns' => [], 'rows' => [], 'actions' => [],
                 'stats' => [
                     $this->stat('Enseignants', 0, 'En attente de filtre', 'EN', 'green'),
-                    $this->stat('Bulletins générés', 0, '-', 'BS', 'blue'),
-                    $this->stat('Masse brute', '0 FCFA', '-', 'BR', 'yellow'),
-                    $this->stat('Net à payer', '0 FCFA', '-', 'SP', 'red'),
+                    $this->stat('Bulletins générés', 0, 'En attente de filtre', 'BS', 'blue'),
+                    $this->stat('Masse brute', '0 FCFA', 'En attente de filtre', 'BR', 'yellow'),
+                    $this->stat('Net à payer', '0 FCFA', 'En attente de filtre', 'SP', 'red'),
                 ],
                 'notice' => 'Sélectionnez les filtres puis cliquez sur « Générer la paie ».',
             ];
