@@ -36,8 +36,16 @@ class IaController extends Controller
                 'vacataires' => (clone $teachers)->where('type_engagement', 'vacataire')->count(),
             ];
             foreach (['ief_id' => 'iefs', 'lieu_service_id' => 'lieu_de_services'] as $field => $table) {
-                $data[$table] = (clone $teachers)->leftJoin($table.' as ref', fn ($join) => $join->on('ref.id', '=', 'e.'.$field)->where('ref.ia_id', $id)->whereNull('ref.deleted_at'))
-                    ->select('ref.libelle')->selectRaw('COUNT(*) as total')->groupBy('ref.id', 'ref.libelle')->get();
+                // Comptage par structure grâce à l'index, puis ajout des libellés : évite une
+                // jointure sur chaque enseignant de l'IA.
+                $counts = (clone $teachers)->groupBy('e.'.$field)->selectRaw('e.'.$field.' as ref_id, COUNT(*) as total')->pluck('total', 'ref_id');
+                $labels = DB::table($table)->where('ia_id', $id)->whereNull('deleted_at')
+                    ->whereIn('id', $counts->keys()->filter(fn ($key) => $key !== ''))->pluck('libelle', 'id');
+                $data[$table] = $counts
+                    ->groupBy(fn ($total, $refId) => $labels->has($refId) ? (int) $refId : 0, true)
+                    ->sortKeys()
+                    ->map(fn ($totals, $refId) => (object) ['libelle' => $refId ? $labels[$refId] : null, 'total' => (int) $totals->sum()])
+                    ->values();
             }
         }
         if ($user->hasPermission('paie.bulletins.read')) {
