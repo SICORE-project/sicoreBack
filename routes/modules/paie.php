@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\ConvocationsController;
 use App\Http\Controllers\EtatPaieIndemnitesController;
 use App\Http\Controllers\IndemnitesController;
+use App\Http\Controllers\Paie\EtatSalaire\EtatSalaireController;
 use App\Http\Controllers\PayrollActionController;
 use App\Http\Controllers\PayrollPageController;
 use App\Http\Controllers\PieceJustificativesController;
@@ -19,6 +20,10 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::prefix('payroll')->group(function (): void {
         Route::middleware('payroll.access:read')->group(function (): void {
+            // État des salaires : contrôleur dédié, déclaré avant les routes génériques {slug}.
+            Route::get('/pages/paie-etat-salaires', [EtatSalaireController::class, 'index']);
+            Route::get('/exports/paie-etat-salaires', [EtatSalaireController::class, 'download']);
+
             Route::get('/payslips/{payslip}', [PayrollPageController::class, 'payslip']);
             Route::get('/pages/{slug}', [PayrollPageController::class, 'show'])
                 ->whereIn('slug', PayrollPageService::SLUGS);

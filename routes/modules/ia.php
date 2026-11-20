@@ -1,12 +1,16 @@
 <?php
 
 use App\Http\Controllers\Api\IaController;
+use App\Http\Controllers\Paie\EtatSalaire\EtatSalaireController;
 use App\Http\Controllers\PayrollPageController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('ia')->middleware('role:gestionnaire_ia')->group(function () {
 
 
+    // État des salaires : contrôleur dédié, déclaré avant les routes génériques {slug}.
+    Route::get('payroll/pages/paie-etat-salaires', [EtatSalaireController::class, 'index']);
+    Route::get('payroll/pages/paie-etat-salaires/export', [EtatSalaireController::class, 'download']);
     Route::get('payroll/pages/{slug}', [PayrollPageController::class, 'show']);
     Route::get('payroll/pages/{slug}/export', [PayrollPageController::class, 'export']);
     Route::get('payroll/payslips/{payslip}', [PayrollPageController::class, 'payslip'])

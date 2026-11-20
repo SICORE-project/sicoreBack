@@ -68,6 +68,20 @@ class LieuService extends Model
     }
 
     // === SCOPES ===
+
+    // Etablissements uniquement : exclut les structures administratives
+    // (DRH, DECPC, DAGE, CI, IA, IEF). Un etablissement rattache a une IEF
+    // a type "IEF" mais un code genere "ETAB..." qui le distingue de l'IEF.
+    public function scopeEtablissements($query)
+    {
+        return $query
+            ->where(fn ($query) => $query->whereNull('type')
+                ->orWhereRaw('UPPER(TRIM(type)) NOT IN (?, ?, ?, ?, ?, ?)', ['DRH', 'DECPC', 'DAGE', 'CI', 'IA', 'IEF'])
+                ->orWhere(fn ($query) => $query->whereRaw('UPPER(TRIM(type)) = ?', ['IEF'])
+                    ->where('code', 'like', 'ETAB%')))
+            ->whereNotIn('code', ['DRH', 'DECPC', 'DAGE', 'CI']);
+    }
+
     public function scopeActif($query)
     {
         return $query->where('est_actif', true);

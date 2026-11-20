@@ -120,12 +120,10 @@ class ConvocationSyncController extends Controller
                     'provenance' => $beneficiaire['provenance'] ?? null,
                     'centre_id' => $centreId,
                     'centre_metier_id' => $centreMetierId,
+                    // Sur le pivot (cette convocation), pas sur `enseignants`
+                    // qui n'a pas cette colonne.
+                    'categorie_personnel' => $beneficiaire['categorie_personnel'] ?? null,
                 ];
-
-                if (! empty($beneficiaire['categorie_personnel'])) {
-                    Enseignant::where('id', $beneficiaire['enseignant_id'])
-                        ->update(['categorie_personnel' => $beneficiaire['categorie_personnel']]);
-                }
             }
 
             $convocation->enseignants()->sync($sync);

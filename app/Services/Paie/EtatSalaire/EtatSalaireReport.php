@@ -85,6 +85,9 @@ trait EtatSalaireReport
                 )) {
                 return false;
             }
+            if (in_array($payslip->reference, (array) ($criteria['exclude'] ?? []), true)) {
+                return false;
+            }
             if (($criteria['tabaski_only'] ?? false)
                 && $this->salaryLineAmount($payslip, ['TABASKI_AVANCE']) <= 0
                 && (float) $tabaskiAdvances->get($teacher->id, 0) <= 0) {
@@ -559,7 +562,13 @@ trait EtatSalaireReport
             $bankId = $account->institut_financier_id ?? $account->institution_financiere_id ?? null;
 
             return [
-                'account' => (string) ($account->numero_compte ?: 'Non renseigné'),
+                // RIB complet : code banque, code guichet, numéro de compte, clé RIB.
+                'account' => collect([
+                    $account->code_banque ?? null,
+                    $account->code_guichet ?? null,
+                    $account->numero_compte ?? null,
+                    $account->cle_rib ?? null,
+                ])->map(fn (mixed $part): string => trim((string) $part))->filter()->implode(' ') ?: 'Non renseigné',
                 'bank' => $banks->get((int) $bankId, $account->code_banque ?: 'Non renseignée'),
             ];
         });
