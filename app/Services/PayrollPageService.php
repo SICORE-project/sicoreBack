@@ -117,7 +117,19 @@ class PayrollPageService
             ? $periods->firstWhere('id', $periodId)
             : $this->defaultPeriod($slug, $periods);
 
-        if ($periodId && ! $period) {
+        $catalogueMonth = isset($criteria['payroll_month']) ? (int) $criteria['payroll_month'] : null;
+        $missingStatement = null;
+        if ($catalogueMonth !== null) {
+            $yearId = $criteria['academic_year_id'] ?? $criteria['annee_academique_id'] ?? null;
+            $resolved = app(PayrollMonthResolver::class)->resolve($catalogueMonth, $yearId ? (int) $yearId : null);
+            $period = $resolved ? $periods->firstWhere('id', $resolved->id) : null;
+            // Explicit month lookup must never fall back to another month's payroll.
+            $criteria['period_id'] = $period?->id;
+            if (! $yearId) $missingStatement = 'Choisissez une année académique pour consulter le mois sélectionné.';
+            elseif (! $period || (int) $period->payslips_count === 0) $missingStatement = 'Aucun état des salaires disponible pour ce mois et cette année académique. Aucun bulletin ne peut être consulté pour cette sélection.';
+        }
+
+        if ($catalogueMonth === null && $periodId && ! $period) {
             throw ValidationException::withMessages(['period_id' => 'Période de paie inconnue.']);
         }
 
@@ -165,7 +177,17 @@ class PayrollPageService
             ->get();
 
         $report = $this->report($slug, $period, $teachers, $criteria);
-        if ($periods->isEmpty() && ! in_array($slug, ['paie-avance-tabaski', 'paie-retenue-tabaski'], true)) {
+        if ($missingStatement !== null) {
+            $report['rows'] = [];
+            $report['stats'] = [];
+            $report['notice'] = $missingStatement;
+            if (isset($report['salary_statement'])) {
+                $report['salary_statement']['rows'] = [];
+                $report['salary_statement']['totals'] = [];
+                $report['salary_statement']['notice'] = $missingStatement;
+            }
+        }
+        if ($missingStatement === null && $periods->isEmpty() && ! in_array($slug, ['paie-avance-tabaski', 'paie-retenue-tabaski'], true)) {
             $report['notice'] = 'Renseignez les périodes de paie dans Paramétrage (code 01 à 12, nom du mois ou AAAA-MM), puis une année académique avec ses dates. Les mois seront disponibles ici automatiquement.';
         }
         if (in_array($slug, ['paie-avance-tabaski', 'paie-retenue-tabaski'], true)) {
@@ -185,6 +207,8 @@ class PayrollPageService
             'slug' => $slug,
             'generated_at' => now()->toIso8601String(),
             'period' => $period ? $this->periodPayload($period) : null,
+            'selected_payroll_month' => $catalogueMonth ?? ($period ? (int) $period->start_date->format('n') : null),
+            'statement_unavailable' => $missingStatement,
             'periods' => $periods->map(fn (PayrollPeriod $item): array => $this->periodPayload($item))->values(),
             'academic_inspections' => $academicInspections->map(fn (ias $inspection): array => [
                 'id' => $inspection->id,

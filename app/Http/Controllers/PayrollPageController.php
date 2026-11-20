@@ -186,6 +186,7 @@ class PayrollPageController extends Controller
     private function validatedFilters(Request $request, string $slug): array
     {
         $rules = [
+            'payroll_month' => ['nullable', 'integer', 'between:1,12'],
             'period_id' => ['nullable', 'integer', 'exists:payroll_periods,id'],
         ];
 
