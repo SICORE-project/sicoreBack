@@ -45,9 +45,8 @@ class PeriodePaieApiTest extends TestCase
         foreach (['heures_supplementaires', 'mise_a_jour_mc_ve', 'mise_a_jour_pc_vac'] as $table) {
             Schema::create($table, function (Blueprint $t): void { $t->id(); $t->integer('periode_paie_id'); });
         }
-        // The lifecycle has its own atomicity/national calculation tests.
-        $this->mock(\App\Services\PayrollPeriodLifecycle::class)->shouldReceive('open')->zeroOrMoreTimes()
-            ->andReturn(new \App\Models\PayrollPeriod());
+        // Registering a reusable month must never infer a year or calculate payroll.
+        $this->mock(\App\Services\PayrollPeriodLifecycle::class)->shouldNotReceive('open');
         $this->mock(\App\Services\PayrollPeriodAutoClosure::class)->shouldReceive('run')->zeroOrMoreTimes()->andReturn(['closed' => 0, 'failed' => 0]);
     }
 
@@ -98,6 +97,36 @@ class PeriodePaieApiTest extends TestCase
         $this->postJson('/api/periodes-paie', ['libelle' => 'Sans code'])
             ->assertUnprocessable()
             ->assertJsonValidationErrors('code');
+    }
+
+    public function test_twelve_reusable_months_can_be_registered_without_academic_year_or_teachers(): void
+    {
+        Sanctum::actingAs($this->admin());
+        $months = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
+        foreach ($months as $index => $month) {
+            $this->postJson('/api/periodes-paie', ['code' => sprintf('%02d', $index + 1), 'libelle' => $month])
+                ->assertCreated()->assertJsonPath('data.libelle', $month)
+                ->assertJsonPath('data.payroll_period_id', null);
+        }
+        $this->assertSame(12, DB::table('periode_de_paies')->count());
+        $this->assertSame(0, DB::table('payroll_periods')->count());
+        $this->postJson('/api/periodes-paie', ['code' => 'AVR', 'libelle' => 'AVRIL'])
+            ->assertUnprocessable()->assertJsonValidationErrors('libelle');
+    }
+
+    public function test_april_does_not_depend_on_multiple_closed_or_inactive_academic_years(): void
+    {
+        Sanctum::actingAs($this->admin());
+        Schema::create('annee_academiques', function (Blueprint $t) {
+            $t->id(); $t->date('date_debut'); $t->date('date_fin'); $t->boolean('est_active'); $t->boolean('est_cloturee');
+        });
+        DB::table('annee_academiques')->insert([
+            ['date_debut' => '2026-10-01', 'date_fin' => '2027-09-30', 'est_active' => false, 'est_cloturee' => true],
+            ['date_debut' => '2027-10-01', 'date_fin' => '2028-09-30', 'est_active' => true, 'est_cloturee' => false],
+        ]);
+        $this->postJson('/api/periodes-paie', ['code' => 'AVR', 'libelle' => 'Avril'])
+            ->assertCreated()->assertJsonPath('data.code', 'AVR')->assertJsonPath('data.libelle', 'Avril');
+        $this->assertSame(0, DB::table('payroll_periods')->count());
     }
 
     private function admin(): User
