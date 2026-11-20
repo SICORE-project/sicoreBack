@@ -44,11 +44,8 @@ class PeriodePaieController extends Controller
 
     public function store(StorePeriodePaieRequest $request): JsonResponse
     {
-        $periode = \Illuminate\Support\Facades\DB::transaction(function () use ($request) {
-            $reference = PeriodePaie::query()->create($request->validated());
-            app(\App\Services\PayrollPeriodLifecycle::class)->open($reference, $request->user(), $request);
-            return $reference;
-        });
+        // This is the reusable month catalogue, not a dated payroll calculation.
+        $periode = PeriodePaie::query()->create($request->validated());
 
         return response()->json([
             'message' => 'Période de paie ajoutée avec succès.',
