@@ -29,8 +29,9 @@ class AnneeAcademique extends Model
         'est_cloturee' => 'boolean',
     ];
 
-    public function periodesPaie()
+    /** Périodes de paie datées rattachées à cette année (payroll_periods.annee_academique_id). */
+    public function payrollPeriods()
     {
-        return $this->hasMany(PeriodePaie::class, 'annee_academique_id');
+        return $this->hasMany(\App\Models\PayrollPeriod::class, 'annee_academique_id');
     }
 }

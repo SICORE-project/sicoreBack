@@ -20,11 +20,9 @@ class PayrollCalculationService
         return DB::transaction(function () use ($period, $actor, $teacherIds): PayrollRun {
             $lockedPeriod = PayrollPeriod::query()->lockForUpdate()->findOrFail($period->id);
 
-            if (! in_array($lockedPeriod->status, [
-                PayrollPeriod::STATUS_OPEN,
-                PayrollPeriod::STATUS_CALCULATED,
-            ], true)) {
-                throw new ConflictHttpException('Cette période ne peut plus être recalculée.');
+            if ($lockedPeriod->payslips()->when($teacherIds !== null, fn ($q) => $q->whereIn('enseignant_id', $teacherIds))
+                ->where('payment_status', 'paid')->exists()) {
+                throw new ConflictHttpException('Un bulletin déjà payé ne peut pas être remplacé.');
             }
 
             if ($lockedPeriod->attendances()->when($teacherIds !== null, fn ($q) => $q->whereIn('enseignant_id', $teacherIds))->where('status', 'draft')->exists()) {
@@ -63,6 +61,8 @@ class PayrollCalculationService
             if (Schema::hasColumn('enseignants', 'deleted_at')) {
                 $incompleteProfilesQuery->whereNull('deleted_at');
             }
+            // Seuls les enseignants en service sur la période peuvent bloquer le calcul.
+            $incompleteProfilesQuery->eligiblePourPeriode($lockedPeriod);
             $incompleteStructuredProfiles = $incompleteProfilesQuery->count();
 
             if ($teacherIds === null && $incompleteStructuredProfiles > 0) {
@@ -75,7 +75,9 @@ class PayrollCalculationService
             $teachersQuery = Enseignant::query()
                 ->with(['user', 'institutionFinanciere', 'corps', 'etablissement'])
                 ->where($activeColumn, true)
-                ->when($teacherIds === null, fn ($q) => $q->where('salaire_base', '>', 0), fn ($q) => $q->whereIn('id', $teacherIds)->lockForUpdate())
+                ->when($teacherIds === null,
+                    fn ($q) => $q->where('salaire_base', '>', 0)->eligiblePourPeriode($lockedPeriod),
+                    fn ($q) => $q->whereIn('id', $teacherIds)->lockForUpdate())
                 ->orderBy('id');
             if (Schema::hasColumn('enseignants', 'deleted_at')) {
                 $teachersQuery->whereNull('deleted_at');
@@ -87,9 +89,6 @@ class PayrollCalculationService
                 }
                 $profiles = app(PayrollTeacherProfile::class);
                 $enseignants = $enseignants->map(fn ($teacher) => $profiles->prepare($teacher));
-                if ($lockedPeriod->payslips()->whereIn('enseignant_id', $teacherIds)->where('payment_status', 'paid')->exists()) {
-                    throw new ConflictHttpException('Un bulletin sélectionné est déjà payé et ne peut pas être remplacé.');
-                }
             }
 
             if ($enseignants->isEmpty()) {
@@ -128,6 +127,9 @@ class PayrollCalculationService
                 $payslip = $run->payslips()->create([
                     'payroll_period_id' => $lockedPeriod->id,
                     'enseignant_id' => $enseignant->id,
+                    // Affectation figée au calcul : un changement d'IA ne déplace pas les anciens bulletins.
+                    'ia_id' => $this->affectation($enseignant)['ia_id'],
+                    'ief_id' => $this->affectation($enseignant)['ief_id'],
                     'reference' => sprintf(
                         'BS-%s-%s',
                         str_replace('-', '', $lockedPeriod->code),
@@ -207,7 +209,9 @@ class PayrollCalculationService
             ->where('status', 'validated')
             ->where('is_exempt', false)
             ->orderBy('id')
-            ->get();
+            ->get()
+            ->filter(fn ($element) => $element->code !== 'TABASKI_RETENUE' || app(PayrollTabaskiSchedule::class)->allowsDeduction($element))
+            ->values();
         $attendance = $period->attendances()
             ->where('enseignant_id', $enseignant->id)
             ->where('status', 'validated')
@@ -229,9 +233,10 @@ class PayrollCalculationService
         $diplomaSalary = ! empty($profile['administrative_source']['diploma_id']);
 
         if ($profile['engagement_type'] === PayrollReferenceService::CONTRACTUEL) {
-            $salaryIncreases = $diplomaSalary ? collect() : collect(config('payroll_reference.contract_salary_increases', []));
+            $salaryIncreases = $diplomaSalary ? app(PayrollSalaryIncreases::class)->resolve() : collect(config('payroll_reference.contract_salary_increases', []));
             $increaseTotal = round((float) $salaryIncreases->sum('amount'), 2);
-            $salaryOrigin = round($base - $increaseTotal, 2);
+            $salaryOrigin = $diplomaSalary ? $base : round($base - $increaseTotal, 2);
+            if ($diplomaSalary) { $fixedEarnings += $increaseTotal; }
             if ($salaryOrigin <= 0) {
                 throw new ConflictHttpException(
                     'La décomposition historique des augmentations dépasse le salaire contractuel courant.'
@@ -405,7 +410,9 @@ class PayrollCalculationService
             ->where('status', 'validated')
             ->where('is_exempt', false)
             ->orderBy('id')
-            ->get();
+            ->get()
+            ->filter(fn ($element) => $element->code !== 'TABASKI_RETENUE' || app(PayrollTabaskiSchedule::class)->allowsDeduction($element))
+            ->values();
         $attendance = $period->attendances()
             ->where('enseignant_id', $enseignant->id)
             ->where('status', 'validated')
@@ -517,5 +524,14 @@ class PayrollCalculationService
                 $enseignant->matricule ?: 'l’enseignant #'.$enseignant->id
             ));
         }
+    }
+
+    /** @return array{ia_id: ?int, ief_id: ?int} IA déduite de l'IEF, qui fait référence. */
+    private function affectation(\App\Models\Enseignant $enseignant): array
+    {
+        $iefId = $enseignant->ief_id ? (int) $enseignant->ief_id : null;
+        $iaId = $iefId ? DB::table('iefs')->where('id', $iefId)->value('ia_id') : null;
+
+        return ['ia_id' => $iaId !== null ? (int) $iaId : ($enseignant->ia_id ? (int) $enseignant->ia_id : null), 'ief_id' => $iefId];
     }
 }

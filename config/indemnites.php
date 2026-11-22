@@ -5,10 +5,10 @@ return [
     |--------------------------------------------------------------------------
     | Dépôt des pièces justificatives
     |--------------------------------------------------------------------------
-    | Les pièces justificatives sont fournies après les services faits, c'est-à-dire
-    | après les examens : le dépôt est refusé tant que la date de fin de la convocation
-    | n'est pas passée. Mettre INDEMNITES_DEPOT_APRES_EXAMEN=false pour lever ce
-    | blocage (démonstration, essais).
+    | Par défaut, le dépôt des pièces justificatives est toujours possible, même
+    | avant la fin de l'examen (demande utilisatrice : le bouton "Ajouter une
+    | pièce" doit toujours être actif). Mettre INDEMNITES_DEPOT_APRES_EXAMEN=true
+    | pour n'autoriser le dépôt qu'après la date de fin de la convocation.
     */
-    'depot_apres_examen' => (bool) env('INDEMNITES_DEPOT_APRES_EXAMEN', true),
+    'depot_apres_examen' => (bool) env('INDEMNITES_DEPOT_APRES_EXAMEN', false),
 ];

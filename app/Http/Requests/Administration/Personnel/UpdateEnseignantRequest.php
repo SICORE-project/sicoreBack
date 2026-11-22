@@ -25,6 +25,11 @@ class UpdateEnseignantRequest extends FormRequest
             if ($teacher) {
                 $this->mergeIfMissing($teacher->only(['statut_enseignant_id', 'situation_matrimoniale',
                     'est_en_couple', 'nombre_enfants', 'nombre_femmes', 'conjoint_travaille', 'statut']));
+                // Une mise à jour partielle ne doit pas échouer sur les dates déjà enregistrées.
+                $this->mergeIfMissing(array_filter([
+                    'date_prise_service' => $teacher->date_prise_service?->toDateString(),
+                    'date_recrutement' => $teacher->date_recrutement?->toDateString(),
+                ]));
             }
         }
         $this->prepareTeacherIdentity(true);
@@ -155,7 +160,13 @@ class UpdateEnseignantRequest extends FormRequest
                 Rule::exists('syndicats', 'id')->where(fn ($query) => $query->where('est_actif', true)),
             ],
             'date_recrutement' => ['nullable', 'date'],
-            'date_prise_service' => ['nullable', 'date'],
+            // Même règle qu'à la création (voir StoreEnseignantRequest).
+            'date_prise_service' => [
+                Rule::requiredIf(fn () => ($this->corpsEstContractuel() || $this->corpsEstVacataire())
+                    && ! $this->filled('date_recrutement')),
+                'nullable',
+                'date',
+            ],
             'ia_id' => ['sometimes', 'required', 'integer', Rule::exists('ias', 'id')->whereNull('deleted_at')],
             'ief_id' => ['sometimes', 'required', 'integer', Rule::exists('iefs', 'id')->whereNull('deleted_at')],
             'corps_id' => $this->teacherCorpsRules(),
@@ -181,6 +192,7 @@ class UpdateEnseignantRequest extends FormRequest
             'nombre_enfants.integer' => 'Le nombre d’enfants doit être un nombre entier.',
             'nombre_enfants.min' => 'Le nombre d’enfants ne peut pas être négatif.',
             'date_fin_contrat.after_or_equal' => 'La fin du contrat doit être postérieure ou égale à la date de recrutement.',
+            'date_prise_service.required' => 'La date de prise de service (ou, à défaut, la date de recrutement) est obligatoire pour un contractuel ou un vacataire : sans elle, l’enseignant ne peut pas être payé.',
             'diplome_id.exists' => 'Le diplôme sélectionné n’existe plus. Veuillez le sélectionner à nouveau.',
             'salaire_brut.min' => 'Le salaire brut ne peut pas être négatif.',
             'cni.regex' => 'Le numéro de carte d’identité doit contenir entre 13 et 15 chiffres.',

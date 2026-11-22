@@ -33,14 +33,19 @@ class RecruitmentController extends Controller
         if (! empty(trim($filters['reference'] ?? ''))) $query->where('reference','like','%'.trim($filters['reference']).'%');
 
         // Statistiques sur tout le périmètre de l'utilisateur, sans les filtres.
-        $members = $this->access->members($request->user());
+        // Une seule requête pour les quatre indicateurs.
+        $counts = $this->access->members($request->user())->selectRaw(
+            'COUNT(DISTINCT m.batch_id) as listes, COUNT(*) as recrutes,
+            SUM(CASE WHEN m.service_date IS NOT NULL THEN 1 ELSE 0 END) as prises_service,
+            SUM(CASE WHEN m.service_date IS NULL THEN 1 ELSE 0 END) as en_attente'
+        )->first();
 
         return response()->json(['data' => $query->orderByDesc('id')
             ->get(['id', 'reference', 'recruited_at', 'transmitted_at', 'created_at']), 'stats' => [
-                'listes' => (clone $members)->distinct()->count('m.batch_id'),
-                'recrutes' => (clone $members)->count(),
-                'prises_service' => (clone $members)->whereNotNull('m.service_date')->count(),
-                'en_attente' => (clone $members)->whereNull('m.service_date')->count(),
+                'listes' => (int) $counts->listes,
+                'recrutes' => (int) $counts->recrutes,
+                'prises_service' => (int) $counts->prises_service,
+                'en_attente' => (int) $counts->en_attente,
             ]]);
     }
 

@@ -44,6 +44,7 @@ class PeriodePaieController extends Controller
 
     public function store(StorePeriodePaieRequest $request): JsonResponse
     {
+        // This is the reusable month catalogue, not a dated payroll calculation.
         $periode = PeriodePaie::query()->create($request->validated());
 
         return response()->json([

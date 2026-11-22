@@ -10,8 +10,16 @@ class UserPresence
     public static function touch(User $user): void
     {
         if ($user->statut !== 'actif') return;
-        Cache::put('presence:user:'.$user->id, true, now()->addMinutes(5));
-        if ($user->enseignant_id) Cache::put('presence:teacher:'.$user->enseignant_id, true, now()->addMinutes(5));
+        self::refresh('presence:user:'.$user->id);
+        if ($user->enseignant_id) self::refresh('presence:teacher:'.$user->enseignant_id);
+    }
+
+    /** Présence valable 5 min, renouvelée au plus une fois par minute (évite une écriture par appel API). */
+    private static function refresh(string $key): void
+    {
+        $since = Cache::get($key);
+        if (is_int($since) && $since > now()->subMinute()->timestamp) return;
+        Cache::put($key, now()->timestamp, now()->addMinutes(5));
     }
 
     public static function forget(User $user): void

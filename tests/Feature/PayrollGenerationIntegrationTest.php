@@ -6,7 +6,7 @@ use App\Models\Admin\User;
 use App\Models\Enseignant;
 use App\Models\PayrollPayslip;
 use App\Models\PayrollPeriod;
-use App\Services\PayrollGenerationService;
+use App\Services\PayrollCalculationService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -44,7 +44,7 @@ class PayrollGenerationIntegrationTest extends TestCase
         $this->year = DB::table('annee_academiques')->insertGetId([
             'libelle' => '2026-2027', 'date_debut' => '2026-10-01', 'date_fin' => '2027-09-30', 'est_active' => true,
         ]);
-        DB::table('periode_de_paies')->insert(['code' => '10', 'libelle' => 'OCTOBRE']);
+        DB::table('periode_de_paies')->insert(['code' => '10', 'libelle' => 'OCTOBRE', 'numero_mois' => 10]);
         $category = DB::table('categories')->insertGetId(['libelle' => 'Contractuelle', 'ordre' => 0]);
         $diploma = DB::table('diplomes')->insertGetId(['libelle' => 'LICENCE', 'categorie_id' => $category, 'salaire_brut' => 145000]);
         $pc = DB::table('statuts_enseignant')->insertGetId(['code' => 'PC', 'libelle' => 'Professeurs contractuels']);
@@ -63,13 +63,27 @@ class PayrollGenerationIntegrationTest extends TestCase
                 'code' => $code, 'libelle' => $code, 'type' => 'retenue', 'periodicite' => 'mensuelle', 'montant' => $amount,
             ]);
         }
+        foreach (config('payroll_reference.contract_salary_increases') as $increase) {
+            DB::table('rubrique_paies')->insert(['code' => $increase['code'], 'libelle' => $increase['label'],
+                'type' => 'gain', 'periodicite' => 'mensuelle', 'montant' => $increase['amount']]);
+        }
     }
 
     private function generate(array $selection)
     {
-        return app(PayrollGenerationService::class)->generate([
-            'annee_academique_id' => $this->year, 'month' => 10, ...$selection,
-        ], $this->actor, Request::create('/generation', 'POST'), null);
+        // Internal engine coverage: there is no longer a manual generation API.
+        return DB::transaction(function () use ($selection) {
+            $query = Enseignant::where('est_actif', true);
+            if ($selection['generation_scope'] === 'teacher') $query->where('id', $selection['enseignant_id']);
+            else {
+                $query->where('ia_id', $selection['ia_id']);
+                if (! empty($selection['ief_id'])) $query->where('ief_id', $selection['ief_id']);
+            }
+            $ids = $query->pluck('id')->all();
+            if ($ids === []) throw ValidationException::withMessages(['selection' => 'Aucun enseignant.']);
+            $period = PayrollPeriod::firstOrCreate(['code' => '2026-10'], ['label' => 'Octobre 2026', 'status' => 'open', 'start_date' => '2026-10-01', 'end_date' => '2026-10-31']);
+            return app(PayrollCalculationService::class)->calculate($period, $this->actor, $ids);
+        });
     }
 
     public function test_individual_generation_reads_personnel_without_saving_a_second_profile(): void
@@ -85,7 +99,9 @@ class PayrollGenerationIntegrationTest extends TestCase
         $this->assertSame('12500.00', $slip->lines->firstWhere('code', 'IMPR')->amount);
         $this->assertSame('145000.00', $slip->lines->firstWhere('code', 'SALAIRE_BASE')->amount);
         $this->assertSame('diploma_salary', $slip->lines->firstWhere('code', 'SALAIRE_BASE')->source);
-        $this->assertSame(0, $slip->lines->where('source', 'salary_increase')->count());
+        $this->assertSame(8, $slip->lines->where('source', 'salary_increase')->count());
+        $this->assertSame(55000.0, (float) $slip->lines->where('source', 'salary_increase')->sum('amount'));
+        $this->assertSame(360000.0, (float) $slip->gross_amount);
         DB::table('rubrique_paies')->insert([
             'code' => 'SALAIRE_BASE', 'libelle' => 'Ancien salaire configuré', 'type' => 'gain',
             'periodicite' => 'mensuelle', 'montant' => 999999, 'est_afficher_bulletin' => false,
@@ -143,12 +159,12 @@ class PayrollGenerationIntegrationTest extends TestCase
         }
     }
 
-    public function test_validated_period_is_not_regenerated(): void
+    public function test_validated_period_does_not_block_an_explicit_unpaid_calculation(): void
     {
         $this->generate(['generation_scope' => 'teacher', 'enseignant_id' => $this->teacherIds[0]]);
         PayrollPeriod::first()->update(['status' => 'validated']);
-        $this->expectException(ConflictHttpException::class);
-        $this->generate(['generation_scope' => 'teacher', 'enseignant_id' => $this->teacherIds[1]]);
+        $run = $this->generate(['generation_scope' => 'teacher', 'enseignant_id' => $this->teacherIds[1]]);
+        $this->assertTrue($run->payslips()->where('enseignant_id', $this->teacherIds[1])->exists());
     }
 
     public function test_ief_outside_the_selected_ia_does_not_generate_any_teacher(): void

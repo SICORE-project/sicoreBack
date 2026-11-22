@@ -21,9 +21,9 @@ class PayrollTabaskiValidationTest extends TestCase
     {
         parent::setUp();
 
-        Schema::create('corps_enseignant', function (Blueprint $table): void {
+        Schema::create('statuts_enseignant', function (Blueprint $table): void {
             $table->id();
-            $table->string('code');
+            $table->string('code'); $table->string('libelle');
         });
         Schema::create('ias', function (Blueprint $table): void {
             $table->id();
@@ -32,36 +32,36 @@ class PayrollTabaskiValidationTest extends TestCase
             $table->id();
         });
 
-        $this->corpsId = DB::table('corps_enseignant')->insertGetId(['code' => 'VAC']);
+        $this->corpsId = DB::table('statuts_enseignant')->insertGetId(['code' => 'VAC', 'libelle' => 'Vacataires']);
         $this->iaId = DB::table('ias')->insertGetId([]);
         $this->academicYearId = DB::table('annee_academiques')->insertGetId([]);
     }
 
-    public function test_avance_exige_une_ia_un_mois_et_un_montant_positif(): void
+    public function test_advance_requires_ia_and_month_and_rejects_custom_amount(): void
     {
         $valid = $this->validator('apply-tabaski-advance', [
             ...$this->basePayload(),
-            'month' => 7,
+            'start_month' => '2027-07',
         ]);
         $this->assertTrue($valid->passes());
 
         $invalid = $this->validator('apply-tabaski-advance', [
             ...$this->basePayload(),
             'ia_ids' => [],
-            'month' => 13,
+            'start_month' => '2027-13',
             'amount' => 0,
         ]);
         $this->assertTrue($invalid->fails());
         $this->assertArrayHasKey('ia_ids', $invalid->errors()->toArray());
-        $this->assertArrayHasKey('month', $invalid->errors()->toArray());
+        $this->assertArrayHasKey('start_month', $invalid->errors()->toArray());
         $this->assertArrayHasKey('amount', $invalid->errors()->toArray());
     }
 
-    public function test_retenue_exige_exactement_dix_mois_distincts(): void
+    public function test_deduction_accepts_start_month_but_rejects_manual_month_lists(): void
     {
         $valid = $this->validator('apply-tabaski-deduction', [
             ...$this->basePayload(),
-            'months' => [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+            'amount' => 10000,
         ]);
         $this->assertTrue($valid->passes());
 
@@ -69,25 +69,25 @@ class PayrollTabaskiValidationTest extends TestCase
             ...$this->basePayload(),
             'months' => [1, 2, 3, 4, 5, 6, 7, 8, 9],
         ]);
-        $this->assertArrayHasKey('months', $nineMonths->errors()->toArray());
+        $this->assertTrue($nineMonths->fails());
 
         $duplicate = $this->validator('apply-tabaski-deduction', [
             ...$this->basePayload(),
             'months' => [1, 1, 2, 3, 4, 5, 6, 7, 8, 9],
         ]);
-        $this->assertTrue(collect($duplicate->errors()->keys())->contains(fn (string $key): bool => str_starts_with($key, 'months.')));
+        $this->assertArrayHasKey('months', $duplicate->errors()->toArray());
     }
 
     public function test_un_corps_cree_par_le_crud_parametrage_est_accepte(): void
     {
-        $corpsId = DB::table('corps_enseignant')->insertGetId([
-            'code' => 'PROFESSEURS-CONTRACTUELS',
+        $corpsId = DB::table('statuts_enseignant')->insertGetId([
+            'code' => 'PROFESSEURS-CONTRACTUELS', 'libelle' => 'Professeurs contractuels',
         ]);
 
         $validation = $this->validator('apply-tabaski-advance', [
             ...$this->basePayload(),
-            'corps_id' => $corpsId,
-            'month' => 7,
+            'statut_enseignant_id' => $corpsId,
+            'start_month' => '2027-07',
         ]);
 
         $this->assertTrue($validation->passes());
@@ -97,9 +97,9 @@ class PayrollTabaskiValidationTest extends TestCase
     private function basePayload(): array
     {
         return [
-            'corps_id' => $this->corpsId,
+            'statut_enseignant_id' => $this->corpsId,
             'ia_ids' => [$this->iaId],
-            'annee_academique_id' => $this->academicYearId,
+            'start_month' => '2027-01',
             'amount' => 100000,
         ];
     }

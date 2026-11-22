@@ -18,15 +18,6 @@ class PayrollActionRequest extends FormRequest
     public function rules(): array
     {
         return match ((string) $this->route('action')) {
-            'generate-payslips' => [
-                'generation_scope' => ['required', Rule::in(['ia', 'teacher'])],
-                'ia_id' => ['nullable', 'required_if:generation_scope,ia', 'integer', 'exists:ias,id'],
-                'ief_id' => ['nullable', 'integer', Rule::exists('iefs', 'id')->where('ia_id', (int) $this->input('ia_id'))],
-                'statut_enseignant_id' => ['nullable', 'integer', 'exists:statuts_enseignant,id'],
-                'enseignant_id' => ['nullable', 'required_if:generation_scope,teacher', 'integer', $this->activeTeacherRule()],
-                'annee_academique_id' => ['required', 'integer', 'exists:annee_academiques,id'],
-                'month' => ['required', 'integer', 'between:1,12'],
-            ],
             'configure-teacher-payroll' => [
                 'ia_id' => ['required', 'integer', 'exists:ias,id'],
                 'ief_id' => [
@@ -91,7 +82,7 @@ class PayrollActionRequest extends FormRequest
                     'integer',
                     $this->activeTeacherRule(),
                 ],
-                'code' => ['required', 'string', 'max:50', 'regex:/^[A-Z0-9_]+$/'],
+                'code' => ['required', 'string', 'max:50', 'regex:/^[A-Z0-9_]+$/', Rule::notIn(['TABASKI_AVANCE', 'TABASKI_RETENUE'])],
                 'label' => ['required', 'string', 'max:150'],
                 'category' => ['required', Rule::in(['earning', 'deduction', 'contribution'])],
                 'amount' => ['required', 'numeric', 'gt:0', 'max:999999999999.99'],
@@ -103,6 +94,10 @@ class PayrollActionRequest extends FormRequest
                 'payroll_element_id' => ['required', 'integer', 'exists:payroll_elements,id'],
                 'reason' => ['required', 'string', 'min:10', 'max:1000'],
                 'expected_version' => ['required', 'integer', 'min:1'],
+            ],
+            'open-period' => [
+                'payroll_month' => ['required', 'integer', 'between:1,12'],
+                'annee_academique_id' => ['required', 'integer', 'exists:annee_academiques,id'],
             ],
             'validate-attendance',
             'validate-elements',
@@ -163,17 +158,14 @@ class PayrollActionRequest extends FormRequest
             ],
             'ia_ids' => ['required', 'array', 'min:1'],
             'ia_ids.*' => ['required', 'integer', 'distinct', 'exists:ias,id'],
-            'annee_academique_id' => ['required', 'integer', 'exists:annee_academiques,id'],
-            'amount' => ['required', 'numeric', 'gt:0', 'max:999999999999.99'],
+            'ief_id' => ['nullable', 'integer', Rule::exists('iefs', 'id')->whereIn('ia_id', (array) $this->input('ia_ids', []))],
+            'matricule' => ['nullable', 'string', 'max:100'],
+            'start_month' => ['required', 'date_format:Y-m'],
+            'amount' => ['sometimes', 'numeric', 'in:'.($deduction ? '10000' : '100000')],
+            'months' => ['prohibited'],
+            'month' => ['prohibited'],
+            'annee_academique_id' => ['prohibited'],
         ];
-
-        if ($deduction) {
-            $rules['months'] = ['required', 'array', 'size:10'];
-            $rules['months.*'] = ['required', 'integer', 'distinct', 'between:1,12'];
-        } else {
-            $rules['month'] = ['required', 'integer', 'between:1,12'];
-        }
-
         return $rules;
     }
 
