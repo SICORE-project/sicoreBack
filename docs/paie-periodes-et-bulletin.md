@@ -54,23 +54,21 @@ directement dans la base locale le 26 octobre 2026 : respectivement 55 600,
 500, 4 500 et 1 000 FCFA, issus du bulletin fourni. Aucun seeder n'est exécuté.
 Sur une autre installation, renseigner les montants via le CRUD existant.
 
-La table `periode_de_paies` (code, libellé) est la source des mois proposés.
-Le CRUD des années académiques fournit les dates : par exemple octobre est en
-2026 et juin en 2027 pour une année d'octobre 2026 à septembre 2027.
+La table `periode_de_paies` (code, libellé, `numero_mois`) est le référentiel
+des 12 mois. Le numéro du mois (1 à 12, unique) est choisi dans une liste dans
+Paramétrage → Périodes de paie ; il n'est plus déduit du code ni du libellé.
+Une ligne de ce référentiel sert pour toutes les années : elle ne porte ni
+dates ni lien vers une période datée (colonnes supprimées le 22/11/2026).
 
-Exemples de périodes à saisir via le CRUD existant :
-
-| Code | Libellé |
-|---|---|
-| 10 | OCTOBRE |
-| JUIN | JUIN |
-| 2026-11 | NOVEMBRE 2026 |
-
-Codes reconnus : 01 à 12 (ou 1 à 9), nom français du mois, abréviation sur
-trois lettres, AAAA-MM. Si le code métier est différent, un libellé comme
-OCTOBRE permet aussi le rapprochement. Les libellés non mensuels ne sont pas
-transformés en dates arbitraires. Le message de page indique la configuration
-attendue si aucune période ne peut être rapprochée.
+Rattachement à l'année académique : `payroll_periods.annee_academique_id`
+(clé étrangère), posé à l'ouverture du mois dans Paie → Édition. La règle
+d'appartenance, codée uniquement dans `PayrollMonthResolver::monthStart()`, est :
+un mois appartient à l'année s'il chevauche [date_debut, date_fin]. Exemple :
+pour une année du 21/10/2026 au 22/06/2027, octobre 2026 et juin 2027 en font
+partie, juillet 2027 non. Ensuite, tous les écrans (Édition, État des salaires,
+suppression d'une année) lisent la clé étrangère, jamais les dates. Une année
+ne peut pas être modifiée si ses nouvelles dates excluent une période déjà
+rattachée.
 
 `PayrollPeriodCatalogue` matérialise le calendrier dans `payroll_periods`
 pour les besoins du moteur (dates, calcul, validation, clôture et clés des
@@ -141,3 +139,20 @@ Le test d'intégration MySQL est décrit dans `bulletin-parametrage.md`.
 Le calendrier de test est créé dans les tests, jamais injecté par un seeder
 dans une base de travail. Dans la base locale de cette installation, OCTOBRE
 a été ajouté par l'API CRUD existante et les dix bulletins initiaux sont conservés.
+
+## Affectation de l'enseignant et IA du bulletin (22/11/2026)
+
+L'IEF est la référence de l'affectation. L'IA de l'enseignant est toujours
+celle de son IEF : les formulaires du personnel refusent une IEF d'une autre IA
+(`ValidatesTeacherHierarchy`), et le trait `DerivesTeacherIaFromIef`, utilisé
+par les trois modèles de la table `enseignants`, recalcule `ia_id` à chaque
+sauvegarde (imports et services compris).
+
+Au calcul, l'IA et l'IEF sont recopiées sur le bulletin
+(`payroll_payslips.ia_id` / `ief_id`). Les rapports d'un mois payé (portée
+IA, État des salaires, Résumé par IEF, filtres IA/IEF de l'Édition) lisent ces
+colonnes : un enseignant muté reste, pour ses anciens bulletins, dans l'IA qui
+l'a payé. Sans bulletin, c'est l'affectation actuelle qui compte. Les rapports
+d'effectif (« workforce », statistiques des enseignants) restent sur
+l'affectation actuelle. Les bulletins antérieurs à la migration ont reçu
+l'affectation qu'avait l'enseignant le 22/11/2026.

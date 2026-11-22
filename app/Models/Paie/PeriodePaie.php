@@ -14,7 +14,11 @@ class PeriodePaie extends Model
     protected $fillable = [
         'code',
         'libelle',
-        'date_debut',
-        'date_fin',
+        'numero_mois',
     ];
+
+    protected function casts(): array
+    {
+        return ['numero_mois' => 'integer'];
+    }
 }

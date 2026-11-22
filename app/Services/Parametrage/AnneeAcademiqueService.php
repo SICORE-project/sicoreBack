@@ -4,7 +4,8 @@ namespace App\Services\Parametrage;
 
 use App\Models\Paie\AnneeAcademique;
 use App\Models\PayrollPeriod;
-use Carbon\Carbon;
+use App\Services\PayrollMonthResolver;
+use Carbon\CarbonImmutable;
 use DomainException;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
@@ -41,9 +42,34 @@ class AnneeAcademiqueService
             );
         }
 
+        $this->assertPeriodsStillInside($annee, $data);
         $annee->update($data);
 
         return $annee->fresh();
+    }
+
+    /**
+     * Les périodes déjà rattachées doivent rester dans l'année après une
+     * modification des dates (même règle de chevauchement qu'à l'ouverture).
+     */
+    private function assertPeriodsStillInside(AnneeAcademique $annee, array $data): void
+    {
+        if (! array_key_exists('date_debut', $data) && ! array_key_exists('date_fin', $data)) {
+            return;
+        }
+        $dates = (object) [
+            'date_debut' => $data['date_debut'] ?? $annee->date_debut,
+            'date_fin' => $data['date_fin'] ?? $annee->date_fin,
+        ];
+        $resolver = app(PayrollMonthResolver::class);
+        $outside = PayrollPeriod::where('annee_academique_id', $annee->id)->orderBy('start_date')->get()
+            ->reject(fn (PayrollPeriod $p) => $resolver->overlaps($dates, CarbonImmutable::parse($p->start_date), CarbonImmutable::parse($p->end_date)))
+            ->pluck('code');
+        if ($outside->isNotEmpty()) {
+            throw new DomainException(
+                'Ces dates excluraient des périodes de paie déjà rattachées à cette année : '.$outside->implode(', ').'.',
+            );
+        }
     }
 
     public function activate(AnneeAcademique $annee): AnneeAcademique
@@ -100,12 +126,7 @@ class AnneeAcademiqueService
             );
         }
 
-        // Même rattachement que l'état des salaires : une période de paie
-        // appartient à l'année dont les dates l'englobent.
-        $hasPayrollPeriods = PayrollPeriod::query()
-            ->whereDate('start_date', '>=', Carbon::parse($annee->date_debut)->toDateString())
-            ->whereDate('end_date', '<=', Carbon::parse($annee->date_fin)->toDateString())
-            ->exists();
+        $hasPayrollPeriods = PayrollPeriod::where('annee_academique_id', $annee->id)->exists();
 
         if ($hasPayrollPeriods || DB::table('payroll_elements')->where('annee_academique_id', $annee->id)->exists()) {
             throw new DomainException(

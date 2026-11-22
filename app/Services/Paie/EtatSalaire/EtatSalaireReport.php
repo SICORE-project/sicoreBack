@@ -63,11 +63,11 @@ trait EtatSalaireReport
                 return false;
             }
             if (filled($criteria['ia_id'] ?? null)
-                && $this->teacherIaId($teacher) !== (int) $criteria['ia_id']) {
+                && $this->payslipIaId($payslip) !== (int) $criteria['ia_id']) {
                 return false;
             }
             if (filled($criteria['ief_id'] ?? null)
-                && $this->teacherIefId($teacher) !== (int) $criteria['ief_id']) {
+                && $this->payslipIefId($payslip) !== (int) $criteria['ief_id']) {
                 return false;
             }
             if (filled($criteria['payment_place_id'] ?? null)
@@ -154,8 +154,9 @@ trait EtatSalaireReport
                 ->whereNotIn('code', $recognizedDeductionCodes)
                 ->sum('amount');
             $profileCategory = data_get($payslip->profile_snapshot, 'category_level');
-            $iaId = $this->teacherIaId($teacher);
-            $iefId = $this->teacherIefId($teacher);
+            // IA et IEF figées sur le bulletin au calcul.
+            $iaId = $this->payslipIaId($payslip);
+            $iefId = $this->payslipIefId($payslip);
 
             // Montant paramétré dans rubrique_paies, seulement si la rubrique concerne le statut de l'agent.
             $teacherStatutId = (int) $teacher->getAttribute('statut_enseignant_id');
@@ -498,14 +499,12 @@ trait EtatSalaireReport
 
     private function academicYearForPeriod(?PayrollPeriod $period): ?object
     {
-        if (! $period || ! Schema::hasTable('annee_academiques')) {
+        if (! $period?->annee_academique_id) {
             return null;
         }
 
-        return DB::table('annee_academiques')
-            ->whereDate('date_debut', '<=', $period->start_date->toDateString())
-            ->whereDate('date_fin', '>=', $period->end_date->toDateString())
-            ->first();
+        // Rattachement par clé étrangère, posé à l'ouverture (PayrollMonthResolver).
+        return DB::table('annee_academiques')->where('id', $period->annee_academique_id)->first();
     }
 
     private function referenceMap(string $table, string $labelColumn): Collection
