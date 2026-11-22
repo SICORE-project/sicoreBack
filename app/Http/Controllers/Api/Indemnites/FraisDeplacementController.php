@@ -132,7 +132,7 @@ class FraisDeplacementController extends Controller
             ->get(['id', 'beneficiaire_id', 'statut', 'montant_calcule', 'lieu_service', 'indice_agent', 'salaire_global_annuel'])
             ->keyBy('beneficiaire_id');
 
-        $construireLigne = function ($enseignant, ?string $nomCentre, ?int $centreId) use ($convocation, $typesRequis, $typesParEnseignant, $missionsExistantes) {
+        $construireLigne = function ($enseignant, ?string $nomCentre, ?int $centreId, ?string $fonction = null) use ($convocation, $typesRequis, $typesParEnseignant, $missionsExistantes) {
             $typesPresents = $typesParEnseignant->get($enseignant->id, []);
             $complet = count(array_intersect($typesRequis, $typesPresents)) === count($typesRequis);
             $mission = $missionsExistantes->get($enseignant->id);
@@ -167,6 +167,10 @@ class FraisDeplacementController extends Controller
                 // PiecesJustificativesController::construireMembres()).
                 'centre' => $nomCentre,
                 'centre_id' => $centreId,
+                // Rôle dans la convocation : "Chef de centre", "Président de
+                // jury" (libellés attendus par l'état de paie correction côté
+                // front, montant par défaut) ou fonction du pivot pour un membre.
+                'fonction' => $fonction,
                 'lieu_affectation' => $lieuAffectation,
                 'provenance' => $provenance,
                 'dossier_complet' => $complet,
@@ -195,18 +199,18 @@ class FraisDeplacementController extends Controller
             // membres du pivot restent quand même visibles, sans lieu
             // d'affectation par centre précis.
             foreach ($convocation->enseignants as $enseignant) {
-                $beneficiaires->push($construireLigne($enseignant, null, null));
+                $beneficiaires->push($construireLigne($enseignant, null, null, $enseignant->pivot->fonction ?? null));
             }
         } else {
             $plusieursCentres = $convocation->centres->count() > 1;
 
             foreach ($convocation->centres as $centre) {
                 if ($centre->chefCentre) {
-                    $beneficiaires->push($construireLigne($centre->chefCentre, $centre->centre, $centre->id));
+                    $beneficiaires->push($construireLigne($centre->chefCentre, $centre->centre, $centre->id, 'Chef de centre'));
                 }
 
                 if ($centre->presidentJury) {
-                    $beneficiaires->push($construireLigne($centre->presidentJury, $centre->centre, $centre->id));
+                    $beneficiaires->push($construireLigne($centre->presidentJury, $centre->centre, $centre->id, 'Président de jury'));
                 }
 
                 foreach ($convocation->enseignants as $enseignant) {
@@ -226,7 +230,7 @@ class FraisDeplacementController extends Controller
                         continue;
                     }
 
-                    $beneficiaires->push($construireLigne($enseignant, $centre->centre, $centre->id));
+                    $beneficiaires->push($construireLigne($enseignant, $centre->centre, $centre->id, $enseignant->pivot->fonction ?? null));
                 }
             }
         }
