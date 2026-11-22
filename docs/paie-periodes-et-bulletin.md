@@ -156,3 +156,53 @@ l'a payé. Sans bulletin, c'est l'affectation actuelle qui compte. Les rapports
 d'effectif (« workforce », statistiques des enseignants) restent sur
 l'affectation actuelle. Les bulletins antérieurs à la migration ont reçu
 l'affectation qu'avait l'enseignant le 22/11/2026.
+
+## Édition IA : mises à jour des fiches et validation du mois (22/11/2026)
+
+1. Le gestionnaire d'une IA modifie les fiches de ses enseignants dans
+   Gestion du personnel > Enseignants (bouton « Modifier » de la liste ou du
+   dossier) : situation familiale (parts fiscales recalculées), banque/RIB,
+   dates de prise de service, de recrutement et de fin de contrat, IEF et lieu
+   de service dans son IA, diplôme/catégorie (salaire brut recalculé),
+   syndicat, mutuelle. Seuls les champs modifiés sont envoyés ; la fiche change
+   tout de suite et la modification est journalisée (avant / après) dans
+   `payroll_edition_changes`, sans mois.
+2. Dans Paie > États de présence > Édition, un bandeau indique l'état du mois
+   (Non validée, À revalider, Validée) et liste les fiches modifiées depuis la
+   dernière validation. Le bouton « Valider l'Édition », en bas du tableau,
+   recalcule les bulletins des contractuels et vacataires de l'IA en service
+   sur le mois et supprime les bulletins devenus sans objet (refusé si l'un
+   d'eux est payé). Une validation par IA et par mois
+   (`payroll_edition_validations`).
+3. Une modification de fiche postérieure à la validation d'un mois remet ce
+   mois « À revalider » (chaque mois non clôturé de l'IA). Les mois clôturés ne
+   sont plus concernés.
+
+L'État des salaires (affichage et export) ne contient que les bulletins des IA
+dont l'Édition du mois est validée et sans modification depuis ; un message
+liste les IA non validées.
+
+Code : `PayrollEditionService`, `IaEditionController`
+(`GET api/ia/enseignants/{id}/formulaire`, `PUT api/ia/enseignants/{id}`,
+`POST api/ia/edition/valider`), `UpdateIaTeacherRequest`. Front :
+`pages/ia/teacher-edit.blade.php` (routes `ia.teachers.edit` /
+`ia.teachers.update`), `pages/paie/partials/edition-workflow.blade.php`.
+
+### Une génération par mois (IA) — validation définitive
+
+- Un mois validé par l'IA l'est définitivement (une seule validation par IA et
+  par mois ; une deuxième est refusée). Une mise à jour de fiche faite après
+  cette validation ne rouvre pas le mois : elle est prise en compte à la
+  validation du mois suivant, dont les bulletins sont recalculés avec la fiche
+  à jour. Le bandeau de l'Édition liste ces mises à jour (« prises en compte le
+  mois suivant » sur un mois validé, « à prendre en compte » sur un mois non
+  validé).
+- Édition : mois validé → « Générer la paie » devient « Consulter » et
+  « Valider l'Édition » n'est plus proposé.
+- État des salaires : la première génération du document est enregistrée
+  (`payroll_edition_validations.statement_generated_at`) ; ensuite le bouton
+  devient « Consulter l'état ».
+- Filtres de l'État des salaires : la liste « Période de paie » ne propose que
+  les 12 mois du référentiel (`payroll_month`), résolus avec l'année
+  académique ; le mois, l'année et le corps restent sélectionnés après
+  rechargement et sont transmis à l'export.

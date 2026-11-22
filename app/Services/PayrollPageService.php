@@ -297,6 +297,10 @@ class PayrollPageService
             'actions' => $report['actions'] ?? $this->reportActions($slug, $period),
             'input_records' => $report['input_records'] ?? [],
             'tabaski_beneficiaries' => $report['tabaski_beneficiaries'] ?? [],
+            'edition' => $report['edition'] ?? null,
+            // États des mois de l'IA : « Générer » la première fois, « Consulter » ensuite.
+            'edition_months' => $this->iaScopeId !== null && in_array($slug, ['paie-edition', 'paie-etat-salaires'], true)
+                ? app(PayrollEditionService::class)->monthStates($this->iaScopeId) : [],
             'notice' => $report['notice'] ?? $this->periodNotice($period),
         ];
     }
@@ -1791,8 +1795,13 @@ private function notGeneratedReport(?PayrollPeriod $period): array
             ];
         });
 
+        // Validation de l'Édition par l'IA (PayrollEditionService) ; les fiches se modifient dans Gestion du personnel.
+        $editionIa = $this->iaScopeId ?? (filled($criteria['ia_id'] ?? null) ? (int) $criteria['ia_id'] : null);
+        $edition = app(PayrollEditionService::class)->pageData($period, $editionIa, $this->iaScopeId !== null);
+
         return [
             'columns' => $columns, 'rows' => $rows, 'actions' => [],
+            'edition' => $edition,
             'stats' => [
                 $this->stat('Enseignants', $filteredTeachers->count(), 'Total filtré', 'EN', 'green'),
                 $this->stat('Bulletins générés', $payslips->count(), $period?->label ?? 'Période', 'BS', 'blue'),

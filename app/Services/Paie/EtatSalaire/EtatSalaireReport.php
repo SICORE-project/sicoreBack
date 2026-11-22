@@ -55,6 +55,20 @@ trait EtatSalaireReport
             $items = collect();
         }
 
+        // Édition IA : l'État des salaires d'une IA n'est disponible qu'après validation de son Édition du mois.
+        $editionNotice = null;
+        if ($period && Schema::hasTable('payroll_edition_validations')) {
+            $validatedIas = app(\App\Services\PayrollEditionService::class)->validatedIas($period);
+            $blockedIas = $items->map(fn (PayrollPayslip $payslip) => $this->payslipIaId($payslip))->unique()
+                ->reject(fn ($ia) => $ia !== null && in_array($ia, $validatedIas, true))->values();
+            if ($blockedIas->isNotEmpty()) {
+                $items = $items->filter(fn (PayrollPayslip $payslip) => in_array($this->payslipIaId($payslip), $validatedIas, true))->values();
+                $editionNotice = 'Édition non validée pour : '
+                    .$blockedIas->map(fn ($id) => $id === null ? 'IA non renseignée' : $ias->get($id, 'IA #'.$id))->implode(', ')
+                    .'. L’État des salaires de ces IA sera disponible après validation de leur Édition (Paie > États de présence > Édition).';
+            }
+        }
+
         $items = $items->filter(function (PayrollPayslip $payslip) use ($criteria, $tabaskiAdvances): bool {
             $teacher = $payslip->enseignant;
 
@@ -262,9 +276,10 @@ trait EtatSalaireReport
                 $this->stat('Retenues', $this->money($deductions), 'Sociales, fiscales et diverses', 'CS', 'yellow'),
                 $this->stat('Net à payer', $this->money($net), 'État sélectionné', 'SP', 'red'),
             ],
-            'notice' => $records->isEmpty()
+            'notice' => $editionNotice ?? ($records->isEmpty()
                 ? 'Aucun bulletin ne correspond aux critères sélectionnés pour cette période.'
-                : 'État mensuel détaillé construit à partir des bulletins calculés et de leurs rubriques traçables.',
+                : 'État mensuel détaillé construit à partir des bulletins calculés et de leurs rubriques traçables.'),
+            'edition_notice' => $editionNotice,
             'salary_statement' => [
                 'title' => 'État des salaires',
                 'heading' => $this->salaryStatementHeading($period, $criteria, $records, $ias, $statuts),
