@@ -54,23 +54,21 @@ directement dans la base locale le 26 octobre 2026 : respectivement 55 600,
 500, 4 500 et 1 000 FCFA, issus du bulletin fourni. Aucun seeder n'est exécuté.
 Sur une autre installation, renseigner les montants via le CRUD existant.
 
-La table `periode_de_paies` (code, libellé) est la source des mois proposés.
-Le CRUD des années académiques fournit les dates : par exemple octobre est en
-2026 et juin en 2027 pour une année d'octobre 2026 à septembre 2027.
+La table `periode_de_paies` (code, libellé, `numero_mois`) est le référentiel
+des 12 mois. Le numéro du mois (1 à 12, unique) est choisi dans une liste dans
+Paramétrage → Périodes de paie ; il n'est plus déduit du code ni du libellé.
+Une ligne de ce référentiel sert pour toutes les années : elle ne porte ni
+dates ni lien vers une période datée (colonnes supprimées le 22/11/2026).
 
-Exemples de périodes à saisir via le CRUD existant :
-
-| Code | Libellé |
-|---|---|
-| 10 | OCTOBRE |
-| JUIN | JUIN |
-| 2026-11 | NOVEMBRE 2026 |
-
-Codes reconnus : 01 à 12 (ou 1 à 9), nom français du mois, abréviation sur
-trois lettres, AAAA-MM. Si le code métier est différent, un libellé comme
-OCTOBRE permet aussi le rapprochement. Les libellés non mensuels ne sont pas
-transformés en dates arbitraires. Le message de page indique la configuration
-attendue si aucune période ne peut être rapprochée.
+Rattachement à l'année académique : `payroll_periods.annee_academique_id`
+(clé étrangère), posé à l'ouverture du mois dans Paie → Édition. La règle
+d'appartenance, codée uniquement dans `PayrollMonthResolver::monthStart()`, est :
+un mois appartient à l'année s'il chevauche [date_debut, date_fin]. Exemple :
+pour une année du 21/10/2026 au 22/06/2027, octobre 2026 et juin 2027 en font
+partie, juillet 2027 non. Ensuite, tous les écrans (Édition, État des salaires,
+suppression d'une année) lisent la clé étrangère, jamais les dates. Une année
+ne peut pas être modifiée si ses nouvelles dates excluent une période déjà
+rattachée.
 
 `PayrollPeriodCatalogue` matérialise le calendrier dans `payroll_periods`
 pour les besoins du moteur (dates, calcul, validation, clôture et clés des
@@ -141,3 +139,70 @@ Le test d'intégration MySQL est décrit dans `bulletin-parametrage.md`.
 Le calendrier de test est créé dans les tests, jamais injecté par un seeder
 dans une base de travail. Dans la base locale de cette installation, OCTOBRE
 a été ajouté par l'API CRUD existante et les dix bulletins initiaux sont conservés.
+
+## Affectation de l'enseignant et IA du bulletin (22/11/2026)
+
+L'IEF est la référence de l'affectation. L'IA de l'enseignant est toujours
+celle de son IEF : les formulaires du personnel refusent une IEF d'une autre IA
+(`ValidatesTeacherHierarchy`), et le trait `DerivesTeacherIaFromIef`, utilisé
+par les trois modèles de la table `enseignants`, recalcule `ia_id` à chaque
+sauvegarde (imports et services compris).
+
+Au calcul, l'IA et l'IEF sont recopiées sur le bulletin
+(`payroll_payslips.ia_id` / `ief_id`). Les rapports d'un mois payé (portée
+IA, État des salaires, Résumé par IEF, filtres IA/IEF de l'Édition) lisent ces
+colonnes : un enseignant muté reste, pour ses anciens bulletins, dans l'IA qui
+l'a payé. Sans bulletin, c'est l'affectation actuelle qui compte. Les rapports
+d'effectif (« workforce », statistiques des enseignants) restent sur
+l'affectation actuelle. Les bulletins antérieurs à la migration ont reçu
+l'affectation qu'avait l'enseignant le 22/11/2026.
+
+## Édition IA : mises à jour des fiches et validation du mois (22/11/2026)
+
+1. Le gestionnaire d'une IA modifie les fiches de ses enseignants dans
+   Gestion du personnel > Enseignants (bouton « Modifier » de la liste ou du
+   dossier) : situation familiale (parts fiscales recalculées), banque/RIB,
+   dates de prise de service, de recrutement et de fin de contrat, IEF et lieu
+   de service dans son IA, diplôme/catégorie (salaire brut recalculé),
+   syndicat, mutuelle. Seuls les champs modifiés sont envoyés ; la fiche change
+   tout de suite et la modification est journalisée (avant / après) dans
+   `payroll_edition_changes`, sans mois.
+2. Dans Paie > États de présence > Édition, un bandeau indique l'état du mois
+   (Non validée, À revalider, Validée) et liste les fiches modifiées depuis la
+   dernière validation. Le bouton « Valider l'Édition », en bas du tableau,
+   recalcule les bulletins des contractuels et vacataires de l'IA en service
+   sur le mois et supprime les bulletins devenus sans objet (refusé si l'un
+   d'eux est payé). Une validation par IA et par mois
+   (`payroll_edition_validations`).
+3. Une modification de fiche postérieure à la validation d'un mois remet ce
+   mois « À revalider » (chaque mois non clôturé de l'IA). Les mois clôturés ne
+   sont plus concernés.
+
+L'État des salaires (affichage et export) ne contient que les bulletins des IA
+dont l'Édition du mois est validée et sans modification depuis ; un message
+liste les IA non validées.
+
+Code : `PayrollEditionService`, `IaEditionController`
+(`GET api/ia/enseignants/{id}/formulaire`, `PUT api/ia/enseignants/{id}`,
+`POST api/ia/edition/valider`), `UpdateIaTeacherRequest`. Front :
+`pages/ia/teacher-edit.blade.php` (routes `ia.teachers.edit` /
+`ia.teachers.update`), `pages/paie/partials/edition-workflow.blade.php`.
+
+### Une génération par mois (IA) — validation définitive
+
+- Un mois validé par l'IA l'est définitivement (une seule validation par IA et
+  par mois ; une deuxième est refusée). Une mise à jour de fiche faite après
+  cette validation ne rouvre pas le mois : elle est prise en compte à la
+  validation du mois suivant, dont les bulletins sont recalculés avec la fiche
+  à jour. Le bandeau de l'Édition liste ces mises à jour (« prises en compte le
+  mois suivant » sur un mois validé, « à prendre en compte » sur un mois non
+  validé).
+- Édition : mois validé → « Générer la paie » devient « Consulter » et
+  « Valider l'Édition » n'est plus proposé.
+- État des salaires : la première génération du document est enregistrée
+  (`payroll_edition_validations.statement_generated_at`) ; ensuite le bouton
+  devient « Consulter l'état ».
+- Filtres de l'État des salaires : la liste « Période de paie » ne propose que
+  les 12 mois du référentiel (`payroll_month`), résolus avec l'année
+  académique ; le mois, l'année et le corps restent sélectionnés après
+  rechargement et sont transmis à l'export.

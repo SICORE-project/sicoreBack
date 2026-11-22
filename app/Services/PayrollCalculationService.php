@@ -61,6 +61,8 @@ class PayrollCalculationService
             if (Schema::hasColumn('enseignants', 'deleted_at')) {
                 $incompleteProfilesQuery->whereNull('deleted_at');
             }
+            // Seuls les enseignants en service sur la période peuvent bloquer le calcul.
+            $incompleteProfilesQuery->eligiblePourPeriode($lockedPeriod);
             $incompleteStructuredProfiles = $incompleteProfilesQuery->count();
 
             if ($teacherIds === null && $incompleteStructuredProfiles > 0) {
@@ -73,7 +75,9 @@ class PayrollCalculationService
             $teachersQuery = Enseignant::query()
                 ->with(['user', 'institutionFinanciere', 'corps', 'etablissement'])
                 ->where($activeColumn, true)
-                ->when($teacherIds === null, fn ($q) => $q->where('salaire_base', '>', 0), fn ($q) => $q->whereIn('id', $teacherIds)->lockForUpdate())
+                ->when($teacherIds === null,
+                    fn ($q) => $q->where('salaire_base', '>', 0)->eligiblePourPeriode($lockedPeriod),
+                    fn ($q) => $q->whereIn('id', $teacherIds)->lockForUpdate())
                 ->orderBy('id');
             if (Schema::hasColumn('enseignants', 'deleted_at')) {
                 $teachersQuery->whereNull('deleted_at');
@@ -123,6 +127,9 @@ class PayrollCalculationService
                 $payslip = $run->payslips()->create([
                     'payroll_period_id' => $lockedPeriod->id,
                     'enseignant_id' => $enseignant->id,
+                    // Affectation figée au calcul : un changement d'IA ne déplace pas les anciens bulletins.
+                    'ia_id' => $this->affectation($enseignant)['ia_id'],
+                    'ief_id' => $this->affectation($enseignant)['ief_id'],
                     'reference' => sprintf(
                         'BS-%s-%s',
                         str_replace('-', '', $lockedPeriod->code),
@@ -517,5 +524,14 @@ class PayrollCalculationService
                 $enseignant->matricule ?: 'l’enseignant #'.$enseignant->id
             ));
         }
+    }
+
+    /** @return array{ia_id: ?int, ief_id: ?int} IA déduite de l'IEF, qui fait référence. */
+    private function affectation(\App\Models\Enseignant $enseignant): array
+    {
+        $iefId = $enseignant->ief_id ? (int) $enseignant->ief_id : null;
+        $iaId = $iefId ? DB::table('iefs')->where('id', $iefId)->value('ia_id') : null;
+
+        return ['ia_id' => $iaId !== null ? (int) $iaId : ($enseignant->ia_id ? (int) $enseignant->ia_id : null), 'ief_id' => $iefId];
     }
 }

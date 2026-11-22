@@ -46,6 +46,7 @@ Route::middleware('auth:sanctum')->group(function () {
                 'validate-attendance',
                 'validate-elements',
                 'calculate-payroll',
+                'open-period',
                 'validate-payroll',
                 'mark-paid',
             ])

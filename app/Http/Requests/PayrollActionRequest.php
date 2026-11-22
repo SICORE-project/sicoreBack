@@ -95,6 +95,10 @@ class PayrollActionRequest extends FormRequest
                 'reason' => ['required', 'string', 'min:10', 'max:1000'],
                 'expected_version' => ['required', 'integer', 'min:1'],
             ],
+            'open-period' => [
+                'payroll_month' => ['required', 'integer', 'between:1,12'],
+                'annee_academique_id' => ['required', 'integer', 'exists:annee_academiques,id'],
+            ],
             'validate-attendance',
             'validate-elements',
             'calculate-payroll',

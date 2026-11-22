@@ -2,7 +2,9 @@
 
 namespace App\Models;
 
+use App\Models\Paie\AnneeAcademique;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
@@ -30,6 +32,11 @@ class PayrollPeriod extends Model
             'validated_at' => 'datetime',
             'closed_at' => 'datetime',
         ];
+    }
+
+    public function anneeAcademique(): BelongsTo
+    {
+        return $this->belongsTo(AnneeAcademique::class);
     }
 
     public function attendances(): HasMany

@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Requests\PayrollActionRequest;
 use App\Models\PayrollAuditLog;
 use App\Services\PayrollActionService;
+use App\Services\PayrollPeriodLifecycle;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Validation\ValidationException;
 
@@ -86,6 +87,13 @@ class PayrollActionController extends Controller
                 $request,
                 $idempotencyKey
             ),
+            'open-period' => app(PayrollPeriodLifecycle::class)->openForMonth(
+                (int) $data['payroll_month'],
+                (int) $data['annee_academique_id'],
+                $actor,
+                $request,
+                $idempotencyKey
+            ),
             'close-period' => $this->actions->closePeriod($data, $actor, $request, $idempotencyKey),
             'mark-paid' => $this->actions->markPaid($data, $actor, $request, $idempotencyKey),
             default => abort(404, 'Action de paie inconnue.'),
@@ -111,6 +119,7 @@ class PayrollActionController extends Controller
             'validate-elements' => 'Les éléments variables ont été validés.',
             'calculate-payroll' => 'Le calcul de paie est terminé et contrôlé.',
             'validate-payroll' => 'La paie a été validée.',
+            'open-period' => 'La période a été ouverte et la paie calculée pour les contractuels et vacataires actifs.',
             'close-period' => 'La période a été clôturée définitivement.',
             'mark-paid' => 'Le paiement a été enregistré.',
             default => 'Opération effectuée.',

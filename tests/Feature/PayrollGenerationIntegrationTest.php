@@ -44,7 +44,7 @@ class PayrollGenerationIntegrationTest extends TestCase
         $this->year = DB::table('annee_academiques')->insertGetId([
             'libelle' => '2026-2027', 'date_debut' => '2026-10-01', 'date_fin' => '2027-09-30', 'est_active' => true,
         ]);
-        DB::table('periode_de_paies')->insert(['code' => '10', 'libelle' => 'OCTOBRE']);
+        DB::table('periode_de_paies')->insert(['code' => '10', 'libelle' => 'OCTOBRE', 'numero_mois' => 10]);
         $category = DB::table('categories')->insertGetId(['libelle' => 'Contractuelle', 'ordre' => 0]);
         $diploma = DB::table('diplomes')->insertGetId(['libelle' => 'LICENCE', 'categorie_id' => $category, 'salaire_brut' => 145000]);
         $pc = DB::table('statuts_enseignant')->insertGetId(['code' => 'PC', 'libelle' => 'Professeurs contractuels']);

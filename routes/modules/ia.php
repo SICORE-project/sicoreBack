@@ -62,12 +62,16 @@ Route::prefix('ia')->middleware('role:gestionnaire_ia')->group(function () {
         ->whereNumber('engagement')
         ->middleware('permission:paie.engagements.update');
 
-           // Editions
-Route::middleware('permission:paie.edition')->group(function () {
-    Route::get('edition', [PayrollPageController::class, 'showEdition'])
-        ->middleware('permission:paie.edition.read');
-
-    Route::put('edition', [PayrollPageController::class, 'updateEdition'])
+    // Fiches enseignants modifiées par l'IA (Gestion du personnel > Enseignants).
+    Route::get('enseignants/{id}/formulaire', [\App\Http\Controllers\Api\IaEditionController::class, 'teacherForm'])
+        ->whereNumber('id')
+        ->middleware('permission:enseignants.update');
+    Route::put('enseignants/{id}', [\App\Http\Controllers\Api\IaEditionController::class, 'updateTeacher'])
+        ->whereNumber('id')
+        ->middleware('permission:enseignants.update');
+    // Validation de l'Édition du mois (avant l'État des salaires).
+    Route::post('edition/valider', [\App\Http\Controllers\Api\IaEditionController::class, 'validateEdition'])
         ->middleware('permission:paie.edition.update');
-});
+    Route::post('etat-salaires/genere', [\App\Http\Controllers\Api\IaEditionController::class, 'statementGenerated'])
+        ->middleware('permission:paie.bulletins.read');
 });
