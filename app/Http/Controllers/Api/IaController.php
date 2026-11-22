@@ -34,7 +34,6 @@ class IaController extends Controller
             ];
             $engagements = TeacherEngagement::counts($teachers, 'e');
             $data['indicateurs'] += [
-                'fonctionnaires' => $engagements['fonctionnaire'],
                 'non_fonctionnaires' => $engagements['contractuel'] + $engagements['vacataire'],
                 'contractuels' => $engagements['contractuel'],
                 'vacataires' => $engagements['vacataire'],
@@ -97,7 +96,6 @@ class IaController extends Controller
             'total' => (clone $scope)->count(),
             'en_activite' => (clone $scope)->where('e.statut', 'en_activite')->count(),
             'non_fonctionnaires' => $engagements['contractuel'] + $engagements['vacataire'],
-            'fonctionnaires' => $engagements['fonctionnaire'],
             'contractuels' => $engagements['contractuel'],
             'vacataires' => $engagements['vacataire'],
             'ief' => (clone $scope)->whereNotNull('e.ief_id')->distinct()->count('e.ief_id'),
