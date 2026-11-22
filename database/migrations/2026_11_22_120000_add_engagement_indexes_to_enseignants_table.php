@@ -9,16 +9,14 @@ use Illuminate\Support\Facades\Schema;
  *
  * Les statistiques lisent le statut de l'enseignant (statut_enseignant_id) puis,
  * à défaut, la colonne type_engagement. Sans ces index, chaque comptage parcourait
- * toute la table des enseignants.
- *
- * statut_enseignant_id est placé avant deleted_at : ainsi ces index ne remplacent pas
- * ceux des autres requêtes (« ia_id + deleted_at + ... »), qui restent plus adaptés.
+ * toute la table des enseignants (index « couvrants » : la base n'a pas besoin de lire
+ * les lignes elles-mêmes).
  */
 return new class extends Migration
 {
     private const INDEXES = [
-        'ens_eng_statut_deleted_type' => ['statut_enseignant_id', 'deleted_at', 'type_engagement'],
-        'ens_eng_ia_statut_deleted_type' => ['ia_id', 'statut_enseignant_id', 'deleted_at', 'type_engagement'],
+        'ens_eng_deleted_statut_type' => ['deleted_at', 'statut_enseignant_id', 'type_engagement'],
+        'ens_eng_ia_deleted_statut_type' => ['ia_id', 'deleted_at', 'statut_enseignant_id', 'type_engagement'],
     ];
 
     public function up(): void
