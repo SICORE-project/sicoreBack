@@ -7,6 +7,7 @@ use App\Models\Admin\User;
 use App\Models\PayrollPayslip;
 use App\Models\PayrollPeriod;
 use App\Models\Personnel\Enseignant;
+use App\Support\TeacherEngagement;
 use Illuminate\Support\Facades\DB;
 
 class DashboardService
@@ -86,9 +87,10 @@ class DashboardService
         if ($can('enseignants.read') && ! in_array($role, ['gestionnaire_paie', 'gestionnaire_budget', 'auditeur'], true)) {
             $data['cards'][] = $this->card('Total des enseignants', (clone $teachers)->count(), 'fa-chalkboard-user', group: 'Personnel');
             if ($role === 'super_admin') {
-                // Même classement que le tableau de bord IA (enseignants.type_engagement).
-                $data['cards'][] = $this->card('Contractuels', (clone $teachers)->where('type_engagement', 'contractuel')->count(), 'fa-file-signature', group: 'Personnel');
-                $data['cards'][] = $this->card('Vacataires', (clone $teachers)->where('type_engagement', 'vacataire')->count(), 'fa-user-clock', group: 'Personnel');
+                // Même classement que le tableau de bord IA : statut de l'enseignant, sinon type_engagement.
+                $engagements = TeacherEngagement::counts($teachers);
+                $data['cards'][] = $this->card('Contractuels', $engagements['contractuel'], 'fa-file-signature', group: 'Personnel');
+                $data['cards'][] = $this->card('Vacataires', $engagements['vacataire'], 'fa-user-clock', group: 'Personnel');
             } else {
                 $data['cards'][] = $this->card('Enseignants en activité', (clone $teachers)->where('statut', 'en_activite')->count(), 'fa-user-check', group: 'Personnel');
             }
