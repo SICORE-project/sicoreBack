@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Parametrage\Ia;
 use App\Services\Administration\IaPayrollReports;
 use App\Services\Administration\IaScope;
+use App\Support\TeacherEngagement;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -30,10 +31,12 @@ class IaController extends Controller
             $teachers = $this->scope->teachers($user);
             $data['indicateurs'] = [
                 'agents' => (clone $teachers)->count(),
-                'fonctionnaires' => (clone $teachers)->where('type_engagement', 'fonctionnaire')->count(),
-                'non_fonctionnaires' => (clone $teachers)->whereIn('type_engagement', ['vacataire', 'contractuel'])->count(),
-                'contractuels' => (clone $teachers)->where('type_engagement', 'contractuel')->count(),
-                'vacataires' => (clone $teachers)->where('type_engagement', 'vacataire')->count(),
+            ];
+            $engagements = TeacherEngagement::counts($teachers, 'e');
+            $data['indicateurs'] += [
+                'non_fonctionnaires' => $engagements['contractuel'] + $engagements['vacataire'],
+                'contractuels' => $engagements['contractuel'],
+                'vacataires' => $engagements['vacataire'],
             ];
             foreach (['ief_id' => 'iefs', 'lieu_service_id' => 'lieu_de_services'] as $field => $table) {
                 // Comptage par structure grâce à l'index, puis ajout des libellés : évite une
@@ -77,9 +80,9 @@ class IaController extends Controller
         $data = $request->validate(['search' => ['nullable', 'string', 'max:100'], 'page' => ['nullable', 'integer', 'min:1'], 'ief_id' => ['nullable', 'integer'], 'lieu_service_id' => ['nullable', 'integer'], 'engagement' => ['nullable', 'in:non_fonctionnaires,contractuel,vacataire']]);
         $query = $this->scope->teachers($request->user());
         if (($data['engagement'] ?? null) === 'non_fonctionnaires') {
-            $query->whereIn('e.type_engagement', ['contractuel', 'vacataire']);
+            TeacherEngagement::filter($query, ['contractuel', 'vacataire'], 'e');
         } elseif (! empty($data['engagement'])) {
-            $query->where('e.type_engagement', $data['engagement']);
+            TeacherEngagement::filter($query, $data['engagement'], 'e');
         }
         foreach (['ief_id', 'lieu_service_id'] as $field) {
             if (! empty($data[$field])) {
@@ -95,13 +98,14 @@ class IaController extends Controller
         // Statistiques sur tout le périmètre de l'IA, sans les filtres de recherche.
         $scope = $this->scope->teachers($request->user());
 
+        $engagements = TeacherEngagement::counts($scope, 'e');
+
         return response()->json(array_merge($teachers->toArray(), ['stats' => [
             'total' => (clone $scope)->count(),
             'en_activite' => (clone $scope)->where('e.statut', 'en_activite')->count(),
-            'non_fonctionnaires' => (clone $scope)->whereIn('e.type_engagement', ['contractuel', 'vacataire'])->count(),
-            'fonctionnaires' => (clone $scope)->where('e.type_engagement', 'fonctionnaire')->count(),
-            'contractuels' => (clone $scope)->where('e.type_engagement', 'contractuel')->count(),
-            'vacataires' => (clone $scope)->where('e.type_engagement', 'vacataire')->count(),
+            'non_fonctionnaires' => $engagements['contractuel'] + $engagements['vacataire'],
+            'contractuels' => $engagements['contractuel'],
+            'vacataires' => $engagements['vacataire'],
             'ief' => (clone $scope)->whereNotNull('e.ief_id')->distinct()->count('e.ief_id'),
         ]]));
     }

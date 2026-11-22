@@ -162,7 +162,7 @@ class IaAccessTest extends TestCase
     public function test_dashboard_counts_only_own_ia(): void
     {
         $this->getJson('/api/ia/dashboard')->assertOk()->assertJsonPath('data.ia.libelle', 'Dakar')
-            ->assertJsonPath('data.indicateurs.agents', 2)->assertJsonPath('data.indicateurs.fonctionnaires', 1)
+            ->assertJsonPath('data.indicateurs.agents', 2)->assertJsonMissingPath('data.indicateurs.fonctionnaires')
             ->assertJsonPath('data.indicateurs.non_fonctionnaires', 1)->assertJsonPath('data.indicateurs.bulletins_generes', 1)
             ->assertJsonPath('data.indicateurs.bulletins_restants', 1)->assertJsonPath('data.indicateurs.masse_salariale', 100)
             ->assertJsonCount(1, 'data.iefs')->assertJsonCount(1, 'data.dernieres_operations')->assertDontSee('HorsPerimetre');
@@ -182,7 +182,7 @@ class IaAccessTest extends TestCase
             'ia_id' => 1, 'ief_id' => 1, 'lieu_service_id' => 1, 'statut' => 'en_activite', 'type_engagement' => 'vacataire']);
         $this->getJson('/api/ia/dashboard')->assertOk()
             ->assertJsonPath('data.indicateurs.contractuels', 1)->assertJsonPath('data.indicateurs.vacataires', 1);
-        $this->getJson('/api/ia/enseignants')->assertOk()->assertJsonPath('stats.fonctionnaires', 1)
+        $this->getJson('/api/ia/enseignants')->assertOk()->assertJsonMissingPath('stats.fonctionnaires')
             ->assertJsonPath('stats.contractuels', 1)->assertJsonPath('stats.vacataires', 1);
         $this->getJson('/api/ia/enseignants?engagement=vacataire')->assertOk()
             ->assertJsonPath('total', 1)->assertJsonPath('data.0.type_engagement', 'vacataire');
