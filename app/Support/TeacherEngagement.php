@@ -3,6 +3,7 @@
 namespace App\Support;
 
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 /**
@@ -24,6 +25,9 @@ class TeacherEngagement
     public static function filter($query, string|array $types, string $table = 'enseignants')
     {
         $types = (array) $types;
+        if (! self::usesStatus()) {
+            return $query->whereIn($table.'.type_engagement', $types);
+        }
         $statusTypes = self::statusTypes();
         $matching = array_keys(array_filter($statusTypes, fn (?string $type): bool => in_array($type, $types, true)));
         $unknown = array_keys(array_filter($statusTypes, fn (?string $type): bool => $type === null));
@@ -46,20 +50,30 @@ class TeacherEngagement
      */
     public static function counts($query, string $table = 'enseignants'): array
     {
-        $statusTypes = self::statusTypes();
+        $usesStatus = self::usesStatus();
+        $statusTypes = $usesStatus ? self::statusTypes() : [];
         $counts = ['fonctionnaire' => 0, 'contractuel' => 0, 'vacataire' => 0];
         // Requête SQL simple (portées Eloquent comprises, ex. enseignants supprimés exclus).
         $base = method_exists($query, 'toBase') ? $query->toBase() : clone $query;
+        $columns = array_filter([
+            'status_id' => $usesStatus ? $table.'.statut_enseignant_id' : null,
+            'engagement' => Schema::hasColumn('enseignants', 'type_engagement') ? $table.'.type_engagement' : null,
+        ]);
+        if ($columns === []) {
+            return $counts;
+        }
         $rows = $base->reorder()
-            ->selectRaw($table.'.statut_enseignant_id as status_id, '.$table.'.type_engagement as engagement, COUNT(*) as total')
-            ->groupBy($table.'.statut_enseignant_id', $table.'.type_engagement')
+            ->selectRaw(collect($columns)->map(fn (string $column, string $alias): string => $column.' as '.$alias)->implode(', ').', COUNT(*) as total')
+            ->groupBy(...array_values($columns))
             ->get();
 
         foreach ($rows as $row) {
             // Même règle que filter() : statut reconnu d'abord, sinon type_engagement.
+            $statusId = $row->status_id ?? null;
+            $engagement = $row->engagement ?? null;
             $type = match (true) {
-                $row->status_id === null => $row->engagement,
-                array_key_exists((int) $row->status_id, $statusTypes) => $statusTypes[(int) $row->status_id] ?? $row->engagement,
+                $statusId === null => $engagement,
+                array_key_exists((int) $statusId, $statusTypes) => $statusTypes[(int) $statusId] ?? $engagement,
                 default => null,
             };
             if (isset($counts[$type])) {
@@ -68,6 +82,12 @@ class TeacherEngagement
         }
 
         return $counts;
+    }
+
+    /** Sans table des statuts (base incomplète), on garde l'ancien comptage par type_engagement. */
+    private static function usesStatus(): bool
+    {
+        return Schema::hasTable('statuts_enseignant') && Schema::hasColumn('enseignants', 'statut_enseignant_id');
     }
 
     /** @return array<int, string|null> statut_enseignant_id => type d'engagement (table de quelques lignes) */
