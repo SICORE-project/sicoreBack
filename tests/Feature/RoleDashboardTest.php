@@ -18,9 +18,20 @@ class RoleDashboardTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        foreach (['2026_07_04_000000_create_users_table', '2026_07_27_235253_create_roles_table', '2026_07_07_120005_create_enseignants_table', '2026_07_07_120015_create_delegation_credits_table'] as $migration) {
+        foreach (['2026_07_04_000000_create_users_table', '2026_07_27_235253_create_roles_table', '2026_07_07_120005_create_enseignants_table'] as $migration) {
             (require database_path('migrations/'.$migration.'.php'))->up();
         }
+        // Module « Délégation de crédit » : délégations et ventilations (montant par IA/IEF).
+        Schema::create('annee_academiques', function (Blueprint $t) { $t->id(); $t->string('libelle'); $t->timestamps(); });
+        Schema::create('delegations_credits', function (Blueprint $t) {
+            $t->id(); $t->unsignedBigInteger('annee_academique_id'); $t->string('reference_lettre'); $t->string('objet')->nullable();
+            $t->string('periode_paie')->nullable(); $t->date('date_delegation'); $t->decimal('montant_total', 15, 2)->default(0); $t->timestamps();
+        });
+        Schema::create('ventilations_credits', function (Blueprint $t) {
+            $t->id(); $t->unsignedBigInteger('delegation_credit_id'); $t->unsignedBigInteger('ia_id')->nullable();
+            $t->unsignedBigInteger('ief_id')->nullable(); $t->decimal('montant', 15, 2); $t->timestamps();
+        });
+        DB::table('annee_academiques')->insert(['id' => 1, 'libelle' => '2025-2026']);
         Schema::create('corps_enseignant', function (Blueprint $t) { $t->id(); $t->string('libelle'); });
         Schema::create('type_roles', function (Blueprint $t) { $t->id(); $t->string('code'); });
         Schema::table('roles', fn (Blueprint $t) => $t->unsignedBigInteger('type_role_id')->nullable());
@@ -45,7 +56,8 @@ class RoleDashboardTest extends TestCase
         foreach ([1, 2, 3] as $id) {
             DB::table('payroll_payslips')->insert(['enseignant_id' => $id, 'payroll_period_id' => 1, 'payroll_run_id' => $id === 2 ? 2 : 1,
                 'reference' => 'BUL'.$id, 'payment_status' => 'pending', 'net_amount' => $id * 100]);
-            DB::table('delegation_credits')->insert(['enseignant_id' => $id, 'reference_lettre' => 'DEL'.$id, 'annee_academique' => '2026', 'date_enregistrement' => '2026-09-01', 'montant_alouer' => $id * 1000]);
+            DB::table('delegations_credits')->insert(['id' => $id, 'annee_academique_id' => 1, 'reference_lettre' => 'DEL'.$id, 'date_delegation' => '2026-09-01']);
+            DB::table('ventilations_credits')->insert(['delegation_credit_id' => $id, 'ia_id' => $id === 3 ? 20 : 10, 'ief_id' => $id === 3 ? 200 : 100 + $id - 1, 'montant' => $id * 1000]);
         }
     }
 
@@ -54,17 +66,18 @@ class RoleDashboardTest extends TestCase
         $admin = $this->login('super_admin');
         User::create(['nom' => 'Enseignant', 'prenom' => 'Test', 'email' => 'pending@example.test',
             'password' => 'password123', 'statut' => 'actif', 'role_id' => $admin->role_id, 'enseignant_id' => 1]);
-        DB::table('corps_enseignant')->insert([
-            ['id' => 1, 'libelle' => 'Corps A'], ['id' => 2, 'libelle' => 'Corps B'], ['id' => 3, 'libelle' => 'Corps C'],
-        ]);
-        Enseignant::where('id', 1)->update(['corps_id' => 1]);
-        Enseignant::whereIn('id', [2, 3])->update(['corps_id' => 2]);
+        // Courbes par statut (comme les cartes Contractuels / Vacataires), plus par corps.
+        (require database_path('migrations/2026_08_23_130000_add_payroll_engagement_type_to_enseignants.php'))->up();
+        DB::table('enseignants')->where('id', 1)->update(['type_engagement' => 'contractuel']);
+        DB::table('enseignants')->whereIn('id', [2, 3])->update(['type_engagement' => 'vacataire']);
         $this->getJson('/api/dashboard')->assertOk()
+            ->assertJsonPath('data.analytics.distributions.1.title', 'Comptes enseignants par statut')
             ->assertJsonPath('data.analytics.distributions.1.items.0.value', 1)
             ->assertJsonPath('data.analytics.distributions.1.items.1.value', 0)
+            ->assertJsonPath('data.analytics.distributions.2.title', 'Enseignants par statut')
             ->assertJsonPath('data.analytics.distributions.2.items.0.value', 1)
             ->assertJsonPath('data.analytics.distributions.2.items.1.value', 2)
-            ->assertJsonPath('data.analytics.distributions.2.items.2.value', 0)
+            ->assertJsonCount(2, 'data.analytics.distributions.2.items')
             ->assertJsonPath('data.layout', 'super-admin')
             ->assertJsonCount(12, 'data.analytics.history')
             ->assertJsonPath('data.analytics.distributions.0.items.0.value', 1)
