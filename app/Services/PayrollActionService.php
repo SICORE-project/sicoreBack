@@ -140,7 +140,7 @@ class PayrollActionService
     public function addElement(array $data, User $actor, Request $request, ?string $key): PayrollElement
     {
         return DB::transaction(function () use ($data, $actor, $request, $key): PayrollElement {
-            if (in_array($data['code'], PayrollReferenceService::RESERVED_ELEMENT_CODES, true)) {
+            if (in_array($data['code'], array_merge(PayrollReferenceService::RESERVED_ELEMENT_CODES, ['TABASKI_AVANCE', 'TABASKI_RETENUE']), true)) {
                 throw ValidationException::withMessages([
                     'code' => 'Ce code est calculé automatiquement par le moteur de paie.',
                 ]);
@@ -209,166 +209,8 @@ class PayrollActionService
         Request $request,
         ?string $key
     ): array {
-        return DB::transaction(function () use (
-            $data,
-            $code,
-            $label,
-            $category,
-            $actor,
-            $request,
-            $key
-        ): array {
-            $academicYear = DB::table('annee_academiques')
-                ->where('id', (int) $data['annee_academique_id'])
-                ->first();
-            $corps = DB::table('statuts_enseignant')
-                ->where('id', (int) $data['statut_enseignant_id'])
-                ->whereRaw("(LOWER(libelle) LIKE '%contractuel%' OR LOWER(libelle) LIKE '%vacataire%')")
-                ->first();
-
-            if (! $academicYear || ! $corps) {
-                throw ValidationException::withMessages([
-                    'statut_enseignant_id' => 'Le statut enseignant ou l’année académique sélectionné(e) n’est plus disponible.',
-                ]);
-            }
-            if ((bool) $academicYear->est_cloturee) {
-                throw ValidationException::withMessages([
-                    'annee_academique_id' => 'Cette année académique est clôturée. Sélectionnez une année non clôturée.',
-                ]);
-            }
-
-            $iaIds = collect($data['ia_ids'])->map(fn (mixed $id): int => (int) $id)->unique()->sort()->values();
-            $months = $code === 'TABASKI_RETENUE'
-                ? collect($data['months'])->map(fn (mixed $month): int => (int) $month)->values()
-                : collect([(int) $data['month']]);
-            $periods = $this->periodsForAcademicMonths($academicYear, $months, $code === 'TABASKI_RETENUE' ? 'months' : 'month');
-
-            $activeColumn = Schema::hasColumn('enseignants', 'actif') ? 'actif' : 'est_actif';
-            $teachersQuery = Enseignant::query()
-                ->with('user')
-                ->where($activeColumn, true)
-                ->where('statut_enseignant_id', (int) $corps->id)
-                ->where(function ($query) use ($iaIds): void {
-                    if (Schema::hasColumn('enseignants', 'ia_id')) {
-                        $query->whereIn('ia_id', $iaIds->all());
-                    }
-
-                    if (Schema::hasColumn('enseignants', 'ief_id')) {
-                        $query->orWhereIn('ief_id', DB::table('iefs')
-                            ->whereIn('ia_id', $iaIds->all())
-                            ->select('id'));
-                    }
-
-                    if (Schema::hasTable('etablissements')) {
-                        $query->orWhereHas('etablissement.ief', fn ($iefQuery) => $iefQuery->whereIn('iefs.ia_id', $iaIds->all()));
-                    }
-                });
-
-            if (Schema::hasColumn('enseignants', 'deleted_at')) {
-                $teachersQuery->whereNull('deleted_at');
-            }
-
-            if (Schema::hasTable('etablissements')) {
-                $teachersQuery->with('etablissement.ief');
-            }
-            if (Schema::hasTable('iefs')) {
-                $teachersQuery->with('ief');
-            }
-
-            $teachers = $teachersQuery
-                ->orderBy('id')
-                ->lockForUpdate()
-                ->get();
-
-            if ($teachers->isEmpty()) {
-                throw ValidationException::withMessages([
-                    'statut_enseignant_id' => 'Aucun enseignant actif de ce statut ne correspond aux IA sélectionnées.',
-                ]);
-            }
-
-            $applicationReference = sprintf(
-                '%s-AY%d-C%d-IA%s-M%s',
-                $code,
-                (int) $academicYear->id,
-                (int) $corps->id,
-                substr(hash('sha256', $iaIds->implode(',')), 0, 10),
-                $months->map(fn (int $month): string => str_pad((string) $month, 2, '0', STR_PAD_LEFT))->implode('-')
-            );
-            $created = 0;
-            $updated = 0;
-
-            foreach ($periods as $period) {
-                foreach ($teachers as $teacher) {
-                    $element = PayrollElement::query()
-                        ->where('payroll_period_id', $period->id)
-                        ->where('enseignant_id', $teacher->id)
-                        ->where('code', $code)
-                        ->lockForUpdate()
-                        ->first();
-                    $element ? $updated++ : $created++;
-
-                    PayrollElement::query()->updateOrCreate(
-                        [
-                            'payroll_period_id' => $period->id,
-                            'enseignant_id' => $teacher->id,
-                            'code' => $code,
-                        ],
-                        [
-                            'label' => $label,
-                            'category' => $category,
-                            'source' => 'manual',
-                            'amount' => round((float) $data['amount'], 2),
-                            'academic_year' => $academicYear->libelle,
-                            'annee_academique_id' => (int) $academicYear->id,
-                            'application_scope' => 'collective',
-                            'application_reference' => $applicationReference,
-                            'application_corps_id' => null,
-                            'application_statut_enseignant_id' => (int) $corps->id,
-                            'application_ia_id' => $this->teacherIaId($teacher),
-                            'application_ief_id' => $this->teacherIefId($teacher),
-                            'applied_at' => now(),
-                            'applied_by' => $actor->id,
-                            'is_exempt' => false,
-                            'exemption_reason' => null,
-                            // Le montant saisi est conservé tel quel pour chaque mois choisi.
-                            'status' => 'validated',
-                            'created_by' => $actor->id,
-                            'validated_by' => $actor->id,
-                            'validated_at' => now(),
-                            'version' => ($element?->version ?? 0) + 1,
-                        ]
-                    );
-                }
-            }
-
-            $summary = [
-                'application_reference' => $applicationReference,
-                'payroll_period_ids' => $periods->pluck('id')->all(),
-                'months' => $months->all(),
-                'academic_year' => $academicYear->libelle,
-                'annee_academique_id' => (int) $academicYear->id,
-                'statut_enseignant_id' => (int) $corps->id,
-                'statut_enseignant_code' => (string) $corps->code,
-                'ia_ids' => $iaIds->all(),
-                'amount' => round((float) $data['amount'], 2),
-                'affected_teachers' => $teachers->count(),
-                'created_elements' => $created,
-                'updated_elements' => $updated,
-            ];
-            $this->audit->log(
-                'tabaski.collective_applied',
-                $periods->first(),
-                null,
-                $summary,
-                $actor,
-                $request,
-                $key
-            );
-
-            return $summary;
-        }, 3);
+        return app(PayrollTabaskiSchedule::class)->apply($data, $code === 'TABASKI_RETENUE', $actor, $request, $key);
     }
-
     private function teacherForHierarchy(array $data): Enseignant
     {
         $activeColumn = Schema::hasColumn('enseignants', 'est_actif') ? 'est_actif' : 'actif';
@@ -475,7 +317,7 @@ class PayrollActionService
             $period = PayrollPeriod::query()->lockForUpdate()->findOrFail($periodId);
             $run = PayrollRun::query()->where('payroll_period_id', $period->id)->lockForUpdate()->first();
 
-            if ($period->status !== PayrollPeriod::STATUS_CALCULATED || ! $run) {
+            if (! $run) {
                 throw new ConflictHttpException('La paie doit être calculée avant sa validation.');
             }
 
@@ -507,25 +349,17 @@ class PayrollActionService
             $period = PayrollPeriod::query()->lockForUpdate()->findOrFail($data['payroll_period_id']);
             $this->assertVersion($period, (int) $data['expected_version']);
 
-            if ($period->status !== PayrollPeriod::STATUS_VALIDATED) {
-                throw new ConflictHttpException('Seule une période validée peut être clôturée.');
-            }
-
             if (! hash_equals($period->code, trim((string) $data['confirmation']))) {
                 throw new ConflictHttpException('Le code de confirmation ne correspond pas à la période.');
             }
 
             $run = PayrollRun::query()
                 ->where('payroll_period_id', $period->id)
-                ->where('status', 'validated')
                 ->lockForUpdate()
                 ->first();
-            if (! $run) {
-                throw new ConflictHttpException('Le cycle de paie validé est introuvable.');
-            }
 
             $before = $period->toArray();
-            $run->update(['status' => 'closed']);
+            $run?->update(['status' => 'closed']);
             $period->update([
                 'status' => PayrollPeriod::STATUS_CLOSED,
                 'closed_by' => $actor->id,
@@ -543,14 +377,6 @@ class PayrollActionService
         return DB::transaction(function () use ($data, $actor, $request, $key): PayrollPayslip {
             $payslip = PayrollPayslip::query()->lockForUpdate()->findOrFail($data['payroll_payslip_id']);
             $this->assertVersion($payslip, (int) $data['expected_version']);
-            $period = PayrollPeriod::findOrFail($payslip->payroll_period_id);
-
-            if (! in_array($period->status, [
-                PayrollPeriod::STATUS_VALIDATED,
-                PayrollPeriod::STATUS_CLOSED,
-            ], true)) {
-                throw new ConflictHttpException('La paie doit être validée avant le marquage du paiement.');
-            }
 
             if ($payslip->payment_status === 'paid') {
                 throw new ConflictHttpException('Ce bulletin est déjà marqué comme payé.');
@@ -572,53 +398,7 @@ class PayrollActionService
     private function mutablePeriod(int $periodId): PayrollPeriod
     {
         $period = PayrollPeriod::query()->lockForUpdate()->findOrFail($periodId);
-        if (! $period->isMutable()) {
-            throw new ConflictHttpException(
-                'Cette période n’est plus modifiable. Créez une régularisation sur une période ouverte.'
-            );
-        }
-
         return $period;
-    }
-
-    /** @return Collection<int, PayrollPeriod> */
-    private function periodsForAcademicMonths(object $academicYear, Collection $months, string $field): Collection
-    {
-        $configuredCodes = app(PayrollPeriodCatalogue::class)->synchronize();
-        $wanted = $months->map(fn (mixed $month): int => (int) $month)->unique()->values();
-        $codesByMonth = collect();
-        $cursor = CarbonImmutable::parse($academicYear->date_debut)->startOfMonth();
-        $end = CarbonImmutable::parse($academicYear->date_fin)->endOfMonth();
-
-        while ($cursor->lessThanOrEqualTo($end)) {
-            if ($wanted->contains($cursor->month) && ! $codesByMonth->has($cursor->month)) {
-                $codesByMonth->put($cursor->month, $cursor->format('Y-m'));
-            }
-            $cursor = $cursor->addMonth();
-        }
-
-        if ($codesByMonth->count() !== $wanted->count()) {
-            throw ValidationException::withMessages([
-                $field => 'Un ou plusieurs mois ne font pas partie de l’année académique sélectionnée.',
-            ]);
-        }
-
-        $periodsByCode = PayrollPeriod::query()
-            ->whereIn('code', $configuredCodes)
-            ->whereIn('code', $codesByMonth->values()->all())
-            ->get()
-            ->keyBy('code');
-        $missing = $codesByMonth->values()->reject(fn (string $code): bool => $periodsByCode->has($code));
-
-        if ($missing->isNotEmpty()) {
-            throw ValidationException::withMessages([
-                $field => 'Renseignez ces périodes dans Paramétrage : '.$missing->implode(', ').'.',
-            ]);
-        }
-
-        return $wanted->map(function (int $month) use ($codesByMonth, $periodsByCode): PayrollPeriod {
-            return $this->mutablePeriod((int) $periodsByCode->get($codesByMonth->get($month))->id);
-        })->values();
     }
 
     private function teacherIaId(Enseignant $teacher): ?int

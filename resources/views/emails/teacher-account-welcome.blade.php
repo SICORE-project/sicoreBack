@@ -21,6 +21,6 @@
 <p style="font-size:13px;line-height:1.7;color:#64748b;">Gardez votre mot de passe et vos codes de vérification confidentiels. Si vous ne reconnaissez pas ce compte, contactez votre gestionnaire.</p>
 <p style="font-size:12px;word-break:break-all;color:#64748b;">Si le bouton ne fonctionne pas, ouvrez ce lien :<br><a href="{{ $setupUrl }}" style="color:#15803d;">{{ $setupUrl }}</a></p>
 </td></tr>
-<tr><td style="padding:24px 32px;border-top:1px solid #e2e8f0;color:#64748b;font-size:12px;">SICORE · Système Intégré des COrps Émergents<br>Message automatique — merci de ne pas répondre.</td></tr>
+<tr><td style="padding:24px 32px;border-top:1px solid #e2e8f0;color:#64748b;font-size:12px;">SICORE · Système Intégré des Corps Émergents<br>Message automatique — merci de ne pas répondre.</td></tr>
 </table>
 </body></html>

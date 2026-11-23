@@ -15,7 +15,7 @@ class PayrollPeriodCatalogueTest extends TestCase
     {
         parent::setUp();
         Schema::create('periode_de_paies', function (Blueprint $table) {
-            $table->id(); $table->string('code'); $table->string('libelle');
+            $table->id(); $table->string('code'); $table->string('libelle'); $table->unsignedTinyInteger('numero_mois')->nullable();
         });
         Schema::create('annee_academiques', function (Blueprint $table) {
             $table->id(); $table->date('date_debut'); $table->date('date_fin'); $table->boolean('est_cloturee')->default(false);
@@ -30,15 +30,13 @@ class PayrollPeriodCatalogueTest extends TestCase
     public function test_only_crud_months_are_materialized_with_correct_academic_year_dates(): void
     {
         DB::table('periode_de_paies')->insert([
-            ['code' => '10', 'libelle' => 'OCTOBRE'], ['code' => 'JUIN', 'libelle' => 'JUIN'],
+            ['code' => 'OCT', 'libelle' => 'OCTOBRE', 'numero_mois' => 10], ['code' => 'JUI', 'libelle' => 'JUIN', 'numero_mois' => 6],
         ]);
         $catalogue = app(PayrollPeriodCatalogue::class);
-        $this->assertEqualsCanonicalizing(['2026-10', '2027-06'], $catalogue->synchronize()->all());
-        $this->assertSame('OCTOBRE 2026', PayrollPeriod::where('code', '2026-10')->value('label'));
-        $this->assertSame('2027-06-30', PayrollPeriod::where('code', '2027-06')->first()->end_date->format('Y-m-d'));
+        $this->assertSame([], $catalogue->synchronize()->all());
         $this->assertEquals([6, 10], array_column($catalogue->months(), 'value'));
         $catalogue->synchronize();
-        $this->assertSame(2, PayrollPeriod::count());
+        $this->assertSame(0, PayrollPeriod::count());
     }
 
     public function test_existing_calculated_period_is_reused_without_rewriting_status_or_label(): void
@@ -55,7 +53,9 @@ class PayrollPeriodCatalogueTest extends TestCase
     {
         $catalogue = app(PayrollPeriodCatalogue::class);
         $this->assertSame([], $catalogue->synchronize()->all());
-        DB::table('periode_de_paies')->insert(['code' => 'LIBRE', 'libelle' => 'Période spéciale']);
+        DB::table('periode_de_paies')->insert(['code' => 'NOVEMBRE', 'libelle' => 'NOVEMBRE']);
+        // Sans numero_mois, la ligne n'est pas un mois : plus aucune déduction depuis le code ou le libellé.
+        $this->assertSame([], $catalogue->months());
         $this->assertSame([], $catalogue->synchronize()->all());
         $this->assertSame(0, PayrollPeriod::count());
     }
@@ -63,7 +63,7 @@ class PayrollPeriodCatalogueTest extends TestCase
     public function test_closed_academic_year_does_not_create_new_payroll_periods(): void
     {
         DB::table('annee_academiques')->update(['est_cloturee' => true]);
-        DB::table('periode_de_paies')->insert(['code' => '10', 'libelle' => 'OCTOBRE']);
+        DB::table('periode_de_paies')->insert(['code' => '10', 'libelle' => 'OCTOBRE', 'numero_mois' => 10]);
         $this->assertSame([], app(PayrollPeriodCatalogue::class)->synchronize()->all());
     }
 

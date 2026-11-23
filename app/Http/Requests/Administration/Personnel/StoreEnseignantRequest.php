@@ -157,7 +157,11 @@ class StoreEnseignantRequest extends FormRequest
                 'date',
             ],
 
+            // La paie retient la prise de service, à défaut le recrutement
+            // (Enseignant::scopeEligiblePourPeriode) : l'une des deux est exigée pour PC/VAC.
             'date_prise_service' => [
+                Rule::requiredIf(fn () => ($this->corpsEstContractuel() || $this->corpsEstVacataire())
+                    && ! $this->filled('date_recrutement')),
                 'nullable',
                 'date',
             ],
@@ -361,6 +365,7 @@ class StoreEnseignantRequest extends FormRequest
             'nombre_enfants.integer' => 'Le nombre d’enfants doit être un nombre entier.',
             'nombre_enfants.min' => 'Le nombre d’enfants ne peut pas être négatif.',
             'date_fin_contrat.after_or_equal' => 'La fin du contrat doit être postérieure ou égale à la date de recrutement.',
+            'date_prise_service.required' => 'La date de prise de service (ou, à défaut, la date de recrutement) est obligatoire pour un contractuel ou un vacataire : sans elle, l’enseignant ne peut pas être payé.',
             'diplome_id.exists' => 'Le diplôme sélectionné n’existe plus. Veuillez le sélectionner à nouveau.',
             'salaire_brut.min' => 'Le salaire brut ne peut pas être négatif.',
             'cni.regex' => 'Le numéro de carte d’identité doit contenir entre 13 et 15 chiffres.',

@@ -171,8 +171,10 @@ return [
         'cle' => 'code',
         'colonnes' => [
             'code' => ['requis' => true, 'max' => 20, 'regex' => '/^[A-Z0-9]+(?:[-_][A-Z0-9]+)*$/', 'regex_message' => 'majuscules et chiffres, séparés par - ou _', 'exemple' => 'OCT2026'],
-            'libelle' => ['requis' => true, 'max' => 100, 'exemple' => 'Octobre 2026'],
+            'libelle' => ['requis' => true, 'max' => 100, 'exemple' => 'OCTOBRE'],
+            'numero_mois' => ['requis' => true, 'type' => 'entier', 'min' => 1, 'maxvaleur' => 12, 'exemple' => '10'],
         ],
+        'uniques' => ['numero_mois'],
     ],
     'rubrique_paie' => [
         'libelle' => 'Rubriques de paie',

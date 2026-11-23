@@ -20,6 +20,11 @@ class UpdatePeriodePaieRequest extends StorePeriodePaieRequest
             Rule::unique('periode_de_paies', 'code')->ignore($this->route('id')),
         ];
 
+        $rules['numero_mois'] = [
+            'required', 'integer', 'between:1,12',
+            Rule::unique('periode_de_paies', 'numero_mois')->ignore($this->route('id')),
+        ];
+
         return $rules;
     }
 

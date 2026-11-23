@@ -24,7 +24,8 @@ class IaScope
 
     public function payslips(User $user)
     {
+        // IA figée sur le bulletin au calcul, et non l'affectation actuelle de l'enseignant.
         return DB::table('payroll_payslips as p')->join('enseignants as e', 'e.id', '=', 'p.enseignant_id')
-            ->where('e.ia_id', $this->id($user))->whereNull('e.deleted_at');
+            ->where('p.ia_id', $this->id($user))->whereNull('e.deleted_at');
     }
 }

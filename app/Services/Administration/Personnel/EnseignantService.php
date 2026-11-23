@@ -252,7 +252,9 @@ class EnseignantService
         return [
             'total' => (clone $query)->count(),
             'en_activite' => (clone $query)->where('statut', 'en_activite')->count(),
-            'avec_compte' => (clone $query)->whereHas('user')->count(),
+            // On part des comptes utilisateurs (peu nombreux) : rapide quel que soit le nombre d'enseignants.
+            'avec_compte' => \App\Models\Admin\User::query()->whereNotNull('enseignant_id')
+                ->whereHas('enseignant', fn ($teacher) => $teacher->visibleTo(auth()->user()))->count(),
             'ia_couvertes' => (clone $query)->whereNotNull('ia_id')->distinct()->count('ia_id'),
         ];
     }

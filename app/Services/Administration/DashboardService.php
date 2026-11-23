@@ -7,6 +7,7 @@ use App\Models\Admin\User;
 use App\Models\PayrollPayslip;
 use App\Models\PayrollPeriod;
 use App\Models\Personnel\Enseignant;
+use App\Support\TeacherEngagement;
 use Illuminate\Support\Facades\DB;
 
 class DashboardService
@@ -77,14 +78,22 @@ class DashboardService
                 $data['actions'][] = $this->action('Gérer les utilisateurs', 'utilisateurs.index', 'fa-users-gear');
             }
             if ($can('administration.roles.read')) {
-                $data['cards'][] = $this->card('Profils actifs', Role::where('est_actif', true)->count(), 'fa-id-badge', group: 'Administration');
+                // Super admin : carte remplacée par Contractuels / Vacataires (section Personnel).
+                if ($role !== 'super_admin') $data['cards'][] = $this->card('Profils actifs', Role::where('est_actif', true)->count(), 'fa-id-badge', group: 'Administration');
                 $data['actions'][] = $this->action('Consulter les profils', 'utilisateurs.profils-roles', 'fa-id-badge');
             }
             if ($can('administration.users.create')) $data['actions'][] = $this->action('Créer un compte enseignant', 'utilisateurs.teacher.create', 'fa-user-plus');
         }
         if ($can('enseignants.read') && ! in_array($role, ['gestionnaire_paie', 'gestionnaire_budget', 'auditeur'], true)) {
             $data['cards'][] = $this->card('Total des enseignants', (clone $teachers)->count(), 'fa-chalkboard-user', group: 'Personnel');
-            $data['cards'][] = $this->card('Enseignants en activité', (clone $teachers)->where('statut', 'en_activite')->count(), 'fa-user-check', group: 'Personnel');
+            if ($role === 'super_admin') {
+                // Même classement que le tableau de bord IA : statut de l'enseignant, sinon type_engagement.
+                $engagements = TeacherEngagement::counts($teachers);
+                $data['cards'][] = $this->card('Contractuels', $engagements['contractuel'], 'fa-file-signature', group: 'Personnel');
+                $data['cards'][] = $this->card('Vacataires', $engagements['vacataire'], 'fa-user-clock', group: 'Personnel');
+            } else {
+                $data['cards'][] = $this->card('Enseignants en activité', (clone $teachers)->where('statut', 'en_activite')->count(), 'fa-user-check', group: 'Personnel');
+            }
             $withoutEmail = (clone $teachers)->where(fn ($q) => $q->whereNull('email')->orWhere('email', ''))->count();
             if ($withoutEmail) $data['notices'][] = "$withoutEmail enseignant(s) sans adresse e-mail. Coordonnées à compléter.";
             $data['actions'][] = $this->action('Consulter les enseignants', 'enseignants.index', 'fa-chalkboard-user');
@@ -95,7 +104,11 @@ class DashboardService
         }
         if ($can('paie.bulletins.read') && in_array($role, ['super_admin', 'admin', 'gestionnaire_paie', 'auditeur', 'consultant'], true)) {
             $period = PayrollPeriod::orderByDesc('start_date')->first();
-            $payslips = PayrollPayslip::whereIn('enseignant_id', (clone $teachers)->select('enseignants.id'));
+            // On part des bulletins de la période (et non de la liste de tous les enseignants) :
+            // reste rapide quel que soit le nombre d'enseignants.
+            $payslips = PayrollPayslip::query()->whereExists(
+                (clone $teachers)->toBase()->selectRaw('1')->whereColumn('enseignants.id', 'payroll_payslips.enseignant_id')
+            );
             if ($period) $payslips->where('payroll_period_id', $period->id);
             else $payslips->whereRaw('1 = 0');
             $data['cards'][] = $this->card('Bulletins de la dernière période', (clone $payslips)->count(), 'fa-file-invoice', group: 'Paie');
@@ -140,16 +153,21 @@ class DashboardService
         $series = fn ($items) => collect($items)->map(fn ($value, $label) => ['label' => $label, 'value' => (int) $value])->values()->all();
         $period = PayrollPeriod::orderByDesc('start_date')->first();
         $payments = $period ? PayrollPayslip::where('payroll_period_id', $period->id)->selectRaw('payment_status, COUNT(*) as total')->groupBy('payment_status')->pluck('total', 'payment_status') : collect();
-        $corps = \App\Models\Parametrage\CorpsEnseignant::query()->orderBy('id')->withCount([
-            'enseignants',
-            'enseignants as accounts_count' => fn ($query) => $query->whereHas('user'),
-        ])->get();
+        $corps = \App\Models\Parametrage\CorpsEnseignant::query()->orderBy('id')->withCount('enseignants')->get();
+        // Comptes enseignants par corps : on part des comptes utilisateurs (peu nombreux)
+        // au lieu de vérifier chaque enseignant un par un.
+        $accounts = User::query()->join('enseignants', 'enseignants.id', '=', 'users.enseignant_id')
+            ->whereNull('enseignants.deleted_at')
+            ->selectRaw('enseignants.corps_id as corps_id, COUNT(*) as total')
+            ->groupBy('enseignants.corps_id')->pluck('total', 'corps_id');
+        $corpsIds = $corps->modelKeys();
         $teachersByCorps = $corps->map(fn ($item) => ['label' => $item->libelle, 'value' => $item->enseignants_count])->all();
-        $accountsByCorps = $corps->map(fn ($item) => ['label' => $item->libelle, 'value' => $item->accounts_count])->all();
-        $unassigned = Enseignant::where(fn ($query) => $query->whereNull('corps_id')->orWhereNotIn('corps_id', $corps->modelKeys()));
-        if ((clone $unassigned)->exists()) {
-            $teachersByCorps[] = ['label' => 'Corps non renseigné', 'value' => (clone $unassigned)->count()];
-            $accountsByCorps[] = ['label' => 'Corps non renseigné', 'value' => (clone $unassigned)->whereHas('user')->count()];
+        $accountsByCorps = $corps->map(fn ($item) => ['label' => $item->libelle, 'value' => (int) ($accounts[$item->id] ?? 0)])->all();
+        // Sans corps = total moins les enseignants rattachés à un corps (évite de reparcourir la table).
+        $unassignedCount = Enseignant::count() - (int) $corps->sum('enseignants_count');
+        if ($unassignedCount > 0) {
+            $teachersByCorps[] = ['label' => 'Corps non renseigné', 'value' => $unassignedCount];
+            $accountsByCorps[] = ['label' => 'Corps non renseigné', 'value' => (int) $accounts->reject(fn ($total, $corpsId) => in_array($corpsId, $corpsIds))->sum()];
         }
         $data['analytics'] = [
             'history' => $history,

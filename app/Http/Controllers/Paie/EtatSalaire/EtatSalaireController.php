@@ -38,6 +38,8 @@ class EtatSalaireController extends PayrollPageController
     {
         return $request->validate([
             'period_id' => ['nullable', 'integer', 'exists:payroll_periods,id'],
+            // Mois du référentiel (1 à 12), résolu avec l'année académique choisie.
+            'payroll_month' => ['nullable', 'integer', 'between:1,12'],
             'academic_year_id' => ['nullable', 'integer'],
             'statut_enseignant_id' => ['nullable', 'integer'],
             'ia_id' => ['nullable', 'integer'],
