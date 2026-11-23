@@ -4,18 +4,25 @@ namespace App\Services\Administration;
 
 use App\Models\Admin\Role;
 use App\Models\Admin\User;
+use App\Models\DelegationCredit;
+use App\Models\VentilationCredit;
 use App\Models\PayrollPayslip;
 use App\Models\PayrollPeriod;
 use App\Models\Personnel\Enseignant;
 use App\Support\TeacherEngagement;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class DashboardService
 {
+    /** Comptage par statut déjà fait pour les cartes, réutilisé par les courbes du super admin. */
+    private ?array $teacherEngagements = null;
+
     public function __construct(private OrganizationalScope $scope) {}
 
     public function forUser(User $user): array
     {
+        $this->teacherEngagements = null;
         $user->loadMissing(['role.permissions', 'role.typeRole', 'lieuService']);
         abort_unless($user->statut === 'actif' && $user->role?->est_actif, 403, 'Votre compte ou votre profil est inactif.');
         $role = $user->role->slug;
@@ -88,7 +95,7 @@ class DashboardService
             $data['cards'][] = $this->card('Total des enseignants', (clone $teachers)->count(), 'fa-chalkboard-user', group: 'Personnel');
             if ($role === 'super_admin') {
                 // Même classement que le tableau de bord IA : statut de l'enseignant, sinon type_engagement.
-                $engagements = TeacherEngagement::counts($teachers);
+                $engagements = $this->teacherEngagements = TeacherEngagement::counts($teachers);
                 $data['cards'][] = $this->card('Contractuels', $engagements['contractuel'], 'fa-file-signature', group: 'Personnel');
                 $data['cards'][] = $this->card('Vacataires', $engagements['vacataire'], 'fa-user-clock', group: 'Personnel');
             } else {
@@ -124,12 +131,25 @@ class DashboardService
             }
         }
         if ($can('budget.read') && in_array($role, ['super_admin', 'gestionnaire_budget', 'consultant'], true)) {
-            $credits = DB::table('delegation_credits')->whereIn('enseignant_id', (clone $teachers)->select('enseignants.id'));
-            $data['cards'][] = $this->card('Délégations enregistrées', (clone $credits)->count(), 'fa-file-signature', group: 'Crédits');
-            $data['cards'][] = $this->card('Crédits alloués', (clone $credits)->sum('montant_alouer'), 'fa-coins', 'FCFA', group: 'Crédits');
+            // Module « Délégation de crédit » : délégations (delegations_credits) et leurs
+            // ventilations (ventilations_credits). Le montant alloué est la somme des ventilations.
+            $hasCredits = Schema::hasTable('delegations_credits') && Schema::hasTable('ventilations_credits');
+            $allocations = $admin ? VentilationCredit::query() : $this->scope->apply(VentilationCredit::query(), $user);
+            $delegations = DelegationCredit::query()
+                ->when(! $admin, fn ($query) => $query->whereIn('id', (clone $allocations)->select('delegation_credit_id')));
+            $latest = $hasCredits ? (clone $delegations)->with('anneeAcademique')
+                ->orderByDesc('date_delegation')->orderByDesc('id')->limit(5)->get() : collect();
+            $latestAmounts = $latest->isEmpty() ? collect() : (clone $allocations)->whereIn('delegation_credit_id', $latest->pluck('id'))
+                ->selectRaw('delegation_credit_id, SUM(montant) as total')->groupBy('delegation_credit_id')->pluck('total', 'delegation_credit_id');
+            $data['cards'][] = $this->card('Délégations enregistrées', $hasCredits ? (clone $delegations)->count() : 0, 'fa-file-signature', group: 'Crédits');
+            $data['cards'][] = $this->card('Crédits alloués', $hasCredits ? (float) (clone $allocations)->sum('montant') : 0, 'fa-coins', 'FCFA', group: 'Crédits');
             $data['sections'][] = [
                 'title' => 'Dernières délégations', 'columns' => ['Référence', 'Année académique', 'Montant alloué (FCFA)'],
-                'rows' => (clone $credits)->orderByDesc('date_enregistrement')->orderByDesc('id')->limit(5)->get()->map(fn ($c) => [$c->reference_lettre, $c->annee_academique, number_format((float) $c->montant_alouer, 0, ',', ' ')])->all(),
+                'rows' => $latest->map(fn (DelegationCredit $delegation) => [
+                    $delegation->reference_lettre,
+                    $delegation->anneeAcademique?->libelle ?? '—',
+                    number_format((float) ($latestAmounts[$delegation->id] ?? 0), 0, ',', ' '),
+                ])->all(),
             ];
         }
         if ($data['cards'] === []) $data['notices'][] = 'Aucun indicateur disponible pour vos autorisations actuelles.';
@@ -153,28 +173,31 @@ class DashboardService
         $series = fn ($items) => collect($items)->map(fn ($value, $label) => ['label' => $label, 'value' => (int) $value])->values()->all();
         $period = PayrollPeriod::orderByDesc('start_date')->first();
         $payments = $period ? PayrollPayslip::where('payroll_period_id', $period->id)->selectRaw('payment_status, COUNT(*) as total')->groupBy('payment_status')->pluck('total', 'payment_status') : collect();
-        $corps = \App\Models\Parametrage\CorpsEnseignant::query()->orderBy('id')->withCount('enseignants')->get();
-        // Comptes enseignants par corps : on part des comptes utilisateurs (peu nombreux)
-        // au lieu de vérifier chaque enseignant un par un.
-        $accounts = User::query()->join('enseignants', 'enseignants.id', '=', 'users.enseignant_id')
-            ->whereNull('enseignants.deleted_at')
-            ->selectRaw('enseignants.corps_id as corps_id, COUNT(*) as total')
-            ->groupBy('enseignants.corps_id')->pluck('total', 'corps_id');
-        $corpsIds = $corps->modelKeys();
-        $teachersByCorps = $corps->map(fn ($item) => ['label' => $item->libelle, 'value' => $item->enseignants_count])->all();
-        $accountsByCorps = $corps->map(fn ($item) => ['label' => $item->libelle, 'value' => (int) ($accounts[$item->id] ?? 0)])->all();
-        // Sans corps = total moins les enseignants rattachés à un corps (évite de reparcourir la table).
-        $unassignedCount = Enseignant::count() - (int) $corps->sum('enseignants_count');
-        if ($unassignedCount > 0) {
-            $teachersByCorps[] = ['label' => 'Corps non renseigné', 'value' => $unassignedCount];
-            $accountsByCorps[] = ['label' => 'Corps non renseigné', 'value' => (int) $accounts->reject(fn ($total, $corpsId) => in_array($corpsId, $corpsIds))->sum()];
-        }
+        // Répartition par statut (même règle que les cartes Contractuels / Vacataires) :
+        // le corps est vidé pour les contractuels et vacataires, il ne peut donc pas servir ici.
+        $byStatus = function (array $counts, int $total): array {
+            $items = [
+                ['label' => 'Contractuels', 'value' => $counts['contractuel']],
+                ['label' => 'Vacataires', 'value' => $counts['vacataire']],
+            ];
+            $others = $total - $counts['contractuel'] - $counts['vacataire'];
+            if ($others > 0) {
+                $items[] = ['label' => 'Autres statuts', 'value' => $others];
+            }
+
+            return $items;
+        };
+        $teacherCounts = $this->teacherEngagements ?? TeacherEngagement::counts(Enseignant::query());
+        $teachersByStatus = $byStatus($teacherCounts, Enseignant::count());
+        // Comptes enseignants : on part des comptes utilisateurs (peu nombreux).
+        $accounts = User::query()->join('enseignants', 'enseignants.id', '=', 'users.enseignant_id')->whereNull('enseignants.deleted_at');
+        $accountsByStatus = $byStatus(TeacherEngagement::counts($accounts, 'enseignants'), (clone $accounts)->count());
         $data['analytics'] = [
             'history' => $history,
             'distributions' => [
                 ['title' => 'État des comptes', 'subtitle' => 'Activation et accès à la plateforme', 'items' => $series(['Comptes actifs' => $active, 'À vérifier' => $pending, 'Suspendus ou bloqués' => User::where('statut', '!=', 'actif')->count()])],
-                ['title' => 'Comptes enseignants par corps', 'subtitle' => 'Enseignants disposant d’un compte · tous statuts', 'items' => $accountsByCorps],
-                ['title' => 'Enseignants par corps', 'subtitle' => 'Répartition des enseignants enregistrés', 'items' => $teachersByCorps],
+                ['title' => 'Comptes enseignants par statut', 'subtitle' => 'Enseignants disposant d’un compte', 'items' => $accountsByStatus],
+                ['title' => 'Enseignants par statut', 'subtitle' => 'Répartition des enseignants enregistrés', 'items' => $teachersByStatus],
                 ['title' => 'Paiements', 'subtitle' => $period ? 'Période '.$period->code : 'Aucune période de paie', 'items' => $series($payments->mapWithKeys(fn ($count, $status) => [(['paid' => 'Payés', 'pending' => 'En attente', 'rejected' => 'Rejetés'][$status] ?? $status) => $count]))],
             ],
         ];
