@@ -40,8 +40,11 @@ Route::middleware('auth:sanctum')->group(function () {
             | Lecture des délégations de crédits
             |--------------------------------------------------------------------------
             */
-            Route::middleware('payroll.access:read')->group(function (): void {
-        
+            Route::middleware([
+                'payroll.access:read',
+                'permission:paie.delegation-credits.read',
+            ])->group(function (): void {
+
                 Route::get('/', [DelegationCreditController::class, 'index']);
         
                 Route::get('/options', [DelegationCreditController::class, 'options']);
@@ -83,9 +86,10 @@ Route::middleware('auth:sanctum')->group(function () {
             */
             Route::middleware([
                 'payroll.access:write',
+                'permission:paie.delegation-credits.update',
                 'throttle:payroll-write',
             ])->group(function (): void {
-        
+
                 Route::post('/', [DelegationCreditController::class, 'store']);
         
                 Route::put(
