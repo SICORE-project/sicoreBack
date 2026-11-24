@@ -144,6 +144,13 @@ return [
     ['nom' => 'Éditer les engagements',  'slug' => 'paie.engagements.edit',   'groupe' => 'paie', 'module' => 'engagements', 'action' => 'edit'],
     ['nom' => 'Modifier les engagements', 'slug' => 'paie.engagements.update', 'groupe' => 'paie', 'module' => 'engagements', 'action' => 'update'],
 
+    // 22. Délégations de crédits, éditions et projections
+    ['nom' => 'Consulter les délégations de crédits', 'slug' => 'paie.delegation-credits.read', 'groupe' => 'paie', 'module' => 'delegation_credits', 'action' => 'read'],
+    ['nom' => 'Modifier les délégations de crédits', 'slug' => 'paie.delegation-credits.update', 'groupe' => 'paie', 'module' => 'delegation_credits', 'action' => 'update'],
+    ['nom' => 'Édition des délégations de crédits', 'slug' => 'paie.edition-delegation.read', 'groupe' => 'paie', 'module' => 'edition_delegation', 'action' => 'read'],
+    ['nom' => 'Édition des engagements par délégation', 'slug' => 'paie.edition-engagement.read', 'groupe' => 'paie', 'module' => 'edition_engagement', 'action' => 'read'],
+    ['nom' => 'Consulter mes projections', 'slug' => 'paie.projection.read', 'groupe' => 'paie', 'module' => 'projection', 'action' => 'read'],
+
     //  Espace enseignant (mes bulletins) 
     ['nom' => 'Consulter mes propres bulletins', 'slug' => 'paie.mes_bulletins.read', 'groupe' => 'paie', 'module' => 'mes_bulletins', 'action' => 'read'],
 
