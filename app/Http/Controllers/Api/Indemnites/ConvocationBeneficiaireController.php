@@ -94,15 +94,9 @@ class ConvocationBeneficiaireController extends Controller
             })->all();
 
             // categorie_personnel (fonctionnaire/contractuel/vacataire) est
-            // un attribut de l'ENSEIGNANT, pas de cette convocation (deja
-            // present sur `enseignants`) : on le met a jour directement sur
-            // sa fiche plutot que de le dupliquer sur le pivot.
-            foreach ($beneficiaires as $b) {
-                if (! empty($b['categorie_personnel']) && ! empty($b['enseignant_id'])) {
-                    Enseignant::where('id', $b['enseignant_id'])
-                        ->update(['categorie_personnel' => $b['categorie_personnel']]);
-                }
-            }
+            // stockee sur le pivot, pour CETTE convocation : la table
+            // `enseignants` n'a pas cette colonne (le formulaire la deduit
+            // du statut de l'enseignant, statuts_enseignant).
         } else {
             // Ancien format : liste brute d'IDs, sans fonction ni centre.
             $sync = collect($request->validated('enseignant_ids'))->mapWithKeys(fn ($enseignantId) => [
@@ -160,13 +154,10 @@ class ConvocationBeneficiaireController extends Controller
             'centre_id' => $centreId,
             'centre_metier_id' => $centreMetierId,
             'provenance' => $data['provenance'] ?? null,
+            // Sur le pivot (cette convocation), pas sur `enseignants` qui
+            // n'a pas cette colonne.
+            'categorie_personnel' => $data['categorie_personnel'] ?? null,
         ]);
-
-        if (! empty($data['categorie_personnel'])) {
-            Enseignant::where('id', $enseignantId)->update([
-                'categorie_personnel' => $data['categorie_personnel'],
-            ]);
-        }
 
         return $this->success('Bénéficiaire mis à jour avec succès.', $convocation->enseignants()->get());
     }

@@ -1579,14 +1579,12 @@ private function notGeneratedReport(?PayrollPeriod $period): array
 
     private function academicYearForPeriod(?PayrollPeriod $period): ?object
     {
-        if (! $period || ! Schema::hasTable('annee_academiques')) {
+        if (! $period?->annee_academique_id) {
             return null;
         }
 
-        return DB::table('annee_academiques')
-            ->whereDate('date_debut', '<=', $period->start_date->toDateString())
-            ->whereDate('date_fin', '>=', $period->end_date->toDateString())
-            ->first();
+        // Rattachement par clé étrangère, posé à l'ouverture (PayrollMonthResolver).
+        return DB::table('annee_academiques')->where('id', $period->annee_academique_id)->first();
     }
 
     private function referenceMap(string $table, string $labelColumn): Collection

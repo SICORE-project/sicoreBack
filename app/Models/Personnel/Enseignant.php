@@ -24,7 +24,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Enseignant extends Model
 {
-    use \App\Models\Concerns\HasTeacherEmploymentStatus;
+    use \App\Models\Concerns\HasTeacherEmploymentStatus, \App\Models\Concerns\DerivesTeacherIaFromIef;
 
     use HasFactory, SoftDeletes;
 

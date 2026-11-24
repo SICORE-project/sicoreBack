@@ -30,7 +30,10 @@ class StoreEtatPaieIndemniteRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'type' => ['required', 'string', 'max:100'],
+            // L'état de paie ne couvre que la correction et la surveillance :
+            // les frais de déplacement ont leur propre état de paiement
+            // (FraisDeplacementPdfController::etatPaiement()).
+            'type' => ['required', 'string', 'in:indemnite_correction,indemnite_surveillance'],
             'beneficiaire_id' => ['nullable', 'integer', 'exists:users,id'],
             'periode_debut' => ['required', 'date'],
             'periode_fin' => ['required', 'date', 'after_or_equal:periode_debut'],

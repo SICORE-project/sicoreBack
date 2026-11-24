@@ -124,6 +124,8 @@ class IaAccessTest extends TestCase
         Schema::create('payroll_payslips', function (Blueprint $t) {
             $t->id();
             $t->integer('enseignant_id');
+            $t->integer('ia_id')->nullable();
+            $t->integer('ief_id')->nullable();
             $t->integer('payroll_period_id');
             foreach (['gross_amount', 'net_amount', 'deduction_amount'] as $c) {
                 $t->decimal($c)->default(0);
@@ -149,7 +151,7 @@ class IaAccessTest extends TestCase
         }
         DB::table('payroll_periods')->insert(['id' => 1, 'code' => '2026-09', 'start_date' => '2026-09-01']);
         foreach ([1, 2] as $id) {
-            DB::table('payroll_payslips')->insert(['id' => $id, 'enseignant_id' => $id, 'payroll_period_id' => 1,
+            DB::table('payroll_payslips')->insert(['id' => $id, 'enseignant_id' => $id, 'ia_id' => $id, 'ief_id' => $id, 'payroll_period_id' => 1,
                 'gross_amount' => $id * 100, 'net_amount' => $id * 90, 'payment_status' => 'paid', 'updated_at' => now()]);
         }
         $this->manager = User::create(['nom' => 'Fall', 'prenom' => 'Fatou', 'email' => 'ia@example.test', 'password' => 'secret123',
@@ -160,10 +162,32 @@ class IaAccessTest extends TestCase
     public function test_dashboard_counts_only_own_ia(): void
     {
         $this->getJson('/api/ia/dashboard')->assertOk()->assertJsonPath('data.ia.libelle', 'Dakar')
-            ->assertJsonPath('data.indicateurs.agents', 2)->assertJsonPath('data.indicateurs.fonctionnaires', 1)
+            ->assertJsonPath('data.indicateurs.agents', 2)->assertJsonMissingPath('data.indicateurs.fonctionnaires')
             ->assertJsonPath('data.indicateurs.non_fonctionnaires', 1)->assertJsonPath('data.indicateurs.bulletins_generes', 1)
             ->assertJsonPath('data.indicateurs.bulletins_restants', 1)->assertJsonPath('data.indicateurs.masse_salariale', 100)
             ->assertJsonCount(1, 'data.iefs')->assertJsonCount(1, 'data.dernieres_operations')->assertDontSee('HorsPerimetre');
+    }
+
+    public function test_moved_teacher_keeps_past_payslip_in_paying_ia(): void
+    {
+        // L'agent 1 (payé par Dakar en septembre) est muté à Thiès : son bulletin reste à Dakar.
+        DB::table('enseignants')->where('id', 1)->update(['ia_id' => 2, 'ief_id' => 2, 'lieu_service_id' => 2]);
+        $this->getJson('/api/ia/dashboard')->assertOk()
+            ->assertJsonPath('data.indicateurs.bulletins_generes', 1)->assertJsonPath('data.indicateurs.masse_salariale', 100);
+    }
+
+    public function test_contract_and_temporary_teachers_are_counted_and_filtered_separately(): void
+    {
+        DB::table('enseignants')->insert(['id' => 4, 'nom' => 'Local', 'prenom' => 'Vacataire', 'matricule' => 'MAT4',
+            'ia_id' => 1, 'ief_id' => 1, 'lieu_service_id' => 1, 'statut' => 'en_activite', 'type_engagement' => 'vacataire']);
+        $this->getJson('/api/ia/dashboard')->assertOk()
+            ->assertJsonPath('data.indicateurs.contractuels', 1)->assertJsonPath('data.indicateurs.vacataires', 1);
+        $this->getJson('/api/ia/enseignants')->assertOk()->assertJsonMissingPath('stats.fonctionnaires')
+            ->assertJsonPath('stats.contractuels', 1)->assertJsonPath('stats.vacataires', 1);
+        $this->getJson('/api/ia/enseignants?engagement=vacataire')->assertOk()
+            ->assertJsonPath('total', 1)->assertJsonPath('data.0.type_engagement', 'vacataire');
+        $this->getJson('/api/ia/enseignants?engagement=contractuel')->assertOk()
+            ->assertJsonPath('total', 1)->assertJsonPath('data.0.type_engagement', 'contractuel');
     }
 
     public function test_user_personal_fields_are_validated_saved_and_editable(): void
@@ -387,7 +411,7 @@ class IaAccessTest extends TestCase
             DB::table('comptes_bancaires_enseignants')->insert(['enseignant_id' => $id, 'institut_financier_id' => $id, 'est_actif' => true, 'est_principal' => true]);
         }
         DB::table('comptes_bancaires_enseignants')->insert(['enseignant_id' => 1, 'institut_financier_id' => 2, 'est_actif' => true, 'est_principal' => false]);
-        DB::table('payroll_payslips')->insert(['id' => 3, 'enseignant_id' => 3, 'payroll_period_id' => 1, 'gross_amount' => 50, 'net_amount' => 45, 'payment_status' => 'pending']);
+        DB::table('payroll_payslips')->insert(['id' => 3, 'enseignant_id' => 3, 'ia_id' => 1, 'ief_id' => 1, 'payroll_period_id' => 1, 'gross_amount' => 50, 'net_amount' => 45, 'payment_status' => 'pending']);
         $this->getJson('/api/ia/dashboard')->assertOk()->assertJsonPath('data.indicateurs.bulletins_generes', 2)
             ->assertJsonPath('data.indicateurs.bulletins_payes', 1)->assertJsonPath('data.indicateurs.sommes_percues', 90);
         $this->getJson('/api/ia/paie?view=paid')->assertOk()->assertJsonPath('indicateurs.bulletins_generes', 2)

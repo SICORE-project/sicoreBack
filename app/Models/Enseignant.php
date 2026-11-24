@@ -2,14 +2,17 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Enseignant extends Model
 {
-    use \App\Models\Concerns\HasTeacherEmploymentStatus;
+    use \App\Models\Concerns\HasTeacherEmploymentStatus, \App\Models\Concerns\DerivesTeacherIaFromIef;
 
     protected $table = 'enseignants';
 
@@ -78,5 +81,55 @@ class Enseignant extends Model
     public function payslips(): HasMany
     {
         return $this->hasMany(PayrollPayslip::class);
+    }
+
+    /**
+     * Règle unique d'éligibilité à une période de paie, partagée par le calcul,
+     * l'Édition et « Paie non générée » :
+     * - enseignant actif et non supprimé ;
+     * - entré en service (prise de service, à défaut recrutement) au plus tard le dernier jour ;
+     * - contrat non terminé avant le premier jour de la période.
+     * Un enseignant sans aucune date d'entrée n'est jamais éligible.
+     */
+    public function scopeEligiblePourPeriode(Builder $query, PayrollPeriod $period): Builder
+    {
+        // Colonnes vérifiées comme ailleurs dans la paie (schémas historiques ou de test).
+        $has = fn (string $column): bool => Schema::hasColumn('enseignants', $column);
+
+        $query->where('enseignants.'.($has('est_actif') ? 'est_actif' : 'actif'), true);
+        if ($has('deleted_at')) {
+            $query->whereNull('enseignants.deleted_at');
+        }
+        $startColumns = array_values(array_filter(['date_prise_service', 'date_recrutement'], $has));
+        if ($startColumns !== []) {
+            $start = count($startColumns) > 1
+                ? 'COALESCE('.implode(', ', array_map(fn ($c) => 'enseignants.'.$c, $startColumns)).')'
+                : 'enseignants.'.$startColumns[0];
+            $query->whereRaw("DATE({$start}) <= ?", [$period->end_date->toDateString()]);
+        }
+        if ($has('date_fin_contrat')) {
+            $query->where(function (Builder $q) use ($period): void {
+                $q->whereNull('enseignants.date_fin_contrat')
+                    ->orWhereDate('enseignants.date_fin_contrat', '>=', $period->start_date->toDateString());
+            });
+        }
+
+        return $query;
+    }
+
+    /** Enseignants payés par le module : statut contractuel (PC) ou vacataire (VAC). */
+    public function scopeContractuelOuVacataire(Builder $query): Builder
+    {
+        $statuses = Schema::hasTable('statuts_enseignant')
+            ? DB::table('statuts_enseignant')->whereIn('code', ['PC', 'VAC'])
+                ->orWhereRaw('LOWER(libelle) LIKE ?', ['%contractuel%'])
+                ->orWhereRaw('LOWER(libelle) LIKE ?', ['%vacataire%'])
+                ->pluck('id')
+            : collect();
+
+        return $query->where(function (Builder $q) use ($statuses): void {
+            $q->whereIn('enseignants.statut_enseignant_id', $statuses)
+                ->orWhereIn('enseignants.type_engagement', ['contractuel', 'vacataire']);
+        });
     }
 }

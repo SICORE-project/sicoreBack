@@ -4,6 +4,9 @@ use Illuminate\Support\Facades\Route;
 
 use App\Http\Controllers\Api\EnseignantsController;
 use App\Http\Controllers\Api\Indemnites\TypeConvocationController;
+use App\Http\Controllers\Api\Indemnites\LieuServiceOptionsController;
+use App\Http\Controllers\Api\Indemnites\ConvocationEnseignantMatriculeController;
+use App\Http\Controllers\Api\Indemnites\ConvocationReferentielsController;
 use App\Http\Controllers\Api\Indemnites\IndemnitesController;
 use App\Http\Controllers\Api\Indemnites\TypeIndemnitesController;
 use App\Http\Controllers\Api\Indemnites\ConvocationsController;
@@ -66,6 +69,9 @@ Route::get('enseignants', [EnseignantsController::class, 'index'])->middleware('
 */
 
 Route::get('types-convocation', [TypeConvocationController::class, 'index'])->middleware('permission:convocations.read,indemnites.read');
+Route::get('convocations-lieux-service', [LieuServiceOptionsController::class, 'index'])->middleware('permission:convocations.read,indemnites.read');
+Route::get('convocations-enseignant-matricule', [ConvocationEnseignantMatriculeController::class, 'index'])->middleware('permission:convocations.read,indemnites.read');
+Route::get('convocations-referentiels', [ConvocationReferentielsController::class, 'index'])->middleware('permission:convocations.read,indemnites.read');
 
 
 /*
@@ -202,6 +208,10 @@ Route::get('accuses-reception/{id}/consulter', [AccuseReceptionController::class
 // est complet (seuls ceux-là peuvent recevoir une fiche de déplacement).
 Route::get('frais-deplacement/beneficiaires-eligibles-lot', [FraisDeplacementController::class, 'beneficiairesEligiblesLot'])->middleware('permission:indemnites.read');
 Route::get('frais-deplacement/beneficiaires-eligibles', [FraisDeplacementController::class, 'beneficiairesEligibles'])->middleware('permission:indemnites.read');
+// État de paiement (PDF) des frais de déplacement de toute une convocation.
+Route::get('frais-deplacement/etat-paiement', [FraisDeplacementPdfController::class, 'etatPaiement'])->middleware('permission:indemnites.read');
+// Fichier SICA (CSV) du même état de paiement.
+Route::get('frais-deplacement/etat-paiement/sica', [FraisDeplacementPdfController::class, 'etatPaiementSica'])->middleware('permission:indemnites.read');
 
 Route::apiResource('frais-deplacement', FraisDeplacementController::class)->only(['index', 'show'])->middleware('permission:indemnites.read');
 Route::apiResource('frais-deplacement', FraisDeplacementController::class)->except(['index', 'show'])->middleware('permission:indemnites.manage');

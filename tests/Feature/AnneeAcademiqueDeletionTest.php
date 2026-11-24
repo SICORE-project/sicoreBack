@@ -33,13 +33,13 @@ class AnneeAcademiqueDeletionTest extends TestCase
             $table->id();
             $table->date('start_date');
             $table->date('end_date');
+            $table->unsignedBigInteger('annee_academique_id')->nullable();
             $table->timestamps();
         });
         Schema::create('payroll_elements', function ($table) {
             $table->id();
             $table->unsignedBigInteger('annee_academique_id')->nullable();
         });
-        DB::table('payroll_periods')->insert(['start_date' => '2026-11-01', 'end_date' => '2026-11-30']);
         $controller = new AnneeAcademiqueController(new AnneeAcademiqueService);
 
         $unused = $this->year('Sans paie', '2030-10-01', '2031-07-31');
@@ -47,6 +47,7 @@ class AnneeAcademiqueDeletionTest extends TestCase
         $this->assertDatabaseMissing('annee_academiques', ['id' => $unused->id]);
 
         $withPeriod = $this->year('Avec période', '2026-10-01', '2027-07-31');
+        DB::table('payroll_periods')->insert(['start_date' => '2026-11-01', 'end_date' => '2026-11-30', 'annee_academique_id' => $withPeriod->id]);
         $this->assertSame(409, $controller->destroy($withPeriod->id)->getStatusCode());
         $this->assertDatabaseHas('annee_academiques', ['id' => $withPeriod->id]);
 

@@ -55,6 +55,20 @@ trait EtatSalaireReport
             $items = collect();
         }
 
+        // Édition IA : l'État des salaires d'une IA n'est disponible qu'après validation de son Édition du mois.
+        $editionNotice = null;
+        if ($period && Schema::hasTable('payroll_edition_validations')) {
+            $validatedIas = app(\App\Services\PayrollEditionService::class)->validatedIas($period);
+            $blockedIas = $items->map(fn (PayrollPayslip $payslip) => $this->payslipIaId($payslip))->unique()
+                ->reject(fn ($ia) => $ia !== null && in_array($ia, $validatedIas, true))->values();
+            if ($blockedIas->isNotEmpty()) {
+                $items = $items->filter(fn (PayrollPayslip $payslip) => in_array($this->payslipIaId($payslip), $validatedIas, true))->values();
+                $editionNotice = 'Édition non validée pour : '
+                    .$blockedIas->map(fn ($id) => $id === null ? 'IA non renseignée' : $ias->get($id, 'IA #'.$id))->implode(', ')
+                    .'. L’État des salaires de ces IA sera disponible après validation de leur Édition (Paie > États de présence > Édition).';
+            }
+        }
+
         $items = $items->filter(function (PayrollPayslip $payslip) use ($criteria, $tabaskiAdvances): bool {
             $teacher = $payslip->enseignant;
 
@@ -63,11 +77,11 @@ trait EtatSalaireReport
                 return false;
             }
             if (filled($criteria['ia_id'] ?? null)
-                && $this->teacherIaId($teacher) !== (int) $criteria['ia_id']) {
+                && $this->payslipIaId($payslip) !== (int) $criteria['ia_id']) {
                 return false;
             }
             if (filled($criteria['ief_id'] ?? null)
-                && $this->teacherIefId($teacher) !== (int) $criteria['ief_id']) {
+                && $this->payslipIefId($payslip) !== (int) $criteria['ief_id']) {
                 return false;
             }
             if (filled($criteria['payment_place_id'] ?? null)
@@ -83,6 +97,9 @@ trait EtatSalaireReport
                     $this->normalizeMatricule($teacher->matricule),
                     $this->normalizeMatricule((string) $criteria['matricule'])
                 )) {
+                return false;
+            }
+            if (in_array($payslip->reference, (array) ($criteria['exclude'] ?? []), true)) {
                 return false;
             }
             if (($criteria['tabaski_only'] ?? false)
@@ -151,8 +168,9 @@ trait EtatSalaireReport
                 ->whereNotIn('code', $recognizedDeductionCodes)
                 ->sum('amount');
             $profileCategory = data_get($payslip->profile_snapshot, 'category_level');
-            $iaId = $this->teacherIaId($teacher);
-            $iefId = $this->teacherIefId($teacher);
+            // IA et IEF figées sur le bulletin au calcul.
+            $iaId = $this->payslipIaId($payslip);
+            $iefId = $this->payslipIefId($payslip);
 
             // Montant paramétré dans rubrique_paies, seulement si la rubrique concerne le statut de l'agent.
             $teacherStatutId = (int) $teacher->getAttribute('statut_enseignant_id');
@@ -258,9 +276,10 @@ trait EtatSalaireReport
                 $this->stat('Retenues', $this->money($deductions), 'Sociales, fiscales et diverses', 'CS', 'yellow'),
                 $this->stat('Net à payer', $this->money($net), 'État sélectionné', 'SP', 'red'),
             ],
-            'notice' => $records->isEmpty()
+            'notice' => $editionNotice ?? ($records->isEmpty()
                 ? 'Aucun bulletin ne correspond aux critères sélectionnés pour cette période.'
-                : 'État mensuel détaillé construit à partir des bulletins calculés et de leurs rubriques traçables.',
+                : 'État mensuel détaillé construit à partir des bulletins calculés et de leurs rubriques traçables.'),
+            'edition_notice' => $editionNotice,
             'salary_statement' => [
                 'title' => 'État des salaires',
                 'heading' => $this->salaryStatementHeading($period, $criteria, $records, $ias, $statuts),
@@ -331,7 +350,6 @@ trait EtatSalaireReport
             ['key' => 'first_name', 'label' => 'Prénoms'],
             ['key' => 'last_name', 'label' => 'Nom'],
             ['key' => 'matricule', 'label' => 'Matricule'],
-            ['key' => 'corps', 'label' => 'Corps'],
             ['key' => 'category', 'label' => 'Catégorie'],
             ['key' => 'statut', 'label' => 'Statut'],
             ['key' => 'salary_category', 'label' => 'Sal. catég.', 'amount' => true],
@@ -496,14 +514,12 @@ trait EtatSalaireReport
 
     private function academicYearForPeriod(?PayrollPeriod $period): ?object
     {
-        if (! $period || ! Schema::hasTable('annee_academiques')) {
+        if (! $period?->annee_academique_id) {
             return null;
         }
 
-        return DB::table('annee_academiques')
-            ->whereDate('date_debut', '<=', $period->start_date->toDateString())
-            ->whereDate('date_fin', '>=', $period->end_date->toDateString())
-            ->first();
+        // Rattachement par clé étrangère, posé à l'ouverture (PayrollMonthResolver).
+        return DB::table('annee_academiques')->where('id', $period->annee_academique_id)->first();
     }
 
     private function referenceMap(string $table, string $labelColumn): Collection
@@ -560,7 +576,13 @@ trait EtatSalaireReport
             $bankId = $account->institut_financier_id ?? $account->institution_financiere_id ?? null;
 
             return [
-                'account' => (string) ($account->numero_compte ?: 'Non renseigné'),
+                // RIB complet : code banque, code guichet, numéro de compte, clé RIB.
+                'account' => collect([
+                    $account->code_banque ?? null,
+                    $account->code_guichet ?? null,
+                    $account->numero_compte ?? null,
+                    $account->cle_rib ?? null,
+                ])->map(fn (mixed $part): string => trim((string) $part))->filter()->implode(' ') ?: 'Non renseigné',
                 'bank' => $banks->get((int) $bankId, $account->code_banque ?: 'Non renseignée'),
             ];
         });

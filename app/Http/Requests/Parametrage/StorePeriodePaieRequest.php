@@ -33,6 +33,16 @@ class StorePeriodePaieRequest extends FormRequest
                 Rule::unique('periode_de_paies', 'code'),
             ],
             'libelle' => ['required', 'string', 'max:100'],
+            'numero_mois' => ['required', 'integer', 'between:1,12', Rule::unique('periode_de_paies', 'numero_mois')],
+        ];
+    }
+
+    public function messages(): array
+    {
+        return [
+            'numero_mois.required' => 'Choisissez le mois (janvier à décembre).',
+            'numero_mois.between' => 'Le mois doit être compris entre 1 et 12.',
+            'numero_mois.unique' => 'Ce mois est déjà enregistré dans le référentiel.',
         ];
     }
 
