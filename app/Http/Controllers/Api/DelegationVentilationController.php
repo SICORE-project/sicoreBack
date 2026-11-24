@@ -10,27 +10,42 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
+use App\Services\DelegationEngagementService;
 
 class DelegationVentilationController extends Controller
 {
     /**
      * Liste des ventilations d'une délégation.
      */
-    public function index(DelegationCredit $delegation): JsonResponse
-    {
-        $ventilations = $delegation->ventilations()
-            ->orderByDesc('id')
-            ->get();
+   
+public function index(
+    DelegationCredit $delegation,
+    DelegationEngagementService $engagementService
+): JsonResponse {
+    $ventilations = $delegation->ventilations()
+        ->orderByDesc('id')
+        ->get();
 
-        return response()->json([
-            'data' => $ventilations,
-            'delegation' => $delegation->load('anneeAcademique'),
-            'stats' => [
-                'total' => $ventilations->count(),
-                'montant_total' => $ventilations->sum('montant'),
-            ],
-        ]);
+    foreach ($ventilations as $ventilation) {
+        $ventilation->setAttribute(
+            'engagement',
+            $engagementService->calculate(
+                $delegation,
+                $ventilation
+            )
+        );
     }
+
+    return response()->json([
+        'data' => $ventilations,
+        'delegation' => $delegation->load('anneeAcademique'),
+        'stats' => [
+            'total' => $ventilations->count(),
+            'montant_total' => $ventilations->sum('montant'),
+        ],
+    ]);
+}
+
 
     /**
      * Options du formulaire.
