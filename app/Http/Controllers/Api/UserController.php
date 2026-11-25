@@ -8,6 +8,7 @@ use App\Http\Requests\Administration\UpdateUserRequest;
 use App\Http\Resources\UserResource;
 use App\Models\Admin\User;
 use App\Rules\CompatibleRoleStructure;
+use App\Rules\RoleSystemeReserve;
 use App\Services\Administration\UserService;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -110,11 +111,13 @@ class UserController extends Controller
     public function assignRole(Request $request, string $id)
     {
         $user = $this->userService->find($id);
+        RoleSystemeReserve::protegerCompte($user);
 
         $request->validate([
             'role_id' => [
                 'required',
                 Rule::exists('roles', 'id')->where(fn ($query) => $query->whereRaw('LOWER(slug) <> ?', ['drh'])),
+                new RoleSystemeReserve(),
                 CompatibleRoleStructure::roleForStructure($user->lieu_service_id),
             ],
         ]);
@@ -131,6 +134,7 @@ class UserController extends Controller
     public function assignStructure(Request $request, string $id)
     {
         $user = $this->userService->find($id);
+        RoleSystemeReserve::protegerCompte($user);
 
         $validated = $request->validate([
             'lieu_service_id' => [
@@ -156,6 +160,7 @@ class UserController extends Controller
     public function update(UpdateUserRequest $request, string $id)
     {
         $user = $this->userService->find($id);
+        RoleSystemeReserve::protegerCompte($user);
         $this->userService->update($user, $request->validated());
 
         return response()->json([
@@ -171,6 +176,7 @@ class UserController extends Controller
     public function destroy(string $id)
     {
         $user = $this->userService->find($id);
+        RoleSystemeReserve::protegerCompte($user);
         $this->userService->delete($user);
 
         return response()->json([
@@ -182,6 +188,7 @@ class UserController extends Controller
     public function toggleStatus(string $id)
     {
         $user = $this->userService->find($id);
+        RoleSystemeReserve::protegerCompte($user);
         $user = $this->userService->update($user, [
             'statut' => $user->statut === 'actif' ? 'inactif' : 'actif',
         ]);
@@ -195,6 +202,7 @@ class UserController extends Controller
 
     public function assignUserToIa(string $userId, string $iaId)
     {
+        RoleSystemeReserve::protegerCompte($this->userService->find((int) $userId));
         $user = $this->userService->assignUserToIa((int) $userId, (int) $iaId);
 
         return response()->json([
@@ -206,6 +214,7 @@ class UserController extends Controller
 
     public function revokeUserFromIa(string $userId)
     {
+        RoleSystemeReserve::protegerCompte($this->userService->find((int) $userId));
         $user = $this->userService->revokeUserFromIa((int) $userId);
 
         return response()->json([
@@ -217,6 +226,8 @@ class UserController extends Controller
 
     public function assignUserToIef(string $userId, string $iefId)
     {
+        RoleSystemeReserve::protegerCompte($this->userService->find((int) $userId));
+
         return new UserResource(
             $this->userService->assignUserToIef((int) $userId, (int) $iefId)
         );
@@ -224,6 +235,8 @@ class UserController extends Controller
 
     public function revokeUserFromIef(string $userId)
     {
+        RoleSystemeReserve::protegerCompte($this->userService->find((int) $userId));
+
         return new UserResource(
             $this->userService->revokeUserFromIef((int) $userId)
         );

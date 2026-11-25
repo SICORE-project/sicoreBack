@@ -50,6 +50,7 @@ class UpdateUserRequest extends FormRequest
             'role_id' => [
                 'sometimes',
                 Rule::exists('roles', 'id')->where(fn ($query) => $query->whereRaw('LOWER(slug) <> ?', ['drh'])),
+                new \App\Rules\RoleSystemeReserve(),
                 CompatibleRoleStructure::roleForStructure(
                     $this->input('lieu_service_id', $user?->lieu_service_id)
                 ),

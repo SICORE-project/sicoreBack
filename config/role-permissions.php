@@ -20,9 +20,21 @@ $referentiels = [
 return [
     'super_admin' => ['tout' => true],
 
+    // Administrateur = agent de la DAGE : tout le métier, sans la partie technique ni les suppressions.
     'admin' => [
         'alias' => ['administrateur'],
         'groupes' => ['administration', 'parametrage', 'personnel', 'indemnites', 'paie'],
+        'sauf' => [
+            // Technique : réservé au super administrateur (cellule informatique).
+            'administration.roles.manage',
+            'administration.permissions.manage',
+            'parametrage.lieux_service.manage',
+            // Suppressions : réservées au super administrateur.
+            'administration.users.delete',
+            'enseignants.delete',
+            'parametrage.ia.delete',
+            'parametrage.ief.delete',
+        ],
     ],
 
     // Enseignants, IEF et paie de son IA

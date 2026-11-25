@@ -126,7 +126,7 @@ Route::prefix('parametrage/ia')->group(function () {
         ->middleware('permission:parametrage.ia.manage');
     Route::delete('/{id}', [IaController::class, 'destroy'])
         ->whereNumber('id')
-        ->middleware('permission:parametrage.ia.manage');
+        ->middleware('permission:parametrage.ia.delete');
     Route::get('/{id}/iefs', [IefController::class, 'byIa'])
         ->whereNumber('id')
         ->middleware('permission:parametrage.ief.read');

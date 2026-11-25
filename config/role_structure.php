@@ -7,9 +7,13 @@ return [
         'agent_decpc' => ['DECPC'],
         'agent_drh' => ['DRH', 'IA', 'IEF', 'ETABLISSEMENT'],
         'gestionnaire_ia' => ['IA'],
-        'super_admin' => ['CI', 'DAGE'],
-        'admin' => ['CI', 'DAGE'],
-        'drh' => ['DRH', 'DAGE', 'DECPC'],
+        // Super administrateur : cellule informatique (partie technique).
+        'super_admin' => ['CI'],
+        // Administrateur : agent de la DAGE.
+        'admin' => ['DAGE'],
+        // DRH et DECPC sont des directions distinctes de la DAGE.
+        'drh' => ['DRH'],
+        'decpc' => ['DECPC'],
         'gestionnaire_paie' => ['DRH', 'DAGE', 'DECPC'],
         'gestionnaire_budget' => ['DRH', 'DAGE', 'DECPC'],
         'consultant' => ['DRH', 'DAGE', 'DECPC'],
