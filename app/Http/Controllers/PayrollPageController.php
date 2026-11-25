@@ -44,9 +44,6 @@ class PayrollPageController extends Controller
         'paie-retenues-rappel' => 'paie.retenue_rappel.read',
         'paie-exemptions' => 'paie.exemptions.read',
         'paie-fermeture-periode' => 'paie.cloture.read',
-        'paie-edition-delegation' => 'paie.edition-delegation.read',
-        'paie-edition-engagement' => 'paie.edition-engagement.read',
-        'paie-projection' => 'paie.projection.read',
     ];
 
     protected function page(Request $request, string $slug, array $filters): array

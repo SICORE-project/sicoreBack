@@ -28,7 +28,15 @@ return [
     // Enseignants, IEF et paie de son IA
     'gestionnaire_ia' => [
         'groupes' => ['paie'],
-        'sauf' => ['paie.mes_bulletins.read'],
+        'sauf' => [
+            'paie.mes_bulletins.read',
+            // Délégations de crédits : réservées à l'administration centrale.
+            'paie.delegation-credits.read',
+            'paie.delegation-credits.update',
+            'paie.edition-delegation.read',
+            'paie.edition-engagement.read',
+            'paie.projection.read',
+        ],
         'permissions' => array_merge($referentiels, [
             'parametrage.ia.read', 'parametrage.ief.read', 'parametrage.ief.manage',
             'enseignants.read', 'enseignants.create', 'enseignants.update', 'enseignants.validate',
