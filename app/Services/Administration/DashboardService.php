@@ -42,6 +42,8 @@ class DashboardService
             'scope' => $role === 'enseignant' ? 'Votre dossier personnel' : ($admin ? 'Administration centrale' : ($user->lieuService?->libelle ?? 'Aucune structure attribuée')),
             'updated_at' => now()->toIso8601String(),
             'cards' => [], 'actions' => [], 'notices' => [], 'sections' => [],
+            // Administrateur (DAGE) et super administrateur : menu complet aussi sur le tableau de bord.
+            'menu_complet' => $admin,
         ];
         $can = fn (string $permission): bool => $role === 'super_admin'
             || $user->role->permissions->contains(fn ($item) => $item->slug === $permission && $item->est_actif);
